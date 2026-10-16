@@ -1,0 +1,49 @@
+# Entorno local completo: base de datos + migraciones/seed + app.
+#   docker compose up --build
+# La app queda en http://localhost:3000 (y en http://<IP-de-tu-PC>:3000 desde la red local).
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: delycia
+      POSTGRES_PASSWORD: delycia
+      POSTGRES_DB: delycia
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U delycia -d delycia"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Corre una vez: aplica migraciones y carga datos de ejemplo si la base está vacía.
+  migrate:
+    build:
+      context: .
+      target: deps
+    environment:
+      DATABASE_URL: postgresql://delycia:delycia@db:5432/delycia?schema=public
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      target: runner
+    environment:
+      DATABASE_URL: postgresql://delycia:delycia@db:5432/delycia?schema=public
+      SESSION_SECRET: ${SESSION_SECRET:-solo-para-desarrollo-cambiar-en-produccion}
+    ports:
+      - "3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:
