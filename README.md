@@ -4,7 +4,7 @@ Punto de venta web para **Delycia** (restaurante casual boliviano, Santa Cruz de
 Fase 1: **Ventas + Cocina (KDS)** en tiempo real, con la arquitectura preparada para sumar
 reportería, inventario, costos/recetas, clientes y roles sin reescribir lo existente.
 
-> Estado: **paso 5 de 7, cocina en tiempo real**. Ver [Hoja de ruta](#hoja-de-ruta).
+> Estado: **paso 6 de 7, cobro y cuentas por cobrar**. Ver [Hoja de ruta](#hoja-de-ruta).
 
 ---
 
@@ -113,7 +113,7 @@ erDiagram
 ### Estados
 
 ```
-Orden:    POR PAGAR ──cobrar──▶ PAGADA ──comandas entregadas──▶ CERRADA
+Orden:    POR PAGAR ──cobrar──▶ PAGADA ──comandas entregadas──▶ CERRADA (automático)
              └──────────── anular (con motivo) ────────────▶ ANULADA
           "Por pagar" no frena a cocina: se puede enviar a cocina antes de cobrar.
           Una orden PAGADA no se modifica: solo se puede anular.
@@ -146,6 +146,26 @@ Comanda:  PENDIENTE ─▶ EN PREPARACIÓN ─▶ LISTA ─▶ ENTREGADA     (+ 
 - Imprimir comanda en 80 mm (impresión del navegador: márgenes "Ninguno").
 - Cuando cocina marca una comanda lista, a caja le aparece **"¡Pedido listo!"** con sonido.
 
+### Cobro
+
+- **Cobrar** desde la orden (si hay cambios sin guardar, se guardan primero).
+- **Descuento** opcional en Bs o en % (nunca deja la cuenta en negativo).
+- Métodos: **EFECTIVO** (con vuelto y botones rápidos: exacto, 50, 100, 200), **QR**, **TARJETA**,
+  **PEYA** y **CUENTA POR COBRAR**. Se pueden combinar (pago mixto). QR, tarjeta, PEYA y fiado no dan
+  vuelto: el vuelto sale solo del efectivo.
+- Al cobrar: vuelto en grande, **ticket 80 mm** y, si la orden para llevar se cobró antes de enviarla,
+  botón **Enviar a cocina**. En **Por pagar** también aparecen las *pagadas esperando cocina*.
+- La orden se **cierra sola** cuando está pagada y cocina entregó todo (si cocina deshace la entrega,
+  vuelve a "pagada").
+
+### Cuentas por cobrar (fiado)
+
+- Cobrar con **CUENTA POR COBRAR** exige el **nombre del cliente**.
+- Reporte **Cuentas por cobrar**: total adeudado, deudores agrupados por nombre (sin importar
+  mayúsculas), cuánto debe cada uno y desde hace cuántos días.
+- **Registrar pago**: total o abonos parciales, en efectivo, QR o tarjeta. Al completar, la cuenta
+  pasa a "saldadas" (se ven las de los últimos 30 días).
+
 ### Usuarios de ejemplo (seed)
 
 | Usuario | PIN | Perfil |
@@ -160,7 +180,7 @@ Comanda:  PENDIENTE ─▶ EN PREPARACIÓN ─▶ LISTA ─▶ ENTREGADA     (+ 
 
 | Sección | Admin | Caja | Cocina |
 |---|:-:|:-:|:-:|
-| Vender, por pagar, historial | ✅ | ✅ | — |
+| Vender, cobrar, cuentas por cobrar, historial | ✅ | ✅ | — |
 | Pantalla de cocina | ✅ | ✅ (ver) | ✅ |
 | Catálogo (precios, productos) | ✅ | — | — |
 | Ajustes (% PEYA, tiempos de cocina) | ✅ | — | — |
@@ -243,7 +263,7 @@ La tablet de cocina y la PC que corre el POS deben estar en **la misma red WiFi*
 - [x] 3. Catálogo, login con PIN y ajustes
 - [x] 4. Pantalla de venta (POS) y órdenes por pagar
 - [x] 5. Envío a cocina + pantalla de cocina (KDS) en tiempo real
-- [ ] 6. Cobro y ticket
+- [x] 6. Cobro, ticket y cuentas por cobrar
 - [ ] 7. Anulaciones e historial
 
 Después: reportería, despliegue en AWS (Terraform + GitHub Actions), inventario y costos.
