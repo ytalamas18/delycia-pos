@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { appConfig } from "@/core/config/app";
 import { formatMoney } from "@/core/money";
+import { businessDate } from "@/core/time";
 import type { TicketStatus } from "@/generated/prisma/enums";
 import { kitchenSummaryByOrder } from "@/modules/kitchen";
 
@@ -24,6 +25,7 @@ const time = new Intl.DateTimeFormat("es-BO", { hour: "2-digit", minute: "2-digi
 export async function OpenOrders() {
   const orders = await listOpenOrders();
   const kitchen = await kitchenSummaryByOrder(orders.map((o) => o.id));
+  const today = businessDate();
 
   if (orders.length === 0) {
     return <p className="py-10 text-center text-muted-foreground">No hay órdenes por pagar.</p>;
@@ -50,6 +52,10 @@ export async function OpenOrders() {
               </div>
               <div className="flex flex-col items-end gap-1">
                 <Badge variant="secondary">{orderStatusLabel[o.status]}</Badge>
+                {o.businessDate !== today && (
+                  // Quedó sin cobrar de otro día: el número se repite cada día, así que se marca la fecha.
+                  <Badge className="bg-orange-500 text-white">Del {o.businessDate.split("-").reverse().slice(0, 2).join("/")}</Badge>
+                )}
                 {o.channel === "PEYA" && <Badge>PEYA</Badge>}
               </div>
             </div>

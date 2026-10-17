@@ -13,6 +13,7 @@ import { setSetting } from "@/core/settings";
 import type { DraftLineInput, ItemUpdateInput, OrderHeaderInput } from "./schemas";
 import type { DiscountInput, PaymentEntry } from "./domain/checkout";
 import * as checkout from "./services/checkout";
+import * as history from "./services/history";
 import * as orders from "./services/orders";
 import { peyaMarkupSetting } from "./settings";
 
@@ -147,4 +148,26 @@ function parseMoneySafe(text: string): number {
   } catch {
     throw new DomainError("Monto inválido");
   }
+}
+
+// ---------------------------------------------------------------------------
+// Cierre de caja
+// ---------------------------------------------------------------------------
+
+export async function saveClosingAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  const session = await requirePermission("cash.close");
+  return toActionResult(async () => {
+    const date = String(fd.get("fecha") ?? "");
+    await history.saveClosing(
+      date,
+      {
+        openingCashCents: parseMoneySafe(String(fd.get("opening") || "0")),
+        countedCashCents: parseMoneySafe(String(fd.get("counted") ?? "")),
+        notes: String(fd.get("notes") ?? ""),
+      },
+      session.userId,
+    );
+    revalidatePath("/cierre");
+    return "Cierre guardado";
+  });
 }

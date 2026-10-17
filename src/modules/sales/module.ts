@@ -10,6 +10,7 @@ export const salesModule: ModuleDefinition = {
     { label: "Por pagar", href: "/ordenes" },
     { label: "Cuentas por cobrar", href: "/cuentas-por-cobrar" },
     { label: "Historial", href: "/historial" },
+    { label: "Cierre de caja", href: "/cierre" },
   ],
   registerSubscribers: registerSalesSubscribers,
 };

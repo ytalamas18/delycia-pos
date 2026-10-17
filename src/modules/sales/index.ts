@@ -22,4 +22,8 @@ export { PosScreen } from "./components/pos-screen";
 export { OpenOrders, PaidInProgress } from "./components/open-orders";
 export { ReadyNotifier } from "./components/ready-notifier";
 export { Receivables } from "./components/receivables";
+export { HistoryList } from "./components/history-list";
+export { OrderDetail } from "./components/order-detail";
+export { ClosingView } from "./components/closing-view";
+export { getDailyClosing } from "./services/history";
 export type { PosCategory, PosOrder, PosProduct } from "./components/pos-types";
