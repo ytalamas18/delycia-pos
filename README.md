@@ -193,10 +193,19 @@ El menú inicial está en [`prisma/data/menu-delycia.json`](prisma/data/menu-del
 extras + 21 bebidas (las bebidas no van a cocina). Se carga **una sola vez** en la primera puesta en
 marcha; después se administra desde **Catálogo** y reiniciar no pisa los cambios.
 
+Los cambios posteriores al menú van como **actualizaciones numeradas** en `prisma/seed-data.ts`
+(`MENU_UPDATES`): cada una se aplica una sola vez, también en bases que ya tenían el menú.
+
+- **v2**: Extra huevo (+3), Extra tocino (+5) y Extra queso (+3) son **modificadores** de las
+  hamburguesas y lomitos (cocina ve a qué plato van); los extras sueltos quedan desactivados.
+
+En **Catálogo → Categorías**, "**+ Modificador a todos**" agrega un extra a todos los productos de una
+categoría de un toque (ej. Extra cheddar a todas las hamburguesas).
+
 ### Mensajes de caja a cocina
 
 - Botón **"Mensaje a cocina"** en la barra de caja (desde cualquier pantalla): botones rápidos de un
-  toque (**LLEGÓ GENTE**, **MÁS PAPA**, **DESCONGELEN PRODUCTO**; se editan en **Ajustes**) o texto libre.
+  toque (**LLEGÓ GENTE**, **MÁS PAPA**; se editan en **Ajustes**) o texto libre.
 - En cocina aparece arriba, grande y en azul, con un sonido distinto al de las comandas, hasta que
   alguien toca **"Visto ✔"**. Caja recibe la confirmación: *"Cocina vio: MÁS PAPA"*.
 

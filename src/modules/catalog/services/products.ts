@@ -75,3 +75,24 @@ export async function addModifier(productId: string, input: ModifierInput) {
 export function removeModifier(id: string) {
   return db.productModifier.delete({ where: { id } });
 }
+
+/**
+ * Agrega el mismo modificador a TODOS los productos de una categoría (ej. "Extra cheddar +4"
+ * a todas las hamburguesas). Los productos que ya lo tienen no se tocan.
+ */
+export async function addModifierToCategory(categoryId: string, input: ModifierInput) {
+  const data = modifierInput.parse(input);
+  const products = await db.product.findMany({
+    where: { categoryId },
+    select: { id: true, modifiers: { select: { name: true, sortOrder: true } } },
+  });
+  if (products.length === 0) throw new DomainError("La categoría no tiene productos.");
+  let added = 0;
+  for (const p of products) {
+    if (p.modifiers.some((m) => m.name.toLowerCase() === data.name.toLowerCase())) continue;
+    const sortOrder = Math.max(-1, ...p.modifiers.map((m) => m.sortOrder)) + 1;
+    await db.productModifier.create({ data: { productId: p.id, ...data, sortOrder } });
+    added++;
+  }
+  return { added, skipped: products.length - added };
+}

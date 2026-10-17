@@ -10,6 +10,7 @@ import { initialActionResult } from "@/core/actions/types";
 import { cn } from "@/lib/utils";
 
 import {
+  addModifierToCategoryAction,
   createCategoryAction,
   moveCategoryAction,
   renameCategoryAction,
@@ -73,6 +74,7 @@ function CategoryItem({ category, isFirst, isLast }: { category: CategoryRow; is
           {!category.active && <Badge variant="secondary">Inactiva</Badge>}
         </button>
       )}
+      {category.productCount > 0 && <BulkModifier categoryId={category.id} categoryName={category.name} />}
       <RowControls
         active={category.active}
         isFirst={isFirst}
@@ -81,5 +83,49 @@ function CategoryItem({ category, isFirst, isLast }: { category: CategoryRow; is
         onToggle={setCategoryActiveAction.bind(null, category.id)}
       />
     </li>
+  );
+}
+
+/** "+ Modificador a todos": agrega el mismo extra a todos los productos de la categoría. */
+function BulkModifier({ categoryId, categoryName }: { categoryId: string; categoryName: string }) {
+  const [open, setOpen] = useState(false);
+  const [state, action, pending] = useActionState(async (prev: typeof initialActionResult, fd: FormData) => {
+    const result = await addModifierToCategoryAction(prev, fd);
+    if (result.ok) setOpen(false);
+    return result;
+  }, initialActionResult);
+
+  if (!open) {
+    return (
+      <div className="flex items-center gap-2">
+        <FormStatus state={state} />
+        <Button variant="outline" onClick={() => setOpen(true)}>
+          + Modificador a todos
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <form action={action} className="flex w-full flex-wrap items-start gap-2 rounded-lg bg-muted p-2">
+      <input type="hidden" name="categoryId" value={categoryId} />
+      <span className="w-full text-sm text-muted-foreground">
+        Se agrega a todos los productos de <strong>{categoryName}</strong> (los que ya lo tienen no cambian).
+      </span>
+      <div className="min-w-48 flex-1 space-y-1">
+        <Input name="name" placeholder="Ej. Extra cheddar" aria-label="Modificador" autoFocus />
+        <FieldError state={state} name="name" />
+      </div>
+      <div className="w-36 space-y-1">
+        <Input name="priceDelta" inputMode="decimal" placeholder="+ Bs (opcional)" aria-label="Recargo" />
+        <FieldError state={state} name="priceDeltaCents" />
+      </div>
+      <Button type="submit" disabled={pending}>
+        Agregar a todos
+      </Button>
+      <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+        Cancelar
+      </Button>
+      <FormStatus state={state} className="w-full" />
+    </form>
   );
 }

@@ -90,4 +90,15 @@ describe("catálogo", () => {
     sellable = await getSellableProduct(plato.id);
     expect(sellable?.modifiers.map((m) => m.name)).toEqual(["Sin cebolla"]);
   });
+
+  it("agrega un modificador a toda la categoría sin duplicar", async () => {
+    const { platos, plato } = await setup();
+    await products.createProduct({ name: "Lomito", categoryId: platos.id, priceCents: "35", sendsToKitchen: true, active: true });
+    await products.addModifier(plato.id, { name: "Extra cheddar", priceDeltaCents: "4" });
+
+    const r = await products.addModifierToCategory(platos.id, { name: "extra cheddar", priceDeltaCents: "4" });
+    expect(r).toEqual({ added: 1, skipped: 1 });
+    const all = await db.productModifier.findMany({ where: { product: { categoryId: platos.id } } });
+    expect(all.map((m) => m.priceDeltaCents)).toEqual([400, 400]);
+  });
 });

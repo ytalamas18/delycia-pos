@@ -120,6 +120,20 @@ export async function addModifierAction(_prev: ActionResult, fd: FormData): Prom
   );
 }
 
+export async function addModifierToCategoryAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  await requirePermission("catalog.manage");
+  return toActionResult(async () => {
+    const r = await products.addModifierToCategory(text(fd, "categoryId"), {
+      name: text(fd, "name"),
+      priceDeltaCents: text(fd, "priceDelta"),
+    });
+    refreshCatalog();
+    return r.skipped > 0
+      ? `Agregado a ${r.added} productos (${r.skipped} ya lo tenían)`
+      : `Agregado a ${r.added} productos`;
+  });
+}
+
 export async function removeModifierAction(id: string) {
   await requirePermission("catalog.manage");
   await products.removeModifier(id);
