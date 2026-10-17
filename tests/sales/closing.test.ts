@@ -19,8 +19,8 @@ describe("cierre del día", () => {
       subtotalCents: 4800,
       totalCents: 4800,
       items: [
-        { productName: "Majadito", quantity: 1, unitPriceCents: 3800, status: "ACTIVE" },
-        { productName: "Gaseosa", quantity: 1, unitPriceCents: 1000, status: "ACTIVE" },
+        { productName: "Majadito", quantity: 1, unitPriceCents: 3800, status: "ACTIVE", category: { name: "Platos", sortOrder: 0 } },
+        { productName: "Gaseosa", quantity: 1, unitPriceCents: 1000, status: "ACTIVE", category: { name: "Bebidas", sortOrder: 5 } },
       ],
       payments: [{ method: "CASH", amountCents: 4800, refundedAt: null }],
     }),
@@ -28,7 +28,7 @@ describe("cierre del día", () => {
       subtotalCents: 7600,
       discountCents: 760,
       totalCents: 6840,
-      items: [{ productName: "Majadito", quantity: 2, unitPriceCents: 3800, status: "ACTIVE" }],
+      items: [{ productName: "Majadito", quantity: 2, unitPriceCents: 3800, status: "ACTIVE", category: { name: "Platos", sortOrder: 0 } }],
       payments: [
         { method: "QR", amountCents: 3000, refundedAt: null },
         { method: "CREDIT", amountCents: 3840, refundedAt: null },
@@ -39,7 +39,7 @@ describe("cierre del día", () => {
       status: "PAID",
       subtotalCents: 5300,
       totalCents: 5300,
-      items: [{ productName: "Majadito", quantity: 1, unitPriceCents: 5300, status: "ACTIVE" }],
+      items: [{ productName: "Majadito", quantity: 1, unitPriceCents: 5300, status: "ACTIVE", category: { name: "Platos", sortOrder: 0 } }],
       payments: [{ method: "PEYA", amountCents: 5300, refundedAt: null }],
     }),
     order({ status: "OPEN", totalCents: 3000 }),
@@ -68,7 +68,14 @@ describe("cierre del día", () => {
 
   it("por canal y productos más vendidos", () => {
     expect(summary.byChannel).toEqual({ LOCAL: { count: 2, netCents: 11640 }, PEYA: { count: 1, netCents: 5300 } });
-    expect(summary.products[0]).toEqual({ name: "Majadito", quantity: 4, amountCents: 16700 });
+    expect(summary.products[0]).toEqual({ name: "Majadito", category: "Platos", quantity: 4, amountCents: 16700 });
+  });
+
+  it("productos agrupados por categoría en el orden de la carta, con subtotales", () => {
+    expect(summary.productsByCategory.map((c) => [c.category, c.quantity, c.amountCents])).toEqual([
+      ["Platos", 4, 16700],
+      ["Bebidas", 1, 1000],
+    ]);
   });
 
   it("arqueo: esperado = fondo + efectivo del día; diferencia = contado - esperado", () => {

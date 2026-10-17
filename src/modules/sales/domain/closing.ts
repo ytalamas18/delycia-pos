@@ -7,7 +7,14 @@ export type ClosingOrder = {
   subtotalCents: Cents;
   discountCents: Cents;
   totalCents: Cents;
-  items: { productName: string; quantity: number; unitPriceCents: Cents; status: "ACTIVE" | "VOIDED" }[];
+  items: {
+    productName: string;
+    quantity: number;
+    unitPriceCents: Cents;
+    status: "ACTIVE" | "VOIDED";
+    /** Categoría actual del producto (null si el producto ya no existe). */
+    category?: { name: string; sortOrder: number } | null;
+  }[];
   payments: { method: PaymentMethod; amountCents: Cents; refundedAt: Date | null }[];
 };
 
@@ -34,8 +41,14 @@ export type DailySummary = {
   collectionsTotalCents: Cents;
   /** Dinero que entró hoy por cada medio: ventas + cobros de fiados. */
   moneyInByMethod: Record<PaymentMethod, Cents>;
-  products: { name: string; quantity: number; amountCents: Cents }[];
+  products: ProductLine[];
+  /** Productos agrupados por categoría (en el orden de la pantalla de venta), con subtotales. */
+  productsByCategory: { category: string; quantity: number; amountCents: Cents; products: ProductLine[] }[];
 };
+
+export type ProductLine = { name: string; category: string; quantity: number; amountCents: Cents };
+
+const NO_CATEGORY = "Sin categoría";
 
 /**
  * Resumen del día para el cierre de caja. Solo cuentan como venta las órdenes cobradas;
@@ -64,16 +77,31 @@ export function summarizeDay(orders: ClosingOrder[], collections: ClosingCollect
     byChannel[o.channel].netCents += o.totalCents;
   }
 
-  const productMap = new Map<string, { name: string; quantity: number; amountCents: Cents }>();
+  const productMap = new Map<string, ProductLine>();
+  const categoryOrder = new Map<string, number>();
   for (const o of paid) {
     for (const i of o.items) {
       if (i.status !== "ACTIVE") continue;
-      const p = productMap.get(i.productName) ?? { name: i.productName, quantity: 0, amountCents: 0 };
+      const category = i.category?.name ?? NO_CATEGORY;
+      categoryOrder.set(category, i.category?.sortOrder ?? Number.MAX_SAFE_INTEGER);
+      const p = productMap.get(i.productName) ?? { name: i.productName, category, quantity: 0, amountCents: 0 };
       p.quantity += i.quantity;
       p.amountCents += i.unitPriceCents * i.quantity;
       productMap.set(i.productName, p);
     }
   }
+  const products = [...productMap.values()].sort((a, b) => b.quantity - a.quantity || b.amountCents - a.amountCents);
+  const productsByCategory = [...categoryOrder.entries()]
+    .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))
+    .map(([category]) => {
+      const list = products.filter((p) => p.category === category);
+      return {
+        category,
+        quantity: list.reduce((s, p) => s + p.quantity, 0),
+        amountCents: list.reduce((s, p) => s + p.amountCents, 0),
+        products: list,
+      };
+    });
 
   const netCents = paid.reduce((s, o) => s + o.totalCents, 0);
   return {
@@ -90,7 +118,8 @@ export function summarizeDay(orders: ClosingOrder[], collections: ClosingCollect
     collectionsByMethod,
     collectionsTotalCents: collections.reduce((s, c) => s + c.amountCents, 0),
     moneyInByMethod,
-    products: [...productMap.values()].sort((a, b) => b.quantity - a.quantity || b.amountCents - a.amountCents),
+    products,
+    productsByCategory,
   };
 }
 
