@@ -14,9 +14,16 @@ import type { DomainEvent, DomainEventMap, DomainEventType, StoredDomainEvent } 
  */
 export type EventPhase = "transaction" | "afterCommit";
 
+export type PublishFn = <T extends DomainEventType>(
+  type: T,
+  payload: DomainEventMap[T],
+) => Promise<StoredDomainEvent<T>>;
+
+/** Recibe la misma transacción y puede publicar nuevos eventos dentro de ella. */
 export type TxHandler<T extends DomainEventType, Tx> = (
   event: StoredDomainEvent<T>,
   tx: Tx,
+  publish: PublishFn,
 ) => Promise<void> | void;
 
 export type AfterCommitHandler<T extends DomainEventType> = (
@@ -72,13 +79,13 @@ export class EventBus<Tx> {
    */
   createPublisher(tx: Tx) {
     const pending: StoredDomainEvent[] = [];
-    const publish = async <T extends DomainEventType>(type: T, payload: DomainEventMap[T]) => {
+    const publish: PublishFn = async (type, payload) => {
       const stored = await this.store.append(tx, { type, payload } as DomainEvent);
-      for (const handler of this.txHandlers.get(type) ?? []) {
-        await handler(stored, tx);
-      }
       pending.push(stored);
-      return stored as StoredDomainEvent<T>;
+      for (const handler of this.txHandlers.get(type) ?? []) {
+        await handler(stored, tx, publish);
+      }
+      return stored as StoredDomainEvent<typeof type>;
     };
     return { publish, pending };
   }
@@ -98,4 +105,3 @@ export class EventBus<Tx> {
   }
 }
 
-export type EventPublisher = ReturnType<EventBus<unknown>["createPublisher"]>["publish"];

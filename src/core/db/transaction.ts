@@ -1,7 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 
-import { EventBus, type EventStore } from "../events/bus";
-import type { DomainEventMap, DomainEventType, StoredDomainEvent } from "../events/types";
+import { EventBus, type EventStore, type PublishFn } from "../events/bus";
+import type { StoredDomainEvent } from "../events/types";
 import { db } from "./client";
 
 export type Tx = Prisma.TransactionClient;
@@ -21,10 +21,7 @@ const globalForBus = globalThis as unknown as { eventBus?: EventBus<Tx> };
 /** Bus único del proceso (compartido entre los bundles de Next mediante globalThis). */
 export const eventBus = (globalForBus.eventBus ??= new EventBus<Tx>(prismaEventStore));
 
-export type Publish = <T extends DomainEventType>(
-  type: T,
-  payload: DomainEventMap[T],
-) => Promise<StoredDomainEvent<T>>;
+export type Publish = PublishFn;
 
 /**
  * Corre `fn` en una transacción. Los eventos publicados dentro:
@@ -36,7 +33,7 @@ export async function runInTransaction<T>(fn: (tx: Tx, publish: Publish) => Prom
   const result = await db.$transaction(async (tx) => {
     const publisher = eventBus.createPublisher(tx);
     pending = publisher.pending;
-    return fn(tx, publisher.publish as Publish);
+    return fn(tx, publisher.publish);
   });
   await eventBus.dispatchAfterCommit(pending);
   return result;
