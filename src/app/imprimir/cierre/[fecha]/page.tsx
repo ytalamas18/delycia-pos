@@ -16,12 +16,15 @@ export default async function ImprimirCierrePage({ params }: PageProps<"/imprimi
   await requirePermission("cash.close");
   const { fecha } = await params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) notFound();
-  const { summary: s, saved, closedByName } = await getDailyClosing(fecha);
+  const { summary: s, saved, closedByName, opening } = await getDailyClosing(fecha);
 
   return (
     <div>
       <div className="text-center text-[18px] font-bold">CIERRE DE CAJA</div>
       <div className="text-center">{appConfig.businessName} · {fecha.split("-").reverse().join("/")}</div>
+      <hr className="my-2 border-dashed border-black" />
+      <L label="Apertura (efectivo inicial)" value={opening ? formatMoney(opening.openingCashCents) : "No registrada"} bold />
+      {opening && <div className="text-[12px]">Abrió {opening.openedByName} · {dateTime.format(opening.openedAt)}</div>}
       <hr className="my-2 border-dashed border-black" />
       <L label="Órdenes cobradas" value={String(s.paidCount)} />
       <L label="Ventas brutas" value={formatMoney(s.grossCents)} />
@@ -49,7 +52,6 @@ export default async function ImprimirCierrePage({ params }: PageProps<"/imprimi
         <>
           <hr className="my-2 border-dashed border-black" />
           <div className="font-bold">Arqueo</div>
-          <L label="Fondo inicial" value={formatMoney(saved.openingCashCents)} />
           <L label="Efectivo esperado" value={formatMoney(saved.expectedCashCents)} />
           <L label="Efectivo contado" value={formatMoney(saved.countedCashCents)} />
           <Diff label="Efectivo" diff={saved.differenceCents} />
@@ -75,9 +77,14 @@ export default async function ImprimirCierrePage({ params }: PageProps<"/imprimi
         </>
       )}
       <hr className="my-2 border-dashed border-black" />
-      <div className="font-bold">Productos</div>
-      {s.products.map((p) => (
-        <L key={p.name} label={`${p.quantity} x ${p.name}`} value={formatMoney(p.amountCents)} />
+      <div className="font-bold">PRODUCTOS VENDIDOS</div>
+      {s.productsByCategory.map((cat) => (
+        <div key={cat.category} className="mt-1">
+          <L label={`${cat.category} (${cat.quantity})`} value={formatMoney(cat.amountCents)} bold />
+          {cat.products.map((p) => (
+            <L key={p.name} label={`  ${p.quantity} x ${p.name}`} value={formatMoney(p.amountCents)} />
+          ))}
+        </div>
       ))}
       <PrintOnLoad />
     </div>

@@ -21,7 +21,6 @@ function cents(text: string) {
 }
 
 type Saved = {
-  openingCashCents: number;
   countedCashCents: number;
   countedQrCents: number | null;
   countedCardCents: number | null;
@@ -29,28 +28,30 @@ type Saved = {
 };
 
 /**
- * Arqueo: efectivo (fondo + contado), QR (lo que muestra la app del banco) y tarjeta (reporte del datáfono).
+ * Arqueo: efectivo (fondo de la apertura + lo que entró), QR (app del banco) y tarjeta (datáfono).
  * PEYA y cuentas por cobrar no se cuentan: no es dinero que esté en el local.
  */
 export function ClosingForm({
   date,
+  openingCashCents,
   moneyIn,
   saved,
 }: {
   date: string;
+  /** Fondo inicial registrado en la apertura de caja (no editable aquí). */
+  openingCashCents: number;
   /** Lo que el sistema registró que entró hoy por cada medio (ventas + cobros de fiados). */
   moneyIn: { cash: number; qr: number; card: number };
   saved: Saved | null;
 }) {
   const initial = (v: number | null | undefined) => (v === null || v === undefined ? "" : formatMoneyInput(v));
-  const [opening, setOpening] = useState(initial(saved?.openingCashCents));
   const [cash, setCash] = useState(initial(saved?.countedCashCents));
   const [qr, setQr] = useState(initial(saved?.countedQrCents));
   const [card, setCard] = useState(initial(saved?.countedCardCents));
   const [state, action, pending] = useActionState(saveClosingAction, initialActionResult);
 
   const rows = [
-    { key: "cash", label: "Efectivo", name: "counted", value: cash, set: setCash, expected: cents(opening) + moneyIn.cash, hint: "Contado en caja", required: true },
+    { key: "cash", label: "Efectivo", name: "counted", value: cash, set: setCash, expected: openingCashCents + moneyIn.cash, hint: "Contado en caja", required: true },
     { key: "qr", label: "QR", name: "countedQr", value: qr, set: setQr, expected: moneyIn.qr, hint: "Según la app del banco" },
     { key: "card", label: "Tarjeta", name: "countedCard", value: card, set: setCard, expected: moneyIn.card, hint: "Según el datáfono" },
   ];
@@ -58,10 +59,6 @@ export function ClosingForm({
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="fecha" value={date} />
-      <div className="max-w-xs space-y-2">
-        <Label htmlFor="opening">Fondo inicial de caja (Bs)</Label>
-        <Input id="opening" name="opening" inputMode="decimal" placeholder="0" value={opening} onChange={(e) => setOpening(e.target.value)} />
-      </div>
 
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -111,7 +108,8 @@ export function ClosingForm({
         </table>
       </div>
       <p className="text-sm text-muted-foreground">
-        El efectivo del sistema incluye el fondo inicial. PEYA y cuentas por cobrar no se cuentan en el arqueo.
+        El efectivo del sistema = fondo de apertura ({formatMoney(openingCashCents)}) + lo que entró hoy en efectivo. PEYA
+        y cuentas por cobrar no se cuentan en el arqueo.
       </p>
 
       <div className="space-y-2">

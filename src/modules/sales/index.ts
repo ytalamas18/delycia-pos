@@ -25,5 +25,7 @@ export { Receivables } from "./components/receivables";
 export { HistoryList } from "./components/history-list";
 export { OrderDetail } from "./components/order-detail";
 export { ClosingView } from "./components/closing-view";
-export { getDailyClosing } from "./services/history";
+export { OpeningForm } from "./components/opening-form";
+export { getDailyClosing, getOpening } from "./services/history";
+export { getClosingReport } from "./reports";
 export type { PosCategory, PosOrder, PosProduct } from "./components/pos-types";

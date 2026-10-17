@@ -168,15 +168,23 @@ Comanda:  PENDIENTE ─▶ EN PREPARACIÓN ─▶ LISTA ─▶ ENTREGADA     (+ 
 - **Registrar pago**: total o abonos parciales, en efectivo, QR o tarjeta. Al completar, la cuenta
   pasa a "saldadas" (se ven las de los últimos 30 días).
 
+### Apertura de caja
+
+- Antes de la primera venta del día, **Vender** pide el **efectivo inicial** (fondo). Se confirma una vez
+  y **no se puede editar** después (queda quién abrió y a qué hora).
+
 ### Historial y cierre de caja
 
 - **Historial**: órdenes de cualquier día con filtros por estado, tipo, canal y método de pago; detalle
   con productos, pagos (recibido/vuelto, fiado pendiente) y tiempos de cocina (espera y preparación).
 - **Cierre de caja**: ventas brutas, descuentos, netas, ticket promedio, por canal y por medio de pago,
   cobros de fiados del día y productos vendidos. Avisa si quedaron órdenes por pagar.
-- **Arqueo**: efectivo (fondo inicial + lo que entró = esperado, contra lo contado), **QR** (contra la
+- **Arqueo**: efectivo (fondo de la **apertura** + lo que entró = esperado, contra lo contado), **QR** (contra la
   app del banco) y **tarjeta** (contra el datáfono). Muestra si **cuadra, falta o sobra** en cada uno.
-  PEYA y cuentas por cobrar no se cuentan. Se guarda (y se puede corregir) y se imprime en 80 mm.
+  PEYA y cuentas por cobrar no se cuentan. Se guarda (y se puede corregir).
+- **Reporte del cierre** en **PDF** (A4: apertura, resumen, medios de pago, arqueo y **productos
+  vendidos por categoría** con subtotales), **Excel/CSV** de productos (separador `;` y coma decimal,
+  listo para el archivo de costos) e impresión **80 mm**.
 - Órdenes por pagar de días anteriores se marcan con su fecha (el número se reinicia cada día).
 
 ### Menú
