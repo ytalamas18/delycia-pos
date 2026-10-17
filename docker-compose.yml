@@ -9,7 +9,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: delycia
-      POSTGRES_PASSWORD: delycia
+      # Valor de desarrollo; en producción definir POSTGRES_PASSWORD en .env
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-delycia}
       POSTGRES_DB: delycia
     ports:
       - "5432:5432"
@@ -28,7 +29,7 @@ services:
       context: .
       target: build
     environment:
-      DATABASE_URL: postgresql://delycia:delycia@db:5432/delycia?schema=public
+      DATABASE_URL: postgresql://delycia:${POSTGRES_PASSWORD:-delycia}@db:5432/delycia?schema=public
     command: sh -c "npx prisma migrate deploy && npx prisma db seed"
     depends_on:
       db:
@@ -40,8 +41,10 @@ services:
       target: runner
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://delycia:delycia@db:5432/delycia?schema=public
+      DATABASE_URL: postgresql://delycia:${POSTGRES_PASSWORD:-delycia}@db:5432/delycia?schema=public
+      # Valor de respaldo SOLO para desarrollo: en el local / producción definir SESSION_SECRET en .env
       SESSION_SECRET: ${SESSION_SECRET:-solo-para-desarrollo-cambiar-en-produccion}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     ports:
       - "3000:3000"
     depends_on:
