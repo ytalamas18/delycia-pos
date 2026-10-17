@@ -1,6 +1,6 @@
 "use client";
 
-import { ChefHat, Lock } from "lucide-react";
+import { Banknote, ChefHat, Lock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -18,7 +18,9 @@ import { cn } from "@/lib/utils";
 import { createOrderAction, removeItemAction, saveOrderChangesAction, updateItemAction } from "../actions";
 import { addDraftLine, type DraftLine } from "../domain/lines";
 import { unitPriceFor } from "../domain/pricing";
+import { CheckoutDialog } from "./checkout-dialog";
 import { LineEditor, type LineEditorValue } from "./line-editor";
+import { PaidDialog, type PaidSummary } from "./paid-dialog";
 import type { PosCategory, PosOrder, PosProduct, PosSavedItem } from "./pos-types";
 import { ProductGrid } from "./product-grid";
 
@@ -32,11 +34,17 @@ export function PosScreen({
   products,
   peyaMarkupPercent,
   order,
+  openCheckout = false,
+  paid = null,
 }: {
   categories: PosCategory[];
   products: PosProduct[];
   peyaMarkupPercent: number;
   order: PosOrder | null;
+  /** Abre la ventana de cobro al cargar (tras guardar desde "Cobrar"). */
+  openCheckout?: boolean;
+  /** Orden recién cobrada: muestra el vuelto encima de una orden nueva. */
+  paid?: PaidSummary | null;
 }) {
   const router = useRouter();
   const [header, setHeader] = useState<Header>(
@@ -53,6 +61,7 @@ export function PosScreen({
   const [editing, setEditing] = useState<Editing>(null);
   const [status, setStatus] = useState<(ActionResult & { orderId?: string }) | null>(null);
   const [pending, startTransition] = useTransition();
+  const [checkoutOpen, setCheckoutOpen] = useState(openCheckout && !!order);
 
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   // Una orden ya guardada conserva el % con que se abrió.
@@ -119,6 +128,25 @@ export function PosScreen({
         setDrafts([]);
         setHeader(emptyHeader);
       }
+    });
+  }
+
+  /** Cobrar: si hay cambios sin guardar, primero se guardan y luego se abre la ventana de cobro. */
+  function charge() {
+    if (order && drafts.length === 0) {
+      setCheckoutOpen(true);
+      return;
+    }
+    startTransition(async () => {
+      if (order) {
+        const result = await saveOrderChangesAction(order.id, info, drafts);
+        if (!result.ok) return setStatus(result);
+        router.push(`/pos?orden=${order.id}&cobrar=1`);
+        return;
+      }
+      const result = await createOrderAction({ channel: header.channel, ...info }, drafts);
+      if (!result.ok || !result.orderId) return setStatus(result);
+      router.push(`/pos?orden=${result.orderId}&cobrar=1`);
     });
   }
 
@@ -238,12 +266,20 @@ export function PosScreen({
               )}
             </div>
           )}
-          <div className="grid grid-cols-[auto_1fr] gap-2">
+          <div className="grid grid-cols-[auto_1fr_1fr] gap-2">
             <Button variant="outline" size="lg" onClick={resetToNewOrder} disabled={pending}>
               Nueva
             </Button>
             <Button variant="secondary" size="lg" onClick={() => save(false)} disabled={pending || !canSave}>
-              {order ? "Guardar cambios" : "Guardar"}
+              Guardar
+            </Button>
+            <Button
+              size="lg"
+              className="bg-green-600 text-white hover:bg-green-700"
+              onClick={charge}
+              disabled={pending || total === 0}
+            >
+              <Banknote /> Cobrar
             </Button>
           </div>
           <Button
@@ -257,6 +293,21 @@ export function PosScreen({
           </Button>
         </div>
       </aside>
+
+      {checkoutOpen && order && (
+        <CheckoutDialog
+          order={{
+            id: order.id,
+            number: order.number,
+            subtotalCents: savedTotal,
+            channel: order.channel,
+            customerName: header.customerName || order.customerName,
+          }}
+          onClose={() => setCheckoutOpen(false)}
+          onPaid={() => router.replace(`/pos?cobrada=${order.id}`)}
+        />
+      )}
+      {paid && <PaidDialog paid={paid} onClose={() => router.replace("/pos")} />}
 
       {editing?.kind === "draft" && (
         <LineEditor

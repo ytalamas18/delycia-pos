@@ -9,8 +9,22 @@ import { getOrder, peyaMarkupSetting, PosScreen, type PosOrder, type PosProduct 
 export default async function PosPage({ searchParams }: PageProps<"/pos">) {
   requireModule("sales");
   await requirePermission("sales.sell");
-  const { orden } = await searchParams;
+  const { orden, cobrar, cobrada } = await searchParams;
   const orderId = typeof orden === "string" ? orden : null;
+  const paidOrder = typeof cobrada === "string" ? await getOrder(cobrada) : null;
+  const paid =
+    paidOrder && (paidOrder.status === "PAID" || paidOrder.status === "CLOSED")
+      ? {
+          orderId: paidOrder.id,
+          number: paidOrder.number,
+          totalCents: paidOrder.totalCents,
+          changeCents: paidOrder.payments.reduce((s, p) => s + (p.changeCents ?? 0), 0),
+          unsentKitchen: paidOrder.items.filter(
+            (i) => i.status === "ACTIVE" && i.sendsToKitchen && !i.sentToKitchenAt,
+          ).length,
+          kitchenItems: paidOrder.items.filter((i) => i.status === "ACTIVE" && i.sendsToKitchen).length,
+        }
+      : null;
 
   const [catalog, peya, order] = await Promise.all([
     getSellableCatalog(),
@@ -53,11 +67,13 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
   return (
     <PosScreen
       // key: al cambiar de orden, la pantalla se reinicia con sus datos
-      key={posOrder?.id ?? "nueva"}
+      key={`${posOrder?.id ?? "nueva"}-${cobrar ?? ""}-${paid?.orderId ?? ""}`}
       categories={catalog.map((c) => ({ id: c.id, name: c.name }))}
       products={products}
       peyaMarkupPercent={peya}
       order={posOrder}
+      openCheckout={cobrar === "1"}
+      paid={paid}
     />
   );
 }

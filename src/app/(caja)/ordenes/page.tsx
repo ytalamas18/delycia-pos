@@ -5,7 +5,7 @@ import { LiveRefresh } from "@/components/shell/live-refresh";
 import { requireModule } from "@/components/shell/require-module";
 import { Button } from "@/components/ui/button";
 import { requirePermission } from "@/core/auth/server";
-import { OpenOrders } from "@/modules/sales";
+import { OpenOrders, PaidInProgress } from "@/modules/sales";
 
 export default async function OrdenesPage() {
   requireModule("sales");
@@ -21,6 +21,7 @@ export default async function OrdenesPage() {
         </Button>
       </div>
       <OpenOrders />
+      <PaidInProgress />
       {/* Se actualiza sola cuando cambia algo en ventas o cocina */}
       <LiveRefresh prefixes={["order.", "ticket."]} />
     </div>

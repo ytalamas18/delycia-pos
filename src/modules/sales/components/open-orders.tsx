@@ -7,7 +7,8 @@ import type { TicketStatus } from "@/generated/prisma/enums";
 import { kitchenSummaryByOrder } from "@/modules/kitchen";
 
 import { orderLabel, orderStatusLabel } from "../domain/labels";
-import { listOpenOrders } from "../services/orders";
+import { listOpenOrders, listPaidInProgress } from "../services/orders";
+import { SendToKitchenButton } from "./send-to-kitchen-button";
 
 /** Resume en una etiqueta lo que pasa en cocina con todas las comandas de una orden. */
 function kitchenBadge(statuses: TicketStatus[] | undefined): { text: string; className: string } | null {
@@ -68,5 +69,43 @@ export async function OpenOrders() {
         );
       })}
     </div>
+  );
+}
+
+/** Pagadas que siguen en curso: cocina no terminó o falta enviarles algo (para llevar cobrado antes). */
+export async function PaidInProgress() {
+  const orders = await listPaidInProgress();
+  if (orders.length === 0) return null;
+  const kitchen = await kitchenSummaryByOrder(orders.map((o) => o.id));
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-xl font-semibold">Pagadas, esperando cocina</h2>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {orders.map((o) => {
+          const badge = kitchenBadge(kitchen.get(o.id));
+          const unsent = o.items.filter((i) => i.status === "ACTIVE" && i.sendsToKitchen && !i.sentToKitchenAt).length;
+          return (
+            <div key={o.id} className="space-y-2 rounded-xl border bg-card p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="text-2xl font-bold">#{o.number}</div>
+                  <div className="text-lg font-medium">{orderLabel(o)}</div>
+                </div>
+                <Badge className="bg-green-600 text-white">Pagada</Badge>
+              </div>
+              {badge && <Badge className={badge.className}>{badge.text}</Badge>}
+              <p className="line-clamp-2 text-sm text-muted-foreground">
+                {o.items
+                  .filter((i) => i.status === "ACTIVE")
+                  .map((i) => `${i.quantity}× ${i.productName}`)
+                  .join(", ")}
+              </p>
+              {unsent > 0 && <SendToKitchenButton orderId={o.id} count={unsent} />}
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }

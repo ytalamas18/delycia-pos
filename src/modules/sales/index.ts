@@ -19,6 +19,7 @@ export { getOrder, listOpenOrders } from "./services/orders";
 // Componentes
 export { PeyaMarkupForm } from "./components/peya-markup-form";
 export { PosScreen } from "./components/pos-screen";
-export { OpenOrders } from "./components/open-orders";
+export { OpenOrders, PaidInProgress } from "./components/open-orders";
 export { ReadyNotifier } from "./components/ready-notifier";
+export { Receivables } from "./components/receivables";
 export type { PosCategory, PosOrder, PosProduct } from "./components/pos-types";

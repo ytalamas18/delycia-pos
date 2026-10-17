@@ -1,13 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { type ActionResult, toActionResult } from "@/core/actions/result";
 import { requirePermission } from "@/core/auth/server";
+import { DomainError } from "@/core/errors";
+import { parseMoney } from "@/core/money";
 import { setSetting } from "@/core/settings";
 
 import type { DraftLineInput, ItemUpdateInput, OrderHeaderInput } from "./schemas";
+import type { DiscountInput, PaymentEntry } from "./domain/checkout";
+import * as checkout from "./services/checkout";
 import * as orders from "./services/orders";
 import { peyaMarkupSetting } from "./settings";
 
@@ -75,6 +80,15 @@ export async function saveOrderChangesAction(
   });
 }
 
+export async function sendToKitchenAction(orderId: string): Promise<ActionResult> {
+  await requirePermission("sales.sell");
+  return toActionResult(async () => {
+    const { sentCount } = await orders.sendToKitchen(orderId);
+    refreshSales();
+    return `Enviado a cocina (${sentCount})`;
+  });
+}
+
 export async function updateItemAction(orderId: string, itemId: string, input: ItemUpdateInput): Promise<ActionResult> {
   await requirePermission("sales.sell");
   return toActionResult(async () => {
@@ -89,4 +103,48 @@ export async function removeItemAction(orderId: string, itemId: string): Promise
     await orders.removeItem(orderId, itemId);
     refreshSales();
   });
+}
+
+// ---------------------------------------------------------------------------
+// Cobro y cuentas por cobrar
+// ---------------------------------------------------------------------------
+
+/** Cobra la orden y lleva a la pantalla de "cobrada" (vuelto + ticket). Si falla, devuelve el error. */
+export async function payOrderAction(
+  orderId: string,
+  input: { discount: DiscountInput; entries: PaymentEntry[]; customerName?: string | null },
+): Promise<ActionResult> {
+  const session = await requirePermission("sales.sell");
+  const result = await toActionResult(async () => {
+    await checkout.payOrder(orderId, input, session.userId);
+    refreshSales();
+    revalidatePath("/cuentas-por-cobrar");
+  });
+  if (result.ok) redirect(`/pos?cobrada=${orderId}`);
+  return result;
+}
+
+export async function collectCreditAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  const session = await requirePermission("sales.sell");
+  return toActionResult(async () => {
+    const amount = String(fd.get("amount") ?? "");
+    const r = await checkout.collectCredit(
+      String(fd.get("paymentId") ?? ""),
+      {
+        method: String(fd.get("method") ?? "CASH") as PaymentEntry["method"],
+        amountCents: parseMoneySafe(amount),
+      },
+      session.userId,
+    );
+    revalidatePath("/cuentas-por-cobrar");
+    return r.settled ? "Cuenta saldada ✔" : "Pago registrado";
+  });
+}
+
+function parseMoneySafe(text: string): number {
+  try {
+    return parseMoney(text);
+  } catch {
+    throw new DomainError("Monto inválido");
+  }
 }
