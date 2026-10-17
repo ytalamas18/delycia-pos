@@ -4,7 +4,7 @@ Punto de venta web para **Delycia** (restaurante casual boliviano, Santa Cruz de
 Fase 1: **Ventas + Cocina (KDS)** en tiempo real, con la arquitectura preparada para sumar
 reportería, inventario, costos/recetas, clientes y roles sin reescribir lo existente.
 
-> Estado: **paso 3 de 7, catálogo y login**. Ver [Hoja de ruta](#hoja-de-ruta).
+> Estado: **paso 4 de 7, pantalla de venta**. Ver [Hoja de ruta](#hoja-de-ruta).
 
 ---
 
@@ -88,6 +88,7 @@ erDiagram
 | `OrderItem.serviceType` por ítem | Una mesa puede pedir un plato **para llevar**; sale marcado en la comanda. |
 | Canal `LOCAL` / `PEYA` + `channelMarkupPercent` | En PEYA todo sube un % global (ej. 40 %). La orden guarda el % que se usó. |
 | Método de pago `PEYA` | Separado de `EFECTIVO`, `QR` y `TARJETA` para cuadrar lo que liquida PedidosYa. |
+| Método `CUENTA POR COBRAR` | Para fiado: queda registrada la deuda y se cobra después. |
 | Nada se borra | Anular = cambiar estado + motivo + hora. Pagos anulados quedan como devueltos. |
 | `*StatusLog` y horas por estado | Reportes de tiempos de preparación y "deshacer" en cocina. |
 | `DomainEvent` (outbox) | Reconexión del KDS sin perder comandas. |
@@ -96,13 +97,25 @@ erDiagram
 ### Estados
 
 ```
-Orden:    ABIERTA ──cobrar──▶ PAGADA ──comandas entregadas──▶ CERRADA
+Orden:    POR PAGAR ──cobrar──▶ PAGADA ──comandas entregadas──▶ CERRADA
              └──────────── anular (con motivo) ────────────▶ ANULADA
+          "Por pagar" no frena a cocina: se puede enviar a cocina antes de cobrar.
           Una orden PAGADA no se modifica: solo se puede anular.
 
 Comanda:  PENDIENTE ─▶ EN PREPARACIÓN ─▶ LISTA ─▶ ENTREGADA     (+ ANULADA)
           Cada paso se puede deshacer al anterior.
 ```
+
+### Pantalla de venta
+
+- Productos en botones grandes por categoría, con buscador (ignora tildes).
+- Canal **Local / PEYA** (PEYA muestra ya los precios con recargo y es para llevar).
+- **Comer aquí / Para llevar** por orden y por ítem: un plato para llevar en una mesa sale marcado
+  `PARA LLEVAR`.
+- **Mesa** y **nombre del cliente** en cualquier orden. Para comer aquí se pide al menos uno de los dos.
+- Tocar una línea abre su editor: cantidad, modificadores, nota para cocina y para llevar.
+- **Por pagar** lista las órdenes abiertas; tocar una permite agregarle ítems (se cobran con el mismo
+  % PEYA con que se abrió).
 
 ### Usuarios de ejemplo (seed)
 
@@ -118,7 +131,7 @@ Comanda:  PENDIENTE ─▶ EN PREPARACIÓN ─▶ LISTA ─▶ ENTREGADA     (+ 
 
 | Sección | Admin | Caja | Cocina |
 |---|:-:|:-:|:-:|
-| Vender, órdenes, historial | ✅ | ✅ | — |
+| Vender, por pagar, historial | ✅ | ✅ | — |
 | Pantalla de cocina | ✅ | ✅ (ver) | ✅ |
 | Catálogo (precios, productos) | ✅ | — | — |
 | Ajustes (% PEYA, tiempos de cocina) | ✅ | — | — |
@@ -199,7 +212,7 @@ La tablet de cocina y la PC que corre el POS deben estar en **la misma red WiFi*
 - [x] 1. Setup y estructura
 - [x] 2. Modelo de datos
 - [x] 3. Catálogo, login con PIN y ajustes
-- [ ] 4. Pantalla POS y carrito
+- [x] 4. Pantalla de venta (POS) y órdenes por pagar
 - [ ] 5. Envío a cocina + KDS en tiempo real
 - [ ] 6. Cobro y ticket
 - [ ] 7. Anulaciones e historial
