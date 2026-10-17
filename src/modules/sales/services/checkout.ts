@@ -4,7 +4,7 @@ import { DomainError } from "@/core/errors";
 import type { PaymentMethod } from "@/generated/prisma/enums";
 import { hasOpenTickets } from "@/modules/kitchen";
 
-import { discountCents, settle, type DiscountInput, type PaymentEntry } from "../domain/checkout";
+import { allowedPaymentMethods, discountCents, settle, type DiscountInput, type PaymentEntry } from "../domain/checkout";
 import { paymentMethodLabel } from "../domain/labels";
 import { orderSubtotal } from "../domain/totals";
 
@@ -55,6 +55,14 @@ export async function payOrder(orderId: string, input: PayOrderInput, userId: st
     const discount = discountCents(subtotal, input.discount);
     const total = subtotal - discount;
 
+    const allowed = allowedPaymentMethods(order.channel);
+    if (input.entries.some((e) => e.amountCents > 0 && !allowed.includes(e.method))) {
+      throw new DomainError(
+        order.channel === "PEYA"
+          ? "Una orden PEYA solo se cobra con PEYA."
+          : "PEYA solo se usa en órdenes hechas por el canal PEYA.",
+      );
+    }
     const result = settle(total, input.entries);
     if (!result.ok) throw new DomainError(result.error);
 

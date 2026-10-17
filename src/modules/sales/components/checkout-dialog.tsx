@@ -12,10 +12,9 @@ import type { PaymentMethod, SalesChannel } from "@/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 
 import { payOrderAction } from "../actions";
-import { discountCents, settle, type PaymentEntry } from "../domain/checkout";
+import { allowedPaymentMethods, discountCents, settle, type PaymentEntry } from "../domain/checkout";
 import { paymentMethodLabel } from "../domain/labels";
 
-const METHODS: PaymentMethod[] = ["CASH", "QR", "CARD", "PEYA", "CREDIT"];
 
 /** Texto → centavos; vacío o inválido = 0 (el formulario lo marca). */
 function cents(text: string): number {
@@ -39,6 +38,7 @@ export function CheckoutDialog({
   onClose: () => void;
   onPaid: () => void;
 }) {
+  const methods = allowedPaymentMethods(order.channel);
   const [discountType, setDiscountType] = useState<"AMOUNT" | "PERCENT">("AMOUNT");
   const [discountText, setDiscountText] = useState("");
   const [lines, setLines] = useState<Line[]>([
@@ -123,9 +123,11 @@ export function CheckoutDialog({
         </div>
 
         <div className="space-y-2">
-          <Label>Forma de pago (se puede combinar)</Label>
+          <Label>
+            {order.channel === "PEYA" ? "Forma de pago (orden PEYA: solo PEYA)" : "Forma de pago (se puede combinar)"}
+          </Label>
           <div className="flex flex-wrap gap-2">
-            {METHODS.map((m) => {
+            {methods.map((m) => {
               const on = lines.some((l) => l.method === m);
               return (
                 <button

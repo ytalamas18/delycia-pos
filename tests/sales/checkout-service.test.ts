@@ -82,7 +82,7 @@ describe("cobrar una orden", () => {
 
     await orders.sendToKitchen(order.id); // se puede enviar estando pagada
     const ticket = await db.kitchenTicket.findFirstOrThrow({ where: { orderId: order.id } });
-    for (let i = 0; i < 3; i++) await tickets.advanceTicket(ticket.id, caja.id);
+    for (let i = 0; i < 2; i++) await tickets.advanceTicket(ticket.id, caja.id); // empezar → lista
     expect((await orders.getOrder(order.id))?.status).toBe("CLOSED");
 
     // Deshacer la entrega reabre la orden a PAGADA
@@ -98,6 +98,20 @@ describe("cobrar una orden", () => {
       checkout.payOrder(order.id, { discount: null, entries: [{ method: "QR", amountCents: 1000 }] }, caja.id),
     ).rejects.toThrow("ya fue cobrada");
     await expect(orders.addItems(order.id, [line(gaseosa.id)])).rejects.toThrow("no se puede modificar");
+  });
+
+  it("una orden PEYA solo se cobra con PEYA, y PEYA no se usa en órdenes del local", async () => {
+    const { caja, plato } = await fixtures();
+    const peya = await orders.createOrder({ channel: "PEYA", serviceType: "TAKEAWAY" }, [line(plato.id)], caja.id);
+    await expect(
+      checkout.payOrder(peya.id, { discount: null, entries: [{ method: "CASH", amountCents: 5300 }] }, caja.id),
+    ).rejects.toThrow("solo se cobra con PEYA");
+    await checkout.payOrder(peya.id, { discount: null, entries: [{ method: "PEYA", amountCents: 5300 }] }, caja.id);
+
+    const local = await orders.createOrder({ channel: "LOCAL", serviceType: "TAKEAWAY" }, [line(plato.id)], caja.id);
+    await expect(
+      checkout.payOrder(local.id, { discount: null, entries: [{ method: "PEYA", amountCents: 3800 }] }, caja.id),
+    ).rejects.toThrow("PEYA solo se usa");
   });
 
   it("si falta dinero no cobra nada", async () => {

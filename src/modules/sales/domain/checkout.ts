@@ -1,5 +1,13 @@
 import { type Cents, percentOf } from "@/core/money";
-import type { DiscountType, PaymentMethod } from "@/generated/prisma/enums";
+import type { DiscountType, PaymentMethod, SalesChannel } from "@/generated/prisma/enums";
+
+/**
+ * Métodos permitidos según el canal de la orden:
+ * una orden PEYA se cobra SOLO con PEYA; una orden del local nunca con PEYA.
+ */
+export function allowedPaymentMethods(channel: SalesChannel): PaymentMethod[] {
+  return channel === "PEYA" ? ["PEYA"] : ["CASH", "QR", "CARD", "CREDIT"];
+}
 
 export type DiscountInput = { type: DiscountType; value: number } | null;
 
