@@ -1,11 +1,12 @@
 import { requireModule } from "@/components/shell/require-module";
+import { can } from "@/core/auth/permissions";
+import { requirePermission } from "@/core/auth/server";
+import { getKdsSnapshot, KdsBoard } from "@/modules/kitchen";
 
-export default function CocinaPage() {
+export default async function CocinaPage() {
   requireModule("kitchen");
-  return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold">Cocina</h1>
-      <p className="text-xl text-muted-foreground">Pendiente: pantalla KDS en el paso 5.</p>
-    </div>
-  );
+  const session = await requirePermission("kitchen.view");
+  const snapshot = await getKdsSnapshot();
+  // Caja puede mirar la pantalla de cocina, pero solo cocina (y admin) cambian estados.
+  return <KdsBoard initial={snapshot} canOperate={can(session.role, "kitchen.operate")} />;
 }
