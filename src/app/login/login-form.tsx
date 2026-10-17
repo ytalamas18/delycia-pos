@@ -75,7 +75,7 @@ export function LoginForm({ users }: { users: LoginUser[] }) {
             />
           ))}
         </div>
-        <p className="h-6 text-center font-medium text-destructive" role="alert">
+        <p className="min-h-6 text-center font-medium text-destructive" role="alert">
           {pending ? "Verificando…" : state.error}
         </p>
 

@@ -31,6 +31,9 @@ model User {
   pinHash   String
   role      Role
   active    Boolean  @default(true)
+  /// Intentos de PIN fallidos seguidos; al llegar al límite se bloquea un rato (lockedUntil).
+  failedPinAttempts Int       @default(0)
+  lockedUntil       DateTime?
   orders    Order[]  @relation("OrderCreatedBy")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

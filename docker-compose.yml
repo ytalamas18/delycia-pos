@@ -30,6 +30,10 @@ services:
       target: build
     environment:
       DATABASE_URL: postgresql://delycia:${POSTGRES_PASSWORD:-delycia}@db:5432/delycia?schema=public
+      # PIN iniciales (solo al crear usuarios); si faltan, el seed los genera y los imprime en este log.
+      ADMIN_PIN: ${ADMIN_PIN:-}
+      CAJA_PIN: ${CAJA_PIN:-}
+      COCINA_PIN: ${COCINA_PIN:-}
     command: sh -c "npx prisma migrate deploy && npx prisma db seed"
     depends_on:
       db:

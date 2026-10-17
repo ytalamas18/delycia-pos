@@ -13,14 +13,17 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   const userId = String(formData.get("userId") ?? "");
   const pin = String(formData.get("pin") ?? "");
 
-  const user = await authenticate(userId, pin);
-  if (!user) {
+  const result = await authenticate(userId, pin);
+  if (!result.ok) {
     // Pequeña pausa para que adivinar PINs sea lento.
     await new Promise((r) => setTimeout(r, 600));
+    if (result.reason === "locked") {
+      return { error: `Demasiados intentos. Prueba en ${result.minutesLeft} min o pide al Admin que cambie el PIN.` };
+    }
     return { error: "PIN incorrecto" };
   }
-  await setSessionCookie(await createSessionToken(user));
-  redirect(homeFor(user.role));
+  await setSessionCookie(await createSessionToken(result.user));
+  redirect(homeFor(result.user.role));
 }
 
 export async function logoutAction() {

@@ -12,14 +12,14 @@ import { resetDatabase } from "../support/db";
 describe("seed y ajustes", () => {
   beforeAll(async () => {
     await resetDatabase();
-    await seed(db);
+    await seed(db, { Caja: "4827" });
   });
   afterAll(disconnectDb);
 
   it("carga usuarios con PIN hasheado", async () => {
     const caja = await db.user.findUniqueOrThrow({ where: { name: "Caja" } });
-    expect(caja.pinHash).not.toBe("1111");
-    expect(await verifyPin("1111", caja.pinHash)).toBe(true);
+    expect(caja.pinHash).not.toBe("4827");
+    expect(await verifyPin("4827", caja.pinHash)).toBe(true);
     expect(await db.user.count()).toBe(3);
   });
 
@@ -60,7 +60,7 @@ describe("seed y ajustes", () => {
 
   it("el menú se carga una sola vez: reiniciar no pisa cambios hechos desde Catálogo", async () => {
     await db.product.updateMany({ where: { name: "Lomito Simple" }, data: { priceCents: 3600, name: "Lomito Clásico" } });
-    expect(await seed(db)).toEqual({ loaded: false, updates: [] });
+    expect(await seed(db)).toEqual({ loaded: false, updates: [], users: [] });
     expect(await db.product.count({ where: { name: "Lomito Simple" } })).toBe(0);
     expect(await db.product.count()).toBe(55);
   });

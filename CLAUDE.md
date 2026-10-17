@@ -71,6 +71,8 @@ tests/   core, catalog, sales, kitchen, integration, support (db reset, catálog
 - Comanda: `PENDING → IN_PROGRESS → READY` (**READY = entregada**, pasa a "Recientes"); deshacer vuelve un paso.
 - Canal **PEYA**: precio = (lista + modificadores) × (1 + %) redondeado al Bs entero; % global en Ajustes (seed 40);
   la orden guarda su %; **orden PEYA se cobra solo con PEYA** y PEYA no existe en órdenes del local.
+- **PIN:** nunca en el repo (ni README ni docs). Seed: `ADMIN_PIN`/`CAJA_PIN`/`COCINA_PIN` o aleatorios impresos
+  una vez. Cambio en Ajustes (Admin + su PIN; rechaza PIN débiles). 5 fallos seguidos → bloqueo 15 min.
 - Pagos: EFECTIVO (vuelto), QR, TARJETA, PEYA, CUENTA POR COBRAR (exige nombre; abonos en `CreditCollection`). Pago mixto.
 - Apertura de caja obligatoria antes de vender; **una por día, no editable**. Cierre: arqueo efectivo/QR/tarjeta.
 
@@ -82,14 +84,15 @@ npm install            # .npmrc usa legacy-peer-deps (bug de npm 10.9 con peers 
 docker compose up -d db
 npm run db:migrate     # migrate dev + prisma generate
 npm run db:seed
-npm run dev            # http://localhost:3000  — Admin 1234 · Caja 1111 · Cocina 2222 (PIN de desarrollo)
+npm run dev            # http://localhost:3000  — PIN: ADMIN_PIN/CAJA_PIN/COCINA_PIN del .env o los que imprime el seed
 ```
 Todo en Docker: `docker compose up --build -d` (db → migrate+seed → app). `down -v` borra la base.
 
 ## Variables de entorno (ver `.env.example`)
 
 `DATABASE_URL`, `TEST_DATABASE_URL`, `POSTGRES_PASSWORD` (compose), `SESSION_SECRET` (≥16 caracteres),
-`COOKIE_SECURE` (`true` solo con HTTPS). Docker inyecta `NODE_ENV`, `PORT`, `HOSTNAME`.
+`COOKIE_SECURE` (`true` solo con HTTPS),
+`ADMIN_PIN`/`CAJA_PIN`/`COCINA_PIN` (opcionales, solo al crear los usuarios). Docker inyecta `NODE_ENV`, `PORT`, `HOSTNAME`.
 
 ## Comandos
 

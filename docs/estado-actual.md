@@ -15,7 +15,8 @@ efectivo/QR/tarjeta, PDF, CSV y 80 mm · menú real (55 productos) con actualiza
 
 1. **Anulaciones** (ítem u orden con motivo; ítem ya en cocina → comanda marcada ANULADA). Pospuesto por Yasser.
    Los estados y campos (`VOIDED`, `CANCELLED`, `voidReason`, `refundedAt`) ya existen en el modelo.
-2. **Seguridad antes de exponer a internet:** cambiar PIN (no hay pantalla), rate limit de login, `COOKIE_SECURE`.
+2. ✅ Seguridad de login: PIN fuera del repo, cambio en Ajustes, bloqueo tras 5 fallos. Sin HTTPS por decisión.
+   Limitación: cambiar un PIN no cierra las sesiones abiertas (la cookie dura hasta 14 h).
 3. **Respaldo** automático de la base.
 4. Precios de **Extra cheddar** y **Extra mozzarella** (Yasser los carga con "+ Modificador a todos").
 5. Renombrar "Hamburguesa Onion Doble/Triple" → lo hace Yasser desde Catálogo.

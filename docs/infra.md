@@ -18,7 +18,7 @@ Notas del entorno de desarrollo (sandbox de Claude, NO del proyecto): para const
 un Dockerfile/compose temporal con la CA del proxy y `network: host`; Docker Hub dio 429 y se usó
 `mirror.gcr.io`. En la PC de Yasser no aplica.
 
-## 2. Decisión de hosting (PROPUESTA, pendiente de confirmar por Yasser)
+## 2. Decisión de hosting
 
 Recomendada: **una EC2 `t4g.small` (ARM/Graviton) en `sa-east-1` (São Paulo)** con Docker Compose.
 
@@ -43,32 +43,33 @@ Costos verificados en la **AWS Price List API** (sa-east-1, lista publicada 2026
 Por qué: costo bajo, sin NAT Gateway ni ALB, una sola instancia (el hub SSE es en memoria), buen material de
 portafolio (Terraform + CI/CD + backups + OIDC). Volver a verificar precios antes de crear recursos.
 
-**Decisiones abiertas:**
-1. EC2 vs Lightsail.
-2. **Todo en la nube vs mixto** (app en una PC del local + AWS solo para respaldos). Riesgo de la nube: si se cae
-   el internet del local, caja y cocina dejan de funcionar → plan B con hotspot 4G.
-3. **Dominio** (necesario para HTTPS; costo no verificado). Ej.: `pos.<dominio>`.
+**Decidido por Yasser (17/10/2026):**
+- **EC2** en la nube, **sin dominio**: se entra por `http://<Elastic IP>`. Sin HTTPS por ahora (acepta que el
+  tráfico, incluidos los PIN, viaje en texto plano) → `COOKIE_SECURE=false`, Caddy queda para después.
+- Opción futura sin comprar dominio: Let's Encrypt emite certificados para **IP** (GA desde 15/01/2026, vida de
+  ~6 días, perfil `shortlived`, reto http-01/tls-alpn-01). Soporte en Caddy sin confirmar (ver caddy#7399).
+- Pendiente: todo en la nube vs mixto (riesgo: sin internet en el local no hay caja ni cocina → hotspot 4G).
 
 ## 3. Pendiente / sin probar
 
 - Nada de AWS creado: ni cuenta configurada para el proyecto, ni Terraform, ni workflows de GitHub Actions.
 - **Build ARM64** (Graviton) no probado (Prisma 7 + adapter pg en alpine arm64).
 - Sin **respaldo** automático de la base (ni local ni en la nube).
-- Sin **Caddy/HTTPS**; `COOKIE_SECURE` existe pero nunca se usó en `true`.
-- Antes de exponer a internet (bloqueante): cambiar PIN de desarrollo (son públicos en el README), limitar
-  intentos de login, `SESSION_SECRET` y `POSTGRES_PASSWORD` reales.
+- Sin **HTTPS** (decisión: por ahora HTTP con la IP).
+- ✅ Hecho: PIN fuera del repo (seed con variables `*_PIN` o aleatorios), cambio de PIN en Ajustes, bloqueo
+  15 min tras 5 fallos, cabeceras de seguridad. Falta: `SESSION_SECRET` y `POSTGRES_PASSWORD` reales en la EC2
+  (SSM Parameter Store) y que el Security Group no exponga el 5432.
 
 ## 4. Próximos pasos (en orden)
 
-1. Yasser confirma: EC2/Lightsail, nube/mixto, dominio.
-2. Seguridad mínima en la app: pantalla para cambiar PIN (o PIN iniciales por variable de entorno), rate limit
-   de login, `COOKIE_SECURE=true` detrás de HTTPS.
+1. ✅ EC2 sin dominio. 2. ✅ Seguridad mínima de la app (PIN, bloqueo, cabeceras).
+   Yasser en paralelo: cuenta AWS (MFA, usuario admin, Budgets, CLI con perfil `delycia`).
 3. Script de respaldo `pg_dump` (local para Windows y para la EC2 → S3 con retención 30 días).
-4. Terraform (`infra/`): VPC con subred pública, Security Group 80/443, EC2 + Elastic IP, rol IAM con SSM,
+4. Terraform (`infra/`): VPC con subred pública, Security Group 80 (443 cuando haya HTTPS), EC2 + Elastic IP, rol IAM con SSM,
    ECR, bucket S3 de respaldos, AWS Budgets, alarma CloudWatch con auto-recovery. Estado remoto en S3.
 5. GitHub Actions: `ci.yml` (lint, typecheck, test con Postgres service) y `deploy.yml` (OIDC → build arm64 →
    ECR → `docker compose pull && up -d` vía SSM).
-6. `docker-compose.prod.yml` con Caddy y la imagen de ECR.
+6. `docker-compose.prod.yml` con la imagen de ECR (app en el puerto 80; Caddy cuando haya HTTPS).
 7. README de infra con diagrama y el porqué de cada decisión (portafolio).
 
 ## 5. Accesos necesarios (sin secretos)

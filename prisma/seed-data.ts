@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { hashPin } from "../src/core/auth/pin";
+import { hashPin, randomPin } from "../src/core/auth/pin";
 import type { PrismaClient } from "../src/generated/prisma/client";
 
 /**
@@ -51,22 +51,38 @@ const CATEGORIES = [
  */
 const BASE_MENU_VERSION = 1;
 
-export async function seedUsersAndSettings(db: PrismaClient) {
-  // PIN de desarrollo: cámbialos antes de usar en el local.
+export type SeedPins = Partial<Record<"Admin" | "Caja" | "Cocina", string>>;
+
+/** PIN iniciales desde variables de entorno (ADMIN_PIN, CAJA_PIN, COCINA_PIN). Ningún PIN vive en el repo. */
+function pinsFromEnv(): SeedPins {
+  return { Admin: process.env.ADMIN_PIN, Caja: process.env.CAJA_PIN, Cocina: process.env.COCINA_PIN };
+}
+
+/**
+ * Crea los 3 usuarios si no existen. El PIN sale de `pins` (o del entorno); si falta, se genera uno
+ * aleatorio y se devuelve para mostrarlo UNA vez en la consola del seed. Después se cambian en Ajustes.
+ */
+export async function seedUsersAndSettings(db: PrismaClient, pins: SeedPins = pinsFromEnv()) {
   const users = [
-    { name: "Admin", pin: "1234", role: "ADMIN" as const },
-    { name: "Caja", pin: "1111", role: "CASHIER" as const },
-    { name: "Cocina", pin: "2222", role: "KITCHEN" as const },
+    { name: "Admin", role: "ADMIN" as const },
+    { name: "Caja", role: "CASHIER" as const },
+    { name: "Cocina", role: "KITCHEN" as const },
   ];
+  const created: { name: string; pin: string; generated: boolean }[] = [];
   for (const u of users) {
     const exists = await db.user.findUnique({ where: { name: u.name } });
-    if (!exists) await db.user.create({ data: { name: u.name, role: u.role, pinHash: await hashPin(u.pin) } });
+    if (exists) continue;
+    const given = pins[u.name as keyof SeedPins];
+    const pin = given || randomPin();
+    await db.user.create({ data: { name: u.name, role: u.role, pinHash: await hashPin(pin) } });
+    created.push({ name: u.name, pin, generated: !given });
   }
   await db.setting.upsert({
     where: { key: "sales.peyaMarkupPercent" },
     create: { key: "sales.peyaMarkupPercent", value: 40 },
     update: {},
   });
+  return created;
 }
 
 /** Carga el menú real desde prisma/data/menu-delycia.json (solo la primera vez). */
@@ -186,10 +202,10 @@ export async function removeExampleCatalog(db: PrismaClient) {
   await db.category.deleteMany({ where: { name: { in: ["Platos"] }, products: { none: {} } } });
 }
 
-export async function seed(db: PrismaClient) {
-  await seedUsersAndSettings(db);
+export async function seed(db: PrismaClient, pins?: SeedPins) {
+  const users = await seedUsersAndSettings(db, pins);
   await removeExampleCatalog(db);
   const menu = await seedMenu(db);
   const updates = await applyMenuUpdates(db);
-  return { ...menu, updates };
+  return { ...menu, updates, users };
 }

@@ -209,15 +209,17 @@ categoría de un toque (ej. Extra cheddar a todas las hamburguesas).
 - En cocina aparece arriba, grande y en azul, con un sonido distinto al de las comandas, hasta que
   alguien toca **"Visto ✔"**. Caja recibe la confirmación: *"Cocina vio: MÁS PAPA"*.
 
-### Usuarios de ejemplo (seed)
+### Usuarios y PIN
 
-| Usuario | PIN | Perfil |
-|---|---|---|
-| Admin | 1234 | Todo |
-| Caja | 1111 | Ventas y cobro |
-| Cocina | 2222 | Pantalla de cocina |
+El seed crea **Admin**, **Caja** y **Cocina**. Ningún PIN está en el repositorio:
 
-> Son PIN de desarrollo: cámbialos antes de usar el sistema en el local.
+- Si defines `ADMIN_PIN`, `CAJA_PIN` y `COCINA_PIN` (en `.env`), se usan esos.
+- Si no, el seed genera PIN aleatorios y los muestra **una sola vez** en su salida
+  (`npm run db:seed` o `docker compose logs migrate`).
+
+Después, el Admin los cambia en **Ajustes → PIN de usuarios** (confirmando con su propio PIN). No se aceptan PIN
+fáciles (1111, 1234, años). Tras 5 intentos fallidos seguidos el usuario queda bloqueado 15 minutos; cambiarle
+el PIN lo desbloquea.
 
 ### Qué puede hacer cada perfil
 
