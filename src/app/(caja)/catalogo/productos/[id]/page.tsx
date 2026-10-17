@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { appConfig } from "@/core/config/app";
+import { formatMoneyInput } from "@/core/money";
 import { getProduct, listCategories, ModifierEditor, ProductForm } from "@/modules/catalog";
 
 export default async function EditarProductoPage({ params, searchParams }: PageProps<"/catalogo/productos/[id]">) {
@@ -10,9 +10,7 @@ export default async function EditarProductoPage({ params, searchParams }: PageP
   const [product, categories] = await Promise.all([getProduct(id), listCategories()]);
   if (!product) notFound();
 
-  // El formulario muestra el precio en Bs, como lo escribiría el usuario: 3800 → "38", 3850 → "38,50"
-  const { decimals } = appConfig.currency;
-  const price = (product.priceCents / 10 ** decimals).toFixed(decimals).replace(".", ",").replace(/,0+$/, "");
+  const price = formatMoneyInput(product.priceCents);
 
   return (
     <>

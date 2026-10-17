@@ -54,3 +54,9 @@ export function roundTo(cents: Cents, unitCents: Cents): Cents {
 
 /** Una unidad entera de la moneda en centavos (1 Bs = 100). */
 export const WHOLE_UNIT: Cents = factor;
+
+/** Centavos → texto para un campo editable, como lo escribiría el usuario: 3800 → "38", 3850 → "38,50". */
+export function formatMoneyInput(cents: Cents): string {
+  const { decimals } = appConfig.currency;
+  return (cents / factor).toFixed(decimals).replace(".", ",").replace(/,0+$/, "");
+}
