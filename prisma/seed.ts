@@ -1,9 +1,16 @@
-// Datos de ejemplo. Se completa en el paso 2 (modelo de datos).
-async function main() {
-  console.log("Seed: todavía no hay modelos que poblar.");
-}
+import "dotenv/config";
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+import { PrismaPg } from "@prisma/adapter-pg";
+
+import { PrismaClient } from "../src/generated/prisma/client";
+import { seed } from "./seed-data";
+
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
+
+seed(db)
+  .then(() => console.log("Seed listo: usuarios, ajustes y catálogo de ejemplo."))
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(() => db.$disconnect());
