@@ -4,7 +4,7 @@ import { DomainError } from "@/core/errors";
 import type { Prisma } from "@/generated/prisma/client";
 import type { TicketStatus } from "@/generated/prisma/enums";
 
-import { nextStatus, previousStatus, statusTimestamp } from "../domain/status";
+import { ACTIVE_STATUSES, DONE_STATUSES, nextStatus, previousStatus, statusTimestamp } from "../domain/status";
 
 const ticketInclude = {
   items: { orderBy: { createdAt: "asc" as const } },
@@ -12,20 +12,20 @@ const ticketInclude = {
 
 export type TicketWithItems = Prisma.KitchenTicketGetPayload<{ include: typeof ticketInclude }>;
 
-/** Comandas en curso (pendiente, en preparación, lista), de la más antigua a la más nueva. */
+/** Comandas en curso (pendientes y en preparación), de la más antigua a la más nueva. */
 export function listActiveTickets() {
   return db.kitchenTicket.findMany({
-    where: { status: { in: ["PENDING", "IN_PROGRESS", "READY"] } },
+    where: { status: { in: ACTIVE_STATUSES } },
     include: ticketInclude,
     orderBy: { receivedAt: "asc" },
   });
 }
 
-/** Entregadas o anuladas en las últimas horas, para poder deshacer un toque por error. */
+/** Listas (= entregadas) o anuladas en las últimas horas, para poder deshacer un toque por error. */
 export function listRecentTickets(hours = 3) {
   return db.kitchenTicket.findMany({
     where: {
-      status: { in: ["DELIVERED", "CANCELLED"] },
+      status: { in: DONE_STATUSES },
       updatedAt: { gte: new Date(Date.now() - hours * 3600_000) },
     },
     include: ticketInclude,
@@ -55,7 +55,7 @@ export async function kitchenSummaryByOrder(orderIds: string[]) {
  */
 export async function hasOpenTickets(orderId: string, client: Tx = db): Promise<boolean> {
   const open = await client.kitchenTicket.count({
-    where: { orderId, status: { in: ["PENDING", "IN_PROGRESS", "READY"] } },
+    where: { orderId, status: { in: ACTIVE_STATUSES } },
   });
   return open > 0;
 }
@@ -103,7 +103,7 @@ async function moveTo(
   }
 }
 
-/** Un toque: pendiente → en preparación → lista → entregada. */
+/** Un toque: pendiente → en preparación → lista (= entregada). */
 export function advanceTicket(ticketId: string, userId: string | null) {
   return runInTransaction(async (tx, publish) => {
     const ticket = await lockTicket(tx, ticketId);
@@ -114,7 +114,7 @@ export function advanceTicket(ticketId: string, userId: string | null) {
   });
 }
 
-/** Deshacer: vuelve un paso atrás (ej. se marcó "entregada" por error). */
+/** Deshacer: vuelve un paso atrás (ej. se marcó "lista" por error: vuelve a "En curso"). */
 export function undoTicket(ticketId: string, userId: string | null) {
   return runInTransaction(async (tx, publish) => {
     const ticket = await lockTicket(tx, ticketId);

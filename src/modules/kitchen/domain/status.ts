@@ -1,7 +1,16 @@
 import type { TicketStatus } from "@/generated/prisma/enums";
 
-/** Flujo normal de una comanda. ANULADA queda fuera del flujo. */
-const FLOW: TicketStatus[] = ["PENDING", "IN_PROGRESS", "READY", "DELIVERED"];
+/**
+ * Flujo de una comanda: pendiente → en preparación → lista.
+ * "Lista" ya cuenta como entregada (en Delycia se entrega apenas sale de cocina).
+ * ENTREGADA queda solo por compatibilidad con datos viejos; ANULADA está fuera del flujo.
+ */
+const FLOW: TicketStatus[] = ["PENDING", "IN_PROGRESS", "READY"];
+
+/** Estados en los que la comanda sigue en cocina ("En curso"). */
+export const ACTIVE_STATUSES: TicketStatus[] = ["PENDING", "IN_PROGRESS"];
+/** Estados terminados ("Recientes"). */
+export const DONE_STATUSES: TicketStatus[] = ["READY", "DELIVERED", "CANCELLED"];
 
 export function nextStatus(status: TicketStatus): TicketStatus | null {
   const i = FLOW.indexOf(status);
@@ -26,7 +35,6 @@ export const statusTimestamp = {
 export const advanceLabel: Partial<Record<TicketStatus, string>> = {
   PENDING: "Empezar",
   IN_PROGRESS: "Marcar lista",
-  READY: "Entregada",
 };
 
 export type WaitLevel = "ok" | "warn" | "danger";

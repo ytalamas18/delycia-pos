@@ -13,10 +13,9 @@ import { SendToKitchenButton } from "./send-to-kitchen-button";
 /** Resume en una etiqueta lo que pasa en cocina con todas las comandas de una orden. */
 function kitchenBadge(statuses: TicketStatus[] | undefined): { text: string; className: string } | null {
   if (!statuses?.length) return null;
-  if (statuses.includes("READY")) return { text: "🍽 Lista para entregar", className: "bg-green-600 text-white" };
   if (statuses.includes("IN_PROGRESS")) return { text: "Preparando", className: "bg-yellow-400 text-black" };
   if (statuses.includes("PENDING")) return { text: "En cola de cocina", className: "bg-blue-600 text-white" };
-  return { text: "Entregada", className: "bg-secondary" };
+  return { text: "🍽 Lista / entregada", className: "bg-green-600 text-white" };
 }
 
 const time = new Intl.DateTimeFormat("es-BO", { hour: "2-digit", minute: "2-digit", timeZone: appConfig.timezone });

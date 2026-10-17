@@ -116,7 +116,7 @@ describe("estados de la comanda", () => {
     return { ticket, user };
   }
 
-  it("avanza con un toque, guarda la hora de cada estado y avisa cuando está lista", async () => {
+  it("avanza con un toque, guarda la hora de cada estado y 'lista' es el final (= entregada)", async () => {
     const { ticket, user } = await ticketWithTwoItems();
     expect(ticket.label).toBe("PEYA · Ana");
 
@@ -130,20 +130,22 @@ describe("estados de la comanda", () => {
     const readyEvents = await db.domainEvent.findMany({ where: { type: "ticket.ready" } });
     expect(readyEvents).toHaveLength(1);
 
-    expect(await tickets.advanceTicket(ticket.id, user.id)).toBe("DELIVERED");
+    // Lista = entregada: sale de "En curso" y pasa a "Recientes"
+    expect(await listActiveTickets()).toEqual([]);
+    expect((await tickets.listRecentTickets()).map((t) => t.id)).toEqual([ticket.id]);
     await expect(tickets.advanceTicket(ticket.id, user.id)).rejects.toThrow("no se puede avanzar");
-    expect(await db.ticketStatusLog.count({ where: { ticketId: ticket.id } })).toBe(4);
+    expect(await db.ticketStatusLog.count({ where: { ticketId: ticket.id } })).toBe(3);
   });
 
-  it("deshacer vuelve un paso y borra la hora del estado deshecho", async () => {
+  it("deshacer 'lista' la devuelve a En curso y borra la hora de lista", async () => {
     const { ticket, user } = await ticketWithTwoItems();
     await tickets.advanceTicket(ticket.id, user.id);
-    await tickets.advanceTicket(ticket.id, user.id);
-    await tickets.advanceTicket(ticket.id, user.id); // entregada por error
-    expect(await tickets.undoTicket(ticket.id, user.id)).toBe("READY");
+    await tickets.advanceTicket(ticket.id, user.id); // lista por error
+    expect(await tickets.undoTicket(ticket.id, user.id)).toBe("IN_PROGRESS");
     const t = await tickets.getTicket(ticket.id);
-    expect(t?.deliveredAt).toBeNull();
-    expect(t?.readyAt).not.toBeNull();
+    expect(t?.readyAt).toBeNull();
+    expect(t?.startedAt).not.toBeNull();
+    expect((await listActiveTickets()).map((x) => x.id)).toEqual([ticket.id]);
   });
 
   it("marcar ítems uno por uno: el primero la pone en preparación y el último la deja lista", async () => {

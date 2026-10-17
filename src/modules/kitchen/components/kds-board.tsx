@@ -104,7 +104,7 @@ export function KdsBoard({ initial, canOperate }: { initial: KdsSnapshot; canOpe
 
       {tickets.length === 0 ? (
         <p className="py-20 text-center text-2xl text-muted-foreground">
-          {tab === "active" ? "No hay comandas pendientes 👌" : "Nada entregado en las últimas horas."}
+          {tab === "active" ? "No hay comandas pendientes 👌" : "Nada listo en las últimas horas."}
         </p>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] items-start gap-4">
@@ -169,8 +169,7 @@ function TicketCard({
       className={cn(
         "flex flex-col overflow-hidden rounded-xl border-4 bg-card",
         inKitchen && levelStyles[level],
-        ticket.status === "READY" && "border-green-400 bg-green-950",
-        ticket.status === "DELIVERED" && "border-border opacity-80",
+        (ticket.status === "READY" || ticket.status === "DELIVERED") && "border-green-700 opacity-90",
         cancelled && "border-red-600 bg-red-950",
         pending && "opacity-60",
       )}
@@ -193,8 +192,9 @@ function TicketCard({
             {minutes} min
           </span>
         )}
-        {ticket.status === "READY" && <span className="rounded-lg bg-green-500 px-3 py-1 text-xl font-bold text-black">LISTA</span>}
-        {ticket.status === "DELIVERED" && <span className="text-lg font-semibold text-muted-foreground">Entregada</span>}
+        {(ticket.status === "READY" || ticket.status === "DELIVERED") && (
+          <span className="rounded-lg bg-green-600 px-3 py-1 text-lg font-bold text-white">LISTA ✔</span>
+        )}
       </header>
 
       {cancelled && (
