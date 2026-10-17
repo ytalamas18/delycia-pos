@@ -4,7 +4,7 @@ Punto de venta web para **Delycia** (restaurante casual boliviano, Santa Cruz de
 Fase 1: **Ventas + Cocina (KDS)** en tiempo real, con la arquitectura preparada para sumar
 reportería, inventario, costos/recetas, clientes y roles sin reescribir lo existente.
 
-> Estado: **paso 1 de 7, setup y estructura**. Ver [Hoja de ruta](#hoja-de-ruta).
+> Estado: **paso 2 de 7, modelo de datos**. Ver [Hoja de ruta](#hoja-de-ruta).
 
 ---
 
@@ -64,6 +64,56 @@ reconecta, pide lo que se perdió desde su último id: **no se pierde ninguna co
 suscriptores. Si pones `enabled: false`, desaparece del menú, sus rutas devuelven 404 y sus
 eventos dejan de escucharse.
 
+## Modelo de datos
+
+```mermaid
+erDiagram
+    Category ||--o{ Product : agrupa
+    Product ||--o{ ProductModifier : "tiene opciones"
+    User ||--o{ Order : abre
+    Order ||--o{ OrderItem : contiene
+    Order ||--o{ Payment : "se paga con"
+    Order ||--o{ OrderStatusLog : historial
+    Order ||--o{ KitchenTicket : "genera (1 + adicionales)"
+    KitchenTicket ||--o{ KitchenTicketItem : contiene
+    KitchenTicket ||--o{ TicketStatusLog : historial
+    OrderItem ||--o| KitchenTicketItem : "se cocina como"
+```
+
+| Decisión | Por qué |
+|---|---|
+| Montos en centavos (`Int`) | Sin errores de redondeo de `float`. |
+| `OrderItem` guarda **copia** del nombre, precio y modificadores | Si mañana cambia el precio de un plato, las ventas pasadas no cambian. |
+| `OrderItem.sentToKitchenAt` | `null` = todavía no se envió. "Enviar a cocina" manda solo esos. |
+| `OrderItem.serviceType` por ítem | Una mesa puede pedir un plato **para llevar**; sale marcado en la comanda. |
+| Canal `LOCAL` / `PEYA` + `channelMarkupPercent` | En PEYA todo sube un % global (ej. 40 %). La orden guarda el % que se usó. |
+| Método de pago `PEYA` | Separado de `EFECTIVO`, `QR` y `TARJETA` para cuadrar lo que liquida PedidosYa. |
+| Nada se borra | Anular = cambiar estado + motivo + hora. Pagos anulados quedan como devueltos. |
+| `*StatusLog` y horas por estado | Reportes de tiempos de preparación y "deshacer" en cocina. |
+| `DomainEvent` (outbox) | Reconexión del KDS sin perder comandas. |
+| `businessDate` en la orden | Numeración y reportes por día de Santa Cruz (America/La_Paz), no por día UTC. |
+
+### Estados
+
+```
+Orden:    ABIERTA ──cobrar──▶ PAGADA ──comandas entregadas──▶ CERRADA
+             └──────────── anular (con motivo) ────────────▶ ANULADA
+          Una orden PAGADA no se modifica: solo se puede anular.
+
+Comanda:  PENDIENTE ─▶ EN PREPARACIÓN ─▶ LISTA ─▶ ENTREGADA     (+ ANULADA)
+          Cada paso se puede deshacer al anterior.
+```
+
+### Usuarios de ejemplo (seed)
+
+| Usuario | PIN | Perfil |
+|---|---|---|
+| Admin | 1234 | Todo |
+| Caja | 1111 | Ventas y cobro |
+| Cocina | 2222 | Pantalla de cocina |
+
+> Son PIN de desarrollo: cámbialos antes de usar el sistema en el local.
+
 ---
 
 ## Correr en local con Docker (recomendado)
@@ -119,7 +169,7 @@ La tablet de cocina y la PC que corre el POS deben estar en **la misma red WiFi*
 | Comando | Qué hace |
 |---|---|
 | `npm run dev` | Servidor de desarrollo |
-| `npm test` | Tests (Vitest) |
+| `npm test` | Tests (Vitest). Los de integración usan la base `delycia_test` (`TEST_DATABASE_URL`) |
 | `npm run lint` | ESLint (incluye las reglas de fronteras entre módulos) |
 | `npm run typecheck` | Verificación de tipos |
 | `npm run db:migrate` | Crea/aplica migraciones en desarrollo |
@@ -128,7 +178,7 @@ La tablet de cocina y la PC que corre el POS deben estar en **la misma red WiFi*
 ## Hoja de ruta
 
 - [x] 1. Setup y estructura
-- [ ] 2. Modelo de datos
+- [x] 2. Modelo de datos
 - [ ] 3. Catálogo
 - [ ] 4. Pantalla POS y carrito
 - [ ] 5. Envío a cocina + KDS en tiempo real
