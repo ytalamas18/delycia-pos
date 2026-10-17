@@ -76,7 +76,6 @@ model Product {
   priceCents     Int
   /// false = no genera comanda (ej. gaseosas).
   sendsToKitchen Boolean           @default(true)
-  imageUrl       String?
   active         Boolean           @default(true)
   sortOrder      Int               @default(0)
   modifiers      ProductModifier[]
