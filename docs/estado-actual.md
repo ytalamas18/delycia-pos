@@ -1,6 +1,6 @@
 # Estado actual de la app — 17/10/2026
 
-86 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: extras como modificadores (menú v2).
+91 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: extras como modificadores (menú v2).
 
 ## Hecho
 

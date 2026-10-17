@@ -12,5 +12,8 @@ export default defineConfig({
     globalSetup: ["tests/support/global-setup.ts"],
     // Los tests de integración comparten una base: se corren de a un archivo.
     fileParallelism: false,
+    // Integración contra Postgres real: el seed (menú + hash de PIN con bcrypt) puede pasar de 5 s.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
   },
 });
