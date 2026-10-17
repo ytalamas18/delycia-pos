@@ -4,6 +4,8 @@
  */
 export const appConfig = {
   businessName: "Delycia",
+  /** Zona horaria del local: define el "día de negocio" (numeración de órdenes, reportes). */
+  timezone: "America/La_Paz",
 
   currency: {
     code: "BOB",
