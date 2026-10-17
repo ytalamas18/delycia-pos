@@ -5,7 +5,7 @@ export const salesModule: ModuleDefinition = {
   name: "Ventas",
   navItems: [
     { label: "Vender", href: "/pos" },
-    { label: "Órdenes abiertas", href: "/ordenes" },
+    { label: "Por pagar", href: "/ordenes" },
     { label: "Historial", href: "/historial" },
   ],
 };

@@ -1,11 +1,25 @@
-import { requireModule } from "@/components/shell/require-module";
+import { Plus } from "lucide-react";
+import Link from "next/link";
 
-export default function Page() {
+import { requireModule } from "@/components/shell/require-module";
+import { Button } from "@/components/ui/button";
+import { requirePermission } from "@/core/auth/server";
+import { OpenOrders } from "@/modules/sales";
+
+export default async function OrdenesPage() {
   requireModule("sales");
+  await requirePermission("sales.sell");
   return (
-    <div className="space-y-2">
-      <h1 className="text-2xl font-bold">Órdenes abiertas</h1>
-      <p className="text-muted-foreground">Pendiente: se construye en el paso 4.</p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold">Órdenes por pagar</h1>
+        <Button asChild>
+          <Link href="/pos">
+            <Plus /> Nueva orden
+          </Link>
+        </Button>
+      </div>
+      <OpenOrders />
     </div>
   );
 }
