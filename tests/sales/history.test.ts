@@ -12,6 +12,7 @@ import * as orders from "@/modules/sales/services/orders";
 
 import { seed } from "../../prisma/seed-data";
 import { resetDatabase } from "../support/db";
+import { seedTestCatalog } from "../support/test-catalog";
 
 const line = (productId: string) => ({ productId, quantity: 1, modifierIds: [], note: "", serviceType: "TAKEAWAY" as const });
 
@@ -29,6 +30,7 @@ afterAll(async () => {
 describe("historial y cierre de caja", () => {
   it("filtra el historial del día y arma el cierre con arqueo", async () => {
     await seed(db);
+  await seedTestCatalog(db);
     const caja = await db.user.findUniqueOrThrow({ where: { name: "Caja" } });
     const plato = await db.product.findFirstOrThrow({ where: { name: "Majadito (ejemplo)" } });
     const gaseosa = await db.product.findFirstOrThrow({ where: { name: "Gaseosa 500 ml (ejemplo)" } });
@@ -58,8 +60,12 @@ describe("historial y cierre de caja", () => {
     const saved = await history.saveClosing(today, { openingCashCents: 20000, countedCashCents: 25500 }, caja.id);
     expect(saved).toMatchObject({ expectedCashCents: 25800, differenceCents: -300 });
     // se puede corregir el mismo día
-    const fixed = await history.saveClosing(today, { openingCashCents: 20000, countedCashCents: 25800 }, caja.id);
-    expect(fixed.differenceCents).toBe(0);
+    const fixed = await history.saveClosing(
+      today,
+      { openingCashCents: 20000, countedCashCents: 25800, countedQrCents: 0, countedCardCents: null },
+      caja.id,
+    );
+    expect(fixed).toMatchObject({ differenceCents: 0, expectedQrCents: 0, countedQrCents: 0, countedCardCents: null });
     expect(await db.cashClosing.count()).toBe(1);
   });
 });

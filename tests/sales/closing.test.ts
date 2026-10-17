@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cashCount, summarizeDay, type ClosingOrder } from "@/modules/sales/domain/closing";
+import { arqueo, cashCount, summarizeDay, type ClosingOrder } from "@/modules/sales/domain/closing";
 
 const order = (o: Partial<ClosingOrder>): ClosingOrder => ({
   status: "CLOSED",
@@ -73,5 +73,12 @@ describe("cierre del día", () => {
 
   it("arqueo: esperado = fondo + efectivo del día; diferencia = contado - esperado", () => {
     expect(cashCount(summary, 10000, 16500)).toEqual({ expectedCashCents: 16800, differenceCents: -300 });
+  });
+
+  it("arqueo de QR y tarjeta contra lo del sistema (sin fondo inicial)", () => {
+    const r = arqueo(summary, { openingCashCents: 0, countedCashCents: 6800, countedQrCents: 2500, countedCardCents: null });
+    expect(r.cash).toEqual({ expectedCents: 6800, countedCents: 6800, differenceCents: 0 });
+    expect(r.qr).toEqual({ expectedCents: 3000, countedCents: 2500, differenceCents: -500 });
+    expect(r.card).toEqual({ expectedCents: 0, countedCents: null, differenceCents: null });
   });
 });

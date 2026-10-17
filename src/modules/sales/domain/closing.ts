@@ -99,3 +99,31 @@ export function cashCount(summary: DailySummary, openingCashCents: Cents, counte
   const expectedCashCents = openingCashCents + summary.moneyInByMethod.CASH;
   return { expectedCashCents, differenceCents: countedCashCents - expectedCashCents };
 }
+
+export type ArqueoInput = {
+  openingCashCents: Cents;
+  countedCashCents: Cents;
+  /** null = no se revisó ese medio. */
+  countedQrCents: Cents | null;
+  countedCardCents: Cents | null;
+};
+
+export type ArqueoLine = { expectedCents: Cents; countedCents: Cents | null; differenceCents: Cents | null };
+
+/**
+ * Arqueo completo: efectivo (con fondo inicial), QR (vs. app del banco) y tarjeta (vs. datáfono).
+ * PEYA y cuentas por cobrar no se cuentan: no es dinero que esté en el local.
+ */
+export function arqueo(summary: DailySummary, input: ArqueoInput): { cash: ArqueoLine; qr: ArqueoLine; card: ArqueoLine } {
+  const line = (expectedCents: Cents, countedCents: Cents | null): ArqueoLine => ({
+    expectedCents,
+    countedCents,
+    differenceCents: countedCents === null ? null : countedCents - expectedCents,
+  });
+  const cash = cashCount(summary, input.openingCashCents, input.countedCashCents);
+  return {
+    cash: { expectedCents: cash.expectedCashCents, countedCents: input.countedCashCents, differenceCents: cash.differenceCents },
+    qr: line(summary.moneyInByMethod.QR, input.countedQrCents),
+    card: line(summary.moneyInByMethod.CARD, input.countedCardCents),
+  };
+}

@@ -103,8 +103,18 @@ export async function ClosingView({ date }: { date: string }) {
         <CardContent>
           <ClosingForm
             date={date}
-            cashInCents={s.moneyInByMethod.CASH}
-            saved={saved ? { openingCashCents: saved.openingCashCents, countedCashCents: saved.countedCashCents, notes: saved.notes } : null}
+            moneyIn={{ cash: s.moneyInByMethod.CASH, qr: s.moneyInByMethod.QR, card: s.moneyInByMethod.CARD }}
+            saved={
+              saved
+                ? {
+                    openingCashCents: saved.openingCashCents,
+                    countedCashCents: saved.countedCashCents,
+                    countedQrCents: saved.countedQrCents,
+                    countedCardCents: saved.countedCardCents,
+                    notes: saved.notes,
+                  }
+                : null
+            }
           />
         </CardContent>
       </Card>

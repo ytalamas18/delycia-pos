@@ -142,6 +142,12 @@ export async function collectCreditAction(_prev: ActionResult, fd: FormData): Pr
   });
 }
 
+/** Campo opcional: vacío = no se revisó ese medio. */
+function optionalMoney(value: FormDataEntryValue | null): number | null {
+  const text = String(value ?? "").trim();
+  return text ? parseMoneySafe(text) : null;
+}
+
 function parseMoneySafe(text: string): number {
   try {
     return parseMoney(text);
@@ -163,6 +169,8 @@ export async function saveClosingAction(_prev: ActionResult, fd: FormData): Prom
       {
         openingCashCents: parseMoneySafe(String(fd.get("opening") || "0")),
         countedCashCents: parseMoneySafe(String(fd.get("counted") ?? "")),
+        countedQrCents: optionalMoney(fd.get("countedQr")),
+        countedCardCents: optionalMoney(fd.get("countedCard")),
         notes: String(fd.get("notes") ?? ""),
       },
       session.userId,

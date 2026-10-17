@@ -52,11 +52,22 @@ export default async function ImprimirCierrePage({ params }: PageProps<"/imprimi
           <L label="Fondo inicial" value={formatMoney(saved.openingCashCents)} />
           <L label="Efectivo esperado" value={formatMoney(saved.expectedCashCents)} />
           <L label="Efectivo contado" value={formatMoney(saved.countedCashCents)} />
-          <L
-            label={saved.differenceCents === 0 ? "Diferencia" : saved.differenceCents < 0 ? "FALTA" : "SOBRA"}
-            value={formatMoney(Math.abs(saved.differenceCents))}
-            bold
-          />
+          <Diff label="Efectivo" diff={saved.differenceCents} />
+          {saved.countedQrCents !== null && (
+            <>
+              <L label="QR sistema / banco" value={`${formatMoney(saved.expectedQrCents)} / ${formatMoney(saved.countedQrCents)}`} />
+              <Diff label="QR" diff={saved.countedQrCents - saved.expectedQrCents} />
+            </>
+          )}
+          {saved.countedCardCents !== null && (
+            <>
+              <L
+                label="Tarjeta sistema / datáfono"
+                value={`${formatMoney(saved.expectedCardCents)} / ${formatMoney(saved.countedCardCents)}`}
+              />
+              <Diff label="Tarjeta" diff={saved.countedCardCents - saved.expectedCardCents} />
+            </>
+          )}
           {saved.notes && <div className="mt-1">Obs.: {saved.notes}</div>}
           <div className="mt-1 text-[12px]">
             Cerró {closedByName} · {dateTime.format(saved.closedAt)}
@@ -70,6 +81,16 @@ export default async function ImprimirCierrePage({ params }: PageProps<"/imprimi
       ))}
       <PrintOnLoad />
     </div>
+  );
+}
+
+function Diff({ label, diff }: { label: string; diff: number }) {
+  return (
+    <L
+      label={`${label}: ${diff === 0 ? "cuadra" : diff < 0 ? "FALTA" : "SOBRA"}`}
+      value={diff === 0 ? "✔" : formatMoney(Math.abs(diff))}
+      bold
+    />
   );
 }
 

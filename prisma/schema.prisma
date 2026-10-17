@@ -349,6 +349,11 @@ model CashClosing {
   countedCashCents  Int
   /// Contado - esperado (negativo = falta, positivo = sobra).
   differenceCents   Int
+  /// QR y tarjeta: lo que registró el sistema vs. lo que muestra el banco / el datáfono.
+  expectedQrCents   Int      @default(0)
+  countedQrCents    Int?
+  expectedCardCents Int      @default(0)
+  countedCardCents  Int?
   notes             String?
   /// Copia del resumen del día al momento del cierre.
   summary           Json

@@ -4,7 +4,7 @@ import { businessDayRange } from "@/core/time";
 import type { Prisma } from "@/generated/prisma/client";
 import type { OrderStatus, PaymentMethod, SalesChannel, ServiceType } from "@/generated/prisma/enums";
 
-import { cashCount, summarizeDay, type DailySummary } from "../domain/closing";
+import { arqueo, summarizeDay, type DailySummary } from "../domain/closing";
 
 export type HistoryFilters = {
   status?: OrderStatus;
@@ -55,19 +55,32 @@ export async function getDailyClosing(date: string) {
 /** Guarda (o corrige) el cierre de caja del día con el arqueo de efectivo. */
 export async function saveClosing(
   date: string,
-  input: { openingCashCents: number; countedCashCents: number; notes?: string | null },
+  input: {
+    openingCashCents: number;
+    countedCashCents: number;
+    countedQrCents?: number | null;
+    countedCardCents?: number | null;
+    notes?: string | null;
+  },
   userId: string,
 ) {
-  for (const value of [input.openingCashCents, input.countedCashCents]) {
-    if (!Number.isSafeInteger(value) || value < 0) throw new DomainError("Los montos deben ser 0 o más.");
-  }
-  const { summary } = await getDailyClosing(date);
-  const { expectedCashCents, differenceCents } = cashCount(summary, input.openingCashCents, input.countedCashCents);
-  const data = {
+  const counted = {
     openingCashCents: input.openingCashCents,
     countedCashCents: input.countedCashCents,
-    expectedCashCents,
-    differenceCents,
+    countedQrCents: input.countedQrCents ?? null,
+    countedCardCents: input.countedCardCents ?? null,
+  };
+  for (const value of Object.values(counted)) {
+    if (value !== null && (!Number.isSafeInteger(value) || value < 0)) throw new DomainError("Los montos deben ser 0 o más.");
+  }
+  const { summary } = await getDailyClosing(date);
+  const result = arqueo(summary, counted);
+  const data = {
+    ...counted,
+    expectedCashCents: result.cash.expectedCents,
+    differenceCents: result.cash.differenceCents ?? 0,
+    expectedQrCents: result.qr.expectedCents,
+    expectedCardCents: result.card.expectedCents,
     notes: input.notes?.trim() || null,
     summary: summary as unknown as Prisma.InputJsonValue,
     closedById: userId,
