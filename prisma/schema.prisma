@@ -336,3 +336,24 @@ model TicketStatusLog {
 
   @@index([ticketId])
 }
+
+/// Cierre de caja de un día de negocio. Se puede volver a guardar (corregir) ese mismo día.
+model CashClosing {
+  id                String   @id @default(cuid())
+  businessDate      String   @unique
+  /// Fondo con el que abrió la caja.
+  openingCashCents  Int      @default(0)
+  /// Efectivo esperado = fondo + efectivo de ventas + efectivo cobrado de fiados.
+  expectedCashCents Int
+  /// Efectivo contado al cerrar (arqueo).
+  countedCashCents  Int
+  /// Contado - esperado (negativo = falta, positivo = sobra).
+  differenceCents   Int
+  notes             String?
+  /// Copia del resumen del día al momento del cierre.
+  summary           Json
+  closedById        String
+  closedAt          DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
