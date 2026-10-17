@@ -40,6 +40,7 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
               note: i.note,
               serviceType: i.serviceType,
               modifiers: (i.modifiers as { name: string }[]).map((m) => m.name),
+              sendsToKitchen: i.sendsToKitchen,
               sentToKitchen: i.sentToKitchenAt !== null,
             })),
         }

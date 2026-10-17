@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { modules } from "@/config/modules";
 import { appConfig } from "@/core/config/app";
 import { getSession } from "@/core/auth/server";
+import { ReadyNotifier } from "@/modules/sales";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default async function CajaLayout({ children }: LayoutProps<"/">) {
         </div>
       </header>
       <main className="flex-1 p-4">{children}</main>
+      <ReadyNotifier />
     </div>
   );
 }

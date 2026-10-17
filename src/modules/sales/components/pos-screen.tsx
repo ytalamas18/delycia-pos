@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock } from "lucide-react";
+import { ChefHat, Lock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -101,15 +101,19 @@ export function PosScreen({
   };
   const canSave = order ? true : drafts.length > 0;
 
-  function save() {
+  const unsentKitchen =
+    (order?.items ?? []).filter((i) => i.sendsToKitchen && !i.sentToKitchen).length +
+    drafts.filter((d) => productById.get(d.productId)?.sendsToKitchen).length;
+
+  function save(send: boolean) {
     startTransition(async () => {
       if (order) {
-        const result = await saveOrderChangesAction(order.id, info, drafts);
+        const result = await saveOrderChangesAction(order.id, info, drafts, { send });
         setStatus(result);
         if (result.ok) setDrafts([]);
         return;
       }
-      const result = await createOrderAction({ channel: header.channel, ...info }, drafts);
+      const result = await createOrderAction({ channel: header.channel, ...info }, drafts, { send });
       setStatus(result);
       if (result.ok) {
         setDrafts([]);
@@ -238,10 +242,19 @@ export function PosScreen({
             <Button variant="outline" size="lg" onClick={resetToNewOrder} disabled={pending}>
               Nueva
             </Button>
-            <Button size="lg" onClick={save} disabled={pending || !canSave}>
-              {pending ? "Guardando…" : order ? "Guardar cambios" : "Guardar orden"}
+            <Button variant="secondary" size="lg" onClick={() => save(false)} disabled={pending || !canSave}>
+              {order ? "Guardar cambios" : "Guardar"}
             </Button>
           </div>
+          <Button
+            size="lg"
+            className="h-16 w-full text-xl"
+            onClick={() => save(true)}
+            disabled={pending || !canSave || unsentKitchen === 0}
+          >
+            <ChefHat className="size-6" />
+            {pending ? "Enviando…" : `Enviar a cocina${unsentKitchen > 0 ? ` (${unsentKitchen})` : ""}`}
+          </Button>
         </div>
       </aside>
 

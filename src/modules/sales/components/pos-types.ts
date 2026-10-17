@@ -23,6 +23,7 @@ export type PosSavedItem = {
   note: string | null;
   serviceType: ServiceType;
   modifiers: string[];
+  sendsToKitchen: boolean;
   sentToKitchen: boolean;
 };
 

@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import Link from "next/link";
 
+import { LiveRefresh } from "@/components/shell/live-refresh";
 import { requireModule } from "@/components/shell/require-module";
 import { Button } from "@/components/ui/button";
 import { requirePermission } from "@/core/auth/server";
@@ -20,6 +21,8 @@ export default async function OrdenesPage() {
         </Button>
       </div>
       <OpenOrders />
+      {/* Se actualiza sola cuando cambia algo en ventas o cocina */}
+      <LiveRefresh prefixes={["order.", "ticket."]} />
     </div>
   );
 }
