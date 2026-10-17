@@ -1,3 +1,4 @@
+import { can, permissionForPath } from "../auth/permissions";
 import type { ModuleDefinition, NavItem, Role } from "./types";
 
 export type ModuleEntry = { definition: ModuleDefinition; enabled: boolean };
@@ -10,7 +11,12 @@ export function createModuleRegistry(entries: ModuleEntry[]) {
     enabledModules: () => enabled,
     isEnabled: (id: string) => enabled.some((m) => m.id === id),
     navFor: (role: Role): NavItem[] =>
-      enabled.flatMap((m) => m.navItems).filter((item) => item.roles.includes(role)),
+      enabled
+        .flatMap((m) => m.navItems)
+        .filter((item) => {
+          const permission = permissionForPath(item.href);
+          return permission === null || can(role, permission);
+        }),
     registerAllSubscribers: () => {
       for (const m of enabled) m.registerSubscribers?.();
     },

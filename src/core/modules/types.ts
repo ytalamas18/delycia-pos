@@ -1,11 +1,11 @@
-/** Perfiles de usuario. Hoy: caja y cocina (+ admin). La estructura admite permisos finos después. */
-export type Role = "ADMIN" | "CASHIER" | "KITCHEN";
+import type { Role } from "../auth/permissions";
 
+export type { Role };
+
+/** Enlace del menú. Quién lo ve se decide por el permiso de su ruta (core/auth/permissions). */
 export type NavItem = {
   label: string;
   href: string;
-  /** Roles que ven este enlace. */
-  roles: Role[];
 };
 
 /**

@@ -16,7 +16,7 @@ const eslintConfig = defineConfig([
         {
           patterns: [
             {
-              group: ["@/modules/*/*", "**/modules/*/*"],
+              group: ["@/modules/*/**", "**/modules/*/**"],
               message: "Importa solo la API pública del módulo: '@/modules/<modulo>'.",
             },
           ],
