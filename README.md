@@ -4,7 +4,7 @@ Punto de venta web para **Delycia** (restaurante casual boliviano, Santa Cruz de
 Fase 1: **Ventas + Cocina (KDS)** en tiempo real, con la arquitectura preparada para sumar
 reportería, inventario, costos/recetas, clientes y roles sin reescribir lo existente.
 
-> Estado: **paso 2 de 7, modelo de datos**. Ver [Hoja de ruta](#hoja-de-ruta).
+> Estado: **paso 3 de 7, catálogo y login**. Ver [Hoja de ruta](#hoja-de-ruta).
 
 ---
 
@@ -114,6 +114,25 @@ Comanda:  PENDIENTE ─▶ EN PREPARACIÓN ─▶ LISTA ─▶ ENTREGADA     (+ 
 
 > Son PIN de desarrollo: cámbialos antes de usar el sistema en el local.
 
+### Qué puede hacer cada perfil
+
+| Sección | Admin | Caja | Cocina |
+|---|:-:|:-:|:-:|
+| Vender, órdenes, historial | ✅ | ✅ | — |
+| Pantalla de cocina | ✅ | ✅ (ver) | ✅ |
+| Catálogo (precios, productos) | ✅ | — | — |
+| Ajustes (% PEYA, tiempos de cocina) | ✅ | — | — |
+
+Los permisos están en un solo lugar (`src/core/auth/permissions.ts`): de ahí salen tanto el menú
+como el bloqueo de rutas (`src/proxy.ts`) y de acciones del servidor. Para crear perfiles nuevos
+en el futuro, ese mapa pasa a la base de datos sin tocar el resto.
+
+### PEYA
+
+En **Ajustes** se define el recargo para PedidosYa (ej. 40 %). Se aplica a todos los productos y
+el precio se **redondea al boliviano entero**: 38 Bs → 53 Bs; 10 Bs → 14 Bs. La pantalla muestra
+una vista previa con productos reales antes de guardar.
+
 ---
 
 ## Correr en local con Docker (recomendado)
@@ -179,7 +198,7 @@ La tablet de cocina y la PC que corre el POS deben estar en **la misma red WiFi*
 
 - [x] 1. Setup y estructura
 - [x] 2. Modelo de datos
-- [ ] 3. Catálogo
+- [x] 3. Catálogo, login con PIN y ajustes
 - [ ] 4. Pantalla POS y carrito
 - [ ] 5. Envío a cocina + KDS en tiempo real
 - [ ] 6. Cobro y ticket
