@@ -11,6 +11,17 @@ export const SESSION_HOURS = 14; // cubre un turno largo
 
 export type SessionUser = { userId: string; name: string; role: Role };
 
+/**
+ * ¿La cookie de sesión lleva el flag Secure? Solo si la app se sirve por HTTPS (si no, el navegador
+ * la descarta y nadie puede iniciar sesión). COOKIE_SECURE ("true"/"false") manda; si falta, se deduce
+ * de APP_URL (la URL base pública, ej. http://54.0.0.1 o https://pos.delycia.com).
+ */
+export function cookieSecure(env: Record<string, string | undefined> = process.env): boolean {
+  if (env.COOKIE_SECURE === "true") return true;
+  if (env.COOKIE_SECURE === "false") return false;
+  return env.APP_URL?.trim().toLowerCase().startsWith("https://") ?? false;
+}
+
 function secretKey() {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 16) {

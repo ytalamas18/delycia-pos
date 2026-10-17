@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { can, homeFor, permissionForPath } from "@/core/auth/permissions";
-import { createSessionToken, readSessionToken } from "@/core/auth/session";
+import { cookieSecure, createSessionToken, readSessionToken } from "@/core/auth/session";
 
 describe("permisos", () => {
   it("solo Admin gestiona catálogo y ajustes", () => {
@@ -31,5 +31,15 @@ describe("sesión firmada", () => {
     const forged = Buffer.from(JSON.stringify({ sub: "u1", name: "Caja", role: "ADMIN" })).toString("base64url");
     expect(await readSessionToken(`${header}.${forged}.${signature}`)).toBeNull();
     expect(await readSessionToken(undefined)).toBeNull();
+  });
+});
+
+describe("cookie Secure", () => {
+  it("solo con HTTPS: COOKIE_SECURE manda y si falta se deduce de APP_URL", () => {
+    expect(cookieSecure({})).toBe(false);
+    expect(cookieSecure({ APP_URL: "http://54.232.10.20" })).toBe(false);
+    expect(cookieSecure({ APP_URL: "https://pos.delycia.com" })).toBe(true);
+    expect(cookieSecure({ APP_URL: "https://pos.delycia.com", COOKIE_SECURE: "false" })).toBe(false);
+    expect(cookieSecure({ APP_URL: "http://54.232.10.20", COOKIE_SECURE: "true" })).toBe(true);
   });
 });

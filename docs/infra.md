@@ -1,6 +1,9 @@
 # Infraestructura — Delycia POS
 
-Estado al 17/10/2026. **Todavía no hay nada desplegado en AWS**: solo existe la infraestructura local (Docker).
+Estado al 17/10/2026. **Despliegue manual de prueba listo para lanzar** (aún sin recursos creados): EC2 + User Data,
+ver `docs/deploy-manual.md`. Archivos: `docker-compose.prod.yml` (db sin puertos, migrate, app, Caddy :80),
+`Caddyfile` (SSE sin buffer; HTTPS cambiando `SITE_ADDRESS`), `infra/user-data.sh`, `.env.production.example`.
+Probado en local con Docker (build, migraciones + seed, login por Caddy, SSE). No probado aún en AWS.
 
 ## 1. Qué está configurado y funcionando (local)
 

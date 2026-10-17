@@ -1,0 +1,40 @@
+# Caddy: reverse proxy delante de la app (Next.js en app:3000).
+#
+# La dirección del sitio sale de la variable SITE_ADDRESS (en .env, la arma infra/user-data.sh desde APP_URL):
+#   :80                          → HTTP por la Elastic IP (hoy, sin dominio). Sin certificados.
+#   pos.delycia.com              → HTTPS automático con Let's Encrypt (el DNS debe apuntar a la Elastic IP
+#                                  y el Security Group abrir 80 y 443).
+#   54-232-10-20.sslip.io        → HTTPS SIN comprar dominio: sslip.io resuelve ese nombre a 54.232.10.20
+#                                  (cambia los puntos de tu Elastic IP por guiones). Servicio de terceros.
+# Al pasar a HTTPS basta cambiar APP_URL en Parameter Store (https://...) y volver a correr el setup:
+# SITE_ADDRESS y la cookie Secure se ajustan solos. Si prefieres editar este archivo, es SOLO la línea de abajo.
+
+{$SITE_ADDRESS::80} {
+	# Sin "encode": Next ya comprime, y así nada intenta acumular el stream de tiempo real.
+
+	reverse_proxy app:3000 {
+		# Tiempo real de cocina (SSE en /api/realtime): enviar cada byte al instante, sin buffer.
+		flush_interval -1
+		# Conexiones largas: sin límite de lectura de la respuesta; al recargar la config de Caddy
+		# se espera 5 min antes de cortar los streams abiertos (las pantallas igual reconectan solas).
+		transport http {
+			read_timeout 0
+			write_timeout 0
+			keepalive 5m
+		}
+		stream_close_delay 5m
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
+
+# --- Alternativa explícita para HTTPS (equivale a poner el dominio en SITE_ADDRESS) ---
+# pos.delycia.com {
+# 	reverse_proxy app:3000 {
+# 		flush_interval -1
+# 		stream_close_delay 5m
+# 	}
+# }

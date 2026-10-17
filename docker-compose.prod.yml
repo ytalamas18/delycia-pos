@@ -1,0 +1,105 @@
+# Producción en una sola EC2: Postgres + migraciones + app (Next.js) + Caddy (reverse proxy).
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Las variables salen de .env (lo genera infra/user-data.sh desde SSM Parameter Store; ver .env.production.example).
+# Solo Caddy publica puertos (80/443). Postgres y la app quedan en la red interna de Docker.
+
+x-logging: &logging
+  # Rota los logs para no llenar el disco de la EC2.
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: delycia
+      # OJO: Postgres solo la aplica al crear el volumen. Cambiarla después requiere ALTER USER.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: delycia
+      TZ: America/La_Paz
+    # Sin "ports": no se expone al host ni a internet.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U delycia -d delycia"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    shm_size: 128mb
+    logging: *logging
+
+  # Corre en cada `up` antes que la app: aplica migraciones pendientes y el seed idempotente
+  # (usuarios + ajustes; el menú solo si SEED_MENU=true). Termina y queda en estado "exited (0)".
+  migrate:
+    build:
+      context: .
+      target: build
+    image: delycia-pos-build:latest
+    environment:
+      DATABASE_URL: postgresql://delycia:${POSTGRES_PASSWORD}@db:5432/delycia?schema=public
+      SEED_MENU: ${SEED_MENU:-false}
+      # PIN iniciales: solo se usan al CREAR los usuarios (base nueva).
+      ADMIN_PIN: ${ADMIN_PIN:-}
+      CAJA_PIN: ${CAJA_PIN:-}
+      COCINA_PIN: ${COCINA_PIN:-}
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed"
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *logging
+
+  app:
+    build:
+      context: .
+      target: runner
+    image: delycia-pos-app:latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://delycia:${POSTGRES_PASSWORD}@db:5432/delycia?schema=public
+      SESSION_SECRET: ${SESSION_SECRET:?falta SESSION_SECRET en .env}
+      APP_URL: ${APP_URL:?falta APP_URL en .env}
+      # Vacío = se deduce de APP_URL (http → sin Secure, https → con Secure).
+      COOKIE_SECURE: ${COOKIE_SECURE:-}
+      TZ: America/La_Paz
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    logging: *logging
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      # ":80" = HTTP por IP. Con dominio: el dominio (HTTPS automático). Ver Caddyfile.
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # certificados (cuando haya HTTPS)
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:2019/config/ > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    depends_on:
+      app:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

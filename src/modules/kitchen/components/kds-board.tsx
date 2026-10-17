@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { appConfig } from "@/core/config/app";
-import { audioUnlocked, playKitchenMessage, playNewTicket, unlockAudio } from "@/lib/sound";
+import { audioUnlocked, playKitchenMessage, playNewTicket, playReady, unlockAudio } from "@/lib/sound";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { cn } from "@/lib/utils";
 
@@ -79,7 +79,11 @@ export function KdsBoard({ initial, canOperate }: { initial: KdsSnapshot; canOpe
   });
 
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 15_000);
+    const id = setInterval(() => {
+      setNow(Date.now());
+      // Si la tablet suspendió el audio (pantalla apagada, cambio de app), vuelve a pedir el toque.
+      if (!audioUnlocked()) setSoundOn(false);
+    }, 15_000);
     return () => clearInterval(id);
   }, []);
 
@@ -105,9 +109,14 @@ export function KdsBoard({ initial, canOperate }: { initial: KdsSnapshot; canOpe
           <Button
             size="lg"
             className="ml-auto bg-yellow-400 text-black hover:bg-yellow-300"
-            onClick={() => setSoundOn(unlockAudio())}
+            onClick={() => {
+              const ok = unlockAudio();
+              // Tono de prueba: confirma en la cocina que el volumen de la tablet se oye.
+              if (ok) playReady();
+              setSoundOn(ok);
+            }}
           >
-            <Bell /> Toca para activar el sonido
+            <Bell /> Activar sonido
           </Button>
         )}
       </div>

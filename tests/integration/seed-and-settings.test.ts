@@ -106,3 +106,16 @@ describe("seed y ajustes", () => {
     await expect(setSetting(kdsThresholdsSetting, { warnAfterMinutes: 20, dangerAfterMinutes: 10 })).rejects.toThrow();
   });
 });
+
+describe("seed de producción sin menú (SEED_MENU=false)", () => {
+  beforeAll(resetDatabase);
+  afterAll(disconnectDb);
+
+  it("crea usuarios y ajustes pero ningún producto", async () => {
+    const result = await seed(db, {}, { menu: false });
+    expect(result).toMatchObject({ loaded: false, updates: [] });
+    expect(await db.user.count()).toBe(3);
+    expect(await db.product.count()).toBe(0);
+    expect(await db.setting.findUnique({ where: { key: "seed.menuVersion" } })).toBeNull();
+  });
+});

@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { can, homeFor, type Permission } from "./permissions";
-import { readSessionToken, SESSION_COOKIE, SESSION_HOURS, type SessionUser } from "./session";
+import { cookieSecure, readSessionToken, SESSION_COOKIE, SESSION_HOURS, type SessionUser } from "./session";
 
 export async function getSession(): Promise<SessionUser | null> {
   const store = await cookies();
@@ -25,8 +25,8 @@ export async function setSessionCookie(token: string) {
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    // En la red del local se entra por http://IP:3000, así que solo exigimos https en producción con TLS.
-    secure: process.env.COOKIE_SECURE === "true",
+    // Sin dominio se entra por http://IP: el flag Secure solo se pone cuando hay HTTPS.
+    secure: cookieSecure(),
     path: "/",
     maxAge: SESSION_HOURS * 60 * 60,
   });

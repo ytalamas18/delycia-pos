@@ -202,10 +202,14 @@ export async function removeExampleCatalog(db: PrismaClient) {
   await db.category.deleteMany({ where: { name: { in: ["Platos"] }, products: { none: {} } } });
 }
 
-export async function seed(db: PrismaClient, pins?: SeedPins) {
+/**
+ * `menu: false` (SEED_MENU=false en producción) crea solo usuarios y ajustes: el catálogo
+ * se arma a mano desde Catálogo. Sin la marca del menú base, tampoco se aplican sus actualizaciones.
+ */
+export async function seed(db: PrismaClient, pins?: SeedPins, { menu: withMenu = process.env.SEED_MENU !== "false" } = {}) {
   const users = await seedUsersAndSettings(db, pins);
   await removeExampleCatalog(db);
-  const menu = await seedMenu(db);
+  const menu = withMenu ? await seedMenu(db) : { loaded: false as const };
   const updates = await applyMenuUpdates(db);
   return { ...menu, updates, users };
 }
