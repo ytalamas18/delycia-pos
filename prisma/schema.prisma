@@ -1,7 +1,10 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// Modelo de datos de Delycia POS.
+//
+// Convenciones:
+// - Montos en centavos (Int). Nunca Float.
+// - Todas las tablas tienen createdAt/updatedAt; los cambios de estado guardan su propia hora.
+// - Las secciones están separadas por módulo. Un módulo solo lee/escribe SUS tablas
+//   (las FK entre módulos existen solo para integridad).
 
 generator client {
   provider = "prisma-client"
@@ -10,4 +13,304 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ============================================================================
+// TRANSVERSAL (core)
+// ============================================================================
+
+enum Role {
+  ADMIN
+  CASHIER
+  KITCHEN
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  pinHash   String
+  role      Role
+  active    Boolean  @default(true)
+  orders    Order[]  @relation("OrderCreatedBy")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Outbox de eventos de dominio. El id secuencial es el Last-Event-ID del SSE.
+model DomainEvent {
+  id        BigInt   @id @default(autoincrement())
+  type      String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Ajustes editables desde la app (ej. % PEYA, umbrales del KDS).
+model Setting {
+  key       String   @id
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================================================
+// CATÁLOGO
+// ============================================================================
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  sortOrder Int       @default(0)
+  active    Boolean   @default(true)
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Product {
+  id             String            @id @default(cuid())
+  categoryId     String
+  category       Category          @relation(fields: [categoryId], references: [id])
+  name           String
+  priceCents     Int
+  /// false = no genera comanda (ej. gaseosas).
+  sendsToKitchen Boolean           @default(true)
+  imageUrl       String?
+  active         Boolean           @default(true)
+  sortOrder      Int               @default(0)
+  modifiers      ProductModifier[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([categoryId, name])
+  @@index([active])
+}
+
+/// Opciones rápidas por producto, ej. "sin cebolla" (0) o "extra queso" (+5 Bs).
+model ProductModifier {
+  id              String   @id @default(cuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name            String
+  priceDeltaCents Int      @default(0)
+  active          Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([productId, name])
+}
+
+// ============================================================================
+// VENTAS
+// ============================================================================
+
+enum SalesChannel {
+  LOCAL
+  PEYA
+}
+
+enum ServiceType {
+  DINE_IN
+  TAKEAWAY
+}
+
+enum OrderStatus {
+  OPEN
+  PAID
+  CLOSED
+  CANCELLED
+}
+
+enum OrderItemStatus {
+  ACTIVE
+  VOIDED
+}
+
+enum DiscountType {
+  AMOUNT
+  PERCENT
+}
+
+enum PaymentMethod {
+  CASH
+  QR
+  CARD
+  PEYA
+}
+
+/// Correlativo de órdenes por día de negocio (zona horaria del local).
+model DailyCounter {
+  businessDate String   @id // "2026-10-17"
+  lastNumber   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Order {
+  id                   String           @id @default(cuid())
+  businessDate         String // día de negocio, para el número y los reportes
+  number               Int
+  channel              SalesChannel     @default(LOCAL)
+  /// % de recargo aplicado si channel = PEYA (copia al momento de abrir la orden).
+  channelMarkupPercent Decimal          @default(0) @db.Decimal(5, 2)
+  serviceType          ServiceType
+  tableNumber          String?
+  customerName         String?
+  status               OrderStatus      @default(OPEN)
+  subtotalCents        Int              @default(0)
+  discountType         DiscountType?
+  discountValue        Decimal?         @db.Decimal(10, 2)
+  discountCents        Int              @default(0)
+  totalCents           Int              @default(0)
+  openedAt             DateTime         @default(now())
+  paidAt               DateTime?
+  closedAt             DateTime?
+  cancelledAt          DateTime?
+  cancelReason         String?
+  createdById          String
+  createdBy            User             @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  items                OrderItem[]
+  payments             Payment[]
+  statusLog            OrderStatusLog[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@unique([businessDate, number])
+  @@index([status])
+  @@index([businessDate])
+}
+
+model OrderItem {
+  id              String          @id @default(cuid())
+  orderId         String
+  order           Order           @relation(fields: [orderId], references: [id])
+  productId       String
+  // --- copia del producto al momento de la venta ---
+  productName     String
+  /// Precio de lista del producto (sin recargo de canal).
+  listPriceCents  Int
+  /// Precio unitario cobrado (con recargo PEYA y modificadores incluidos).
+  unitPriceCents  Int
+  sendsToKitchen  Boolean
+  /// [{ name, priceDeltaCents }]
+  modifiers       Json            @default("[]")
+  // ---
+  quantity        Int
+  note            String?
+  /// Hereda el de la orden; se puede cambiar por ítem (ej. mesa que pide un plato para llevar).
+  serviceType     ServiceType
+  status          OrderItemStatus @default(ACTIVE)
+  /// null = todavía no se envió a cocina.
+  sentToKitchenAt DateTime?
+  voidReason      String?
+  voidedAt        DateTime?
+  voidedById      String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([orderId])
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id])
+  method        PaymentMethod
+  /// Monto aplicado a la cuenta.
+  amountCents   Int
+  /// Solo efectivo: lo que entregó el cliente y el vuelto.
+  tenderedCents Int?
+  changeCents   Int?
+  /// Si la orden se anula después de pagada, el pago queda como devuelto (no se borra).
+  refundedAt    DateTime?
+  createdById   String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([orderId])
+  @@index([method])
+}
+
+model OrderStatusLog {
+  id         String       @id @default(cuid())
+  orderId    String
+  order      Order        @relation(fields: [orderId], references: [id])
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  reason     String?
+  userId     String?
+  at         DateTime     @default(now())
+
+  @@index([orderId])
+}
+
+// ============================================================================
+// COCINA (solo copias: no consulta tablas de ventas)
+// ============================================================================
+
+enum TicketStatus {
+  PENDING
+  IN_PROGRESS
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+model KitchenTicket {
+  id          String              @id @default(cuid())
+  orderId     String
+  orderNumber Int
+  /// 1 = comanda original; 2, 3... = adicionales de la misma orden.
+  sequence    Int
+  channel     SalesChannel
+  /// "Mesa 4" / "Para llevar · Juan" / "PEYA · Ana"
+  label       String
+  status      TicketStatus        @default(PENDING)
+  receivedAt  DateTime            @default(now())
+  startedAt   DateTime?
+  readyAt     DateTime?
+  deliveredAt DateTime?
+  cancelledAt DateTime?
+  items       KitchenTicketItem[]
+  statusLog   TicketStatusLog[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([orderId, sequence])
+  @@index([status])
+}
+
+model KitchenTicketItem {
+  id          String        @id @default(cuid())
+  ticketId    String
+  ticket      KitchenTicket @relation(fields: [ticketId], references: [id])
+  orderItemId String        @unique
+  name        String
+  quantity    Int
+  /// ["sin cebolla", ...]
+  modifiers   Json          @default("[]")
+  note        String?
+  serviceType ServiceType
+  readyAt     DateTime?
+  voidedAt    DateTime?
+  voidReason  String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([ticketId])
+}
+
+/// Historial de cambios de estado: permite "deshacer" y medir tiempos de preparación.
+model TicketStatusLog {
+  id         String        @id @default(cuid())
+  ticketId   String
+  ticket     KitchenTicket @relation(fields: [ticketId], references: [id])
+  fromStatus TicketStatus?
+  toStatus   TicketStatus
+  userId     String?
+  at         DateTime      @default(now())
+
+  @@index([ticketId])
 }
