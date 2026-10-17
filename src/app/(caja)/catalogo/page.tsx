@@ -1,11 +1,22 @@
-import { requireModule } from "@/components/shell/require-module";
+import { Plus } from "lucide-react";
+import Link from "next/link";
 
-export default function Page() {
-  requireModule("catalog");
+import { Button } from "@/components/ui/button";
+import { CatalogTabs, ProductList } from "@/modules/catalog";
+
+export default function CatalogoPage() {
   return (
-    <div className="space-y-2">
-      <h1 className="text-2xl font-bold">Catálogo</h1>
-      <p className="text-muted-foreground">Pendiente: se construye en el paso 3.</p>
-    </div>
+    <>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold">Catálogo</h1>
+        <Button asChild>
+          <Link href="/catalogo/productos/nuevo">
+            <Plus /> Nuevo producto
+          </Link>
+        </Button>
+      </div>
+      <CatalogTabs active="/catalogo" />
+      <ProductList />
+    </>
   );
 }

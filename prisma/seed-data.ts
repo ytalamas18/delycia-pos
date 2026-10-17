@@ -39,7 +39,7 @@ export async function seed(db: PrismaClient) {
   const products = [
     {
       category: "Platos",
-      name: "Plato del día (ejemplo)",
+      name: "Majadito (ejemplo)",
       priceCents: 3800,
       sendsToKitchen: true,
       modifiers: [

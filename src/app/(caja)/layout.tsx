@@ -1,17 +1,33 @@
+import { LogOut } from "lucide-react";
+import { redirect } from "next/navigation";
+
+import { logoutAction } from "@/app/login/actions";
 import { AppNav } from "@/components/shell/app-nav";
+import { Button } from "@/components/ui/button";
 import { modules } from "@/config/modules";
 import { appConfig } from "@/core/config/app";
+import { getSession } from "@/core/auth/server";
 
 export const dynamic = "force-dynamic";
 
-export default function CajaLayout({ children }: LayoutProps<"/">) {
-  // TODO(paso 2): tomar el rol del usuario logueado. Por ahora se muestra el menú de caja.
-  const items = modules.navFor("CASHIER");
+export default async function CajaLayout({ children }: LayoutProps<"/">) {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  const items = modules.navFor(session.role);
+
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="flex items-center gap-4 border-b px-4 py-2">
         <span className="text-xl font-bold text-primary">{appConfig.businessName}</span>
         <AppNav items={items} />
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">{session.name}</span>
+          <form action={logoutAction}>
+            <Button variant="ghost" size="sm" type="submit">
+              <LogOut className="size-4" /> Salir
+            </Button>
+          </form>
+        </div>
       </header>
       <main className="flex-1 p-4">{children}</main>
     </div>
