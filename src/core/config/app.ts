@@ -17,6 +17,13 @@ export const appConfig = {
     symbolPosition: "before" as "before" | "after",
   },
 
+  /** Datos que salen en el ticket del cliente. */
+  ticket: {
+    address: "Av. San Pablo de Tarso esq. Las Hortensias",
+    phone: "33212850",
+    footer: "¡Gracias por su preferencia!",
+  },
+
   kitchen: {
     /** Minutos de espera para cambiar el color de la tarjeta en el KDS. */
     warnAfterMinutes: 10,

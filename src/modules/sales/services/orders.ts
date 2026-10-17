@@ -37,6 +37,15 @@ export function getOrder(id: string) {
   return db.order.findUnique({ where: { id }, include: orderInclude });
 }
 
+/** Pagadas que todavía no se cierran (cocina no terminó o falta enviarles algo). */
+export function listPaidInProgress() {
+  return db.order.findMany({
+    where: { status: "PAID" },
+    include: orderInclude,
+    orderBy: { paidAt: "asc" },
+  });
+}
+
 /** Órdenes "por pagar" (abiertas), de la más antigua a la más nueva. */
 export function listOpenOrders() {
   return db.order.findMany({

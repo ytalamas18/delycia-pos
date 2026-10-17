@@ -25,6 +25,9 @@ declare module "@/core/events/types" {
       customerName: string | null;
     };
     "order.item_added": { orderId: string; items: OrderItemSnapshot[] };
+    "order.paid": { orderId: string; number: number; totalCents: number; methods: string[] };
+    "order.closed": { orderId: string; number: number };
+    "credit.collected": { paymentId: string; amountCents: number; settled: boolean };
     /** Solo trae los ítems NUEVOS que van a cocina. Cocina crea una comanda con ellos. */
     "order.sent_to_kitchen": {
       orderId: string;

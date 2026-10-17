@@ -215,9 +215,9 @@ model OrderItem {
 }
 
 model Payment {
-  id            String        @id @default(cuid())
+  id            String             @id @default(cuid())
   orderId       String
-  order         Order         @relation(fields: [orderId], references: [id])
+  order         Order              @relation(fields: [orderId], references: [id])
   method        PaymentMethod
   /// Monto aplicado a la cuenta.
   amountCents   Int
@@ -226,12 +226,31 @@ model Payment {
   changeCents   Int?
   /// Si la orden se anula después de pagada, el pago queda como devuelto (no se borra).
   refundedAt    DateTime?
+  /// Solo CUENTA POR COBRAR: a nombre de quién quedó la deuda y cuándo se terminó de pagar.
+  debtorName    String?
+  settledAt     DateTime?
+  collections   CreditCollection[]
   createdById   String
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   @@index([orderId])
   @@index([method])
+  @@index([settledAt])
+}
+
+/// Cobro (total o parcial) de una cuenta por cobrar (fiado).
+model CreditCollection {
+  id          String        @id @default(cuid())
+  paymentId   String
+  payment     Payment       @relation(fields: [paymentId], references: [id])
+  method      PaymentMethod
+  amountCents Int
+  createdById String
+  createdAt   DateTime      @default(now())
+
+  @@index([paymentId])
+  @@index([createdAt])
 }
 
 model OrderStatusLog {

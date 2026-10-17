@@ -49,6 +49,17 @@ export async function kitchenSummaryByOrder(orderIds: string[]) {
   return summary;
 }
 
+/**
+ * ¿Le queda a esta orden alguna comanda sin entregar? (Ventas lo usa para cerrar la orden.)
+ * Acepta la transacción en curso para ver datos todavía no confirmados.
+ */
+export async function hasOpenTickets(orderId: string, client: Tx = db): Promise<boolean> {
+  const open = await client.kitchenTicket.count({
+    where: { orderId, status: { in: ["PENDING", "IN_PROGRESS", "READY"] } },
+  });
+  return open > 0;
+}
+
 async function lockTicket(tx: Tx, ticketId: string) {
   await tx.$queryRaw`SELECT id FROM "KitchenTicket" WHERE id = ${ticketId} FOR UPDATE`;
   const ticket = await tx.kitchenTicket.findUnique({ where: { id: ticketId } });

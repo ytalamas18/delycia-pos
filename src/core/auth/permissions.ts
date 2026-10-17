@@ -27,6 +27,7 @@ export const routePermissions: { prefix: string; permission: Permission }[] = [
   { prefix: "/pos", permission: "sales.sell" },
   { prefix: "/ordenes", permission: "sales.sell" },
   { prefix: "/historial", permission: "sales.sell" },
+  { prefix: "/cuentas-por-cobrar", permission: "sales.sell" },
   { prefix: "/cocina", permission: "kitchen.view" },
 ];
 
