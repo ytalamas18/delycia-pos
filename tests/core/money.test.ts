@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { assertCents, formatMoney, parseMoney, percentOf } from "@/core/money";
+import { assertCents, formatMoney, parseMoney, percentOf, roundTo } from "@/core/money";
 
 describe("dinero en centavos", () => {
   it("parsea montos escritos a mano", () => {
@@ -24,6 +24,11 @@ describe("dinero en centavos", () => {
     expect(percentOf(3800, 10)).toBe(380);
     expect(percentOf(3850, 12.5)).toBe(481); // 481,25 → 481
     expect(percentOf(1, 50)).toBe(1); // 0,5 → 1
+  });
+
+  it("redondea a la unidad entera", () => {
+    expect(roundTo(5320, 100)).toBe(5300);
+    expect(roundTo(5350, 100)).toBe(5400);
   });
 
   it("no acepta floats", () => {

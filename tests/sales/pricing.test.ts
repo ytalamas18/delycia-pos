@@ -7,15 +7,17 @@ describe("precio por canal", () => {
     expect(unitPriceFor({ listPriceCents: 3800, channel: "LOCAL", markupPercent: 40 })).toBe(3800);
   });
 
-  it("PEYA suma el % configurado (38 Bs + 40 % = 53,20 Bs)", () => {
-    expect(unitPriceFor({ listPriceCents: 3800, channel: "PEYA", markupPercent: 40 })).toBe(5320);
+  it("PEYA suma el % y redondea al boliviano (38 Bs + 40 % = 53,20 → 53 Bs)", () => {
+    expect(unitPriceFor({ listPriceCents: 3800, channel: "PEYA", markupPercent: 40 })).toBe(5300);
   });
 
-  it("PEYA también aplica a bebidas y redondea al centavo", () => {
-    // 10 Bs + 12,5 % = 11,25 Bs
-    expect(unitPriceFor({ listPriceCents: 1000, channel: "PEYA", markupPercent: 12.5 })).toBe(1125);
-    // 3,33 Bs + 40 % = 4,662 → 4,66 Bs
-    expect(unitPriceFor({ listPriceCents: 333, channel: "PEYA", markupPercent: 40 })).toBe(466);
+  it("PEYA redondea .50 hacia arriba y también aplica a bebidas", () => {
+    // 25 Bs + 40 % = 35,00
+    expect(unitPriceFor({ listPriceCents: 2500, channel: "PEYA", markupPercent: 40 })).toBe(3500);
+    // 10 Bs + 35 % = 13,50 → 14
+    expect(unitPriceFor({ listPriceCents: 1000, channel: "PEYA", markupPercent: 35 })).toBe(1400);
+    // 6 Bs + 40 % = 8,40 → 8
+    expect(unitPriceFor({ listPriceCents: 600, channel: "PEYA", markupPercent: 40 })).toBe(800);
   });
 
   it("los modificadores con precio suman antes del recargo", () => {
@@ -24,6 +26,7 @@ describe("precio por canal", () => {
       { name: "Sin cebolla", priceDeltaCents: 0 },
     ];
     expect(unitPriceFor({ listPriceCents: 3800, modifiers, channel: "LOCAL", markupPercent: 40 })).toBe(4300);
-    expect(unitPriceFor({ listPriceCents: 3800, modifiers, channel: "PEYA", markupPercent: 40 })).toBe(6020);
+    // (38 + 5) × 1,4 = 60,20 → 60
+    expect(unitPriceFor({ listPriceCents: 3800, modifiers, channel: "PEYA", markupPercent: 40 })).toBe(6000);
   });
 });

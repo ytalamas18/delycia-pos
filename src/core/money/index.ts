@@ -46,3 +46,11 @@ export function percentOf(cents: Cents, percent: number): Cents {
   const basisPoints = Math.round(percent * 100); // 12.5 % → 1250
   return assertCents(Math.round((cents * basisPoints) / 10_000));
 }
+
+/** Redondea al múltiplo de `unitCents` más cercano (half-up). Ej.: roundTo(5320, 100) = 5300. */
+export function roundTo(cents: Cents, unitCents: Cents): Cents {
+  return assertCents(Math.round(cents / unitCents) * unitCents);
+}
+
+/** Una unidad entera de la moneda en centavos (1 Bs = 100). */
+export const WHOLE_UNIT: Cents = factor;

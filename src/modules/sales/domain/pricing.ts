@@ -1,4 +1,4 @@
-import { type Cents, percentOf } from "@/core/money";
+import { type Cents, percentOf, roundTo, WHOLE_UNIT } from "@/core/money";
 import type { SalesChannel } from "@/generated/prisma/enums";
 
 export type ModifierSnapshot = { name: string; priceDeltaCents: Cents };
@@ -8,7 +8,8 @@ export type ModifierSnapshot = { name: string; priceDeltaCents: Cents };
  *
  * - LOCAL: precio de lista + modificadores.
  * - PEYA:  (precio de lista + modificadores) + el % de recargo de PEYA,
- *          redondeado al centavo. Aplica a todo, bebidas incluidas.
+ *          redondeado al boliviano entero (53,20 → 53; 53,50 → 54).
+ *          Aplica a todo, bebidas incluidas.
  */
 export function unitPriceFor(params: {
   listPriceCents: Cents;
@@ -19,5 +20,5 @@ export function unitPriceFor(params: {
   const base =
     params.listPriceCents + (params.modifiers ?? []).reduce((sum, m) => sum + m.priceDeltaCents, 0);
   if (params.channel !== "PEYA") return base;
-  return base + percentOf(base, params.markupPercent);
+  return roundTo(base + percentOf(base, params.markupPercent), WHOLE_UNIT);
 }
