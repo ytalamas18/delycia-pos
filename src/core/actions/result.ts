@@ -24,8 +24,9 @@ export async function toActionResult(
     if (error instanceof z.ZodError) {
       const fieldErrors: Record<string, string> = {};
       for (const issue of error.issues) fieldErrors[issue.path.join(".")] ??= issue.message;
-      // Un error sin campo (ej. una regla entre dos campos) se muestra como mensaje general.
-      return { ok: false, error: fieldErrors[""] ?? "Revisa los datos marcados.", fieldErrors };
+      // Con un solo problema, se muestra tal cual (ej. "indica la mesa o el nombre del cliente").
+      const summary = error.issues.length === 1 ? error.issues[0].message : "Revisa los datos marcados.";
+      return { ok: false, error: summary, fieldErrors };
     }
     if (isUniqueViolation(error)) return { ok: false, error: messages.duplicate ?? "Ese registro ya existe." };
     console.error("[acción] error inesperado", error);
