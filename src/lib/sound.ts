@@ -20,24 +20,33 @@ export function audioUnlocked() {
   return context?.state === "running";
 }
 
-function tone(frequency: number, start: number, duration: number) {
+function tone(frequency: number, start: number, duration: number, type: OscillatorType = "sine", volume = 0.4) {
   if (!context) return;
   const osc = context.createOscillator();
   const gain = context.createGain();
-  osc.type = "sine";
+  osc.type = type;
   osc.frequency.value = frequency;
   gain.gain.setValueAtTime(0.0001, context.currentTime + start);
-  gain.gain.exponentialRampToValueAtTime(0.4, context.currentTime + start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(volume, context.currentTime + start + 0.02);
   gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + start + duration);
   osc.connect(gain).connect(context.destination);
   osc.start(context.currentTime + start);
   osc.stop(context.currentTime + start + duration + 0.05);
 }
 
-/** Comanda nueva en cocina: dos tonos ascendentes. */
+/** Duración de la alarma de comanda nueva en cocina (segundos). */
+const NEW_TICKET_SECONDS = 6;
+
+/**
+ * Comanda nueva en cocina: alarma aguda alternada (tipo "ni-no") de ~6 s,
+ * para que se oiga por encima del ruido de la cocina.
+ */
 export function playNewTicket() {
-  tone(660, 0, 0.18);
-  tone(880, 0.2, 0.3);
+  const beep = 0.16;
+  const gap = 0.04;
+  for (let t = 0, i = 0; t < NEW_TICKET_SECONDS; t += beep + gap, i++) {
+    tone(i % 2 === 0 ? 2000 : 2600, t, beep, "square", 0.25);
+  }
 }
 
 /** Pedido listo (aviso al cajero): tres tonos. */
