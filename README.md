@@ -4,7 +4,7 @@ Punto de venta web para **Delycia** (restaurante casual boliviano, Santa Cruz de
 Fase 1: **Ventas + Cocina (KDS)** en tiempo real, con la arquitectura preparada para sumar
 reportería, inventario, costos/recetas, clientes y roles sin reescribir lo existente.
 
-> Estado: **paso 6 de 7, cobro y cuentas por cobrar**. Ver [Hoja de ruta](#hoja-de-ruta).
+> Estado: **cobro, historial y cierre de caja listos**. Anulaciones: pendiente. Ver [Hoja de ruta](#hoja-de-ruta).
 
 ---
 
@@ -137,12 +137,13 @@ Comanda:  PENDIENTE ─▶ EN PREPARACIÓN ─▶ LISTA ─▶ ENTREGADA     (+ 
 
 - Modo oscuro, letra grande, tarjetas de la más antigua a la más nueva.
 - Temporizador con colores (verde / amarillo / rojo; los minutos se cambian en **Ajustes**).
-- Un toque: **Empezar → Marcar lista → Entregada**. Botón ↶ para deshacer.
+- Un toque: **Empezar → Marcar lista**. "Lista" ya cuenta como entregada: sale de *En curso* y
+  pasa a *Recientes*. Botón ↶ para deshacer (vuelve a *En curso*).
 - Tocar un ítem lo marca listo; con todos listos, la comanda pasa sola a "lista".
 - Notas resaltadas en amarillo, modificadores en ámbar, **PARA LLEVAR** en naranja.
 - Comandas adicionales de la misma orden: **"Mesa 4, adicional"**.
-- Pestaña **Recientes** (últimas 3 h) para deshacer una entrega por error.
-- Sonido al llegar una comanda (tocar "Activar sonido" una vez: los navegadores lo exigen).
+- Pestaña **Recientes** (últimas 3 h) para deshacer un "lista" por error.
+- Alarma aguda de ~6 s al llegar una comanda (tocar "Activar sonido" una vez: los navegadores lo exigen).
 - Imprimir comanda en 80 mm (impresión del navegador: márgenes "Ninguno").
 - Cuando cocina marca una comanda lista, a caja le aparece **"¡Pedido listo!"** con sonido.
 
@@ -150,6 +151,7 @@ Comanda:  PENDIENTE ─▶ EN PREPARACIÓN ─▶ LISTA ─▶ ENTREGADA     (+ 
 
 - **Cobrar** desde la orden (si hay cambios sin guardar, se guardan primero).
 - **Descuento** opcional en Bs o en % (nunca deja la cuenta en negativo).
+- Una orden **PEYA** se cobra solo con **PEYA**; en órdenes del local, PEYA no aparece.
 - Métodos: **EFECTIVO** (con vuelto y botones rápidos: exacto, 50, 100, 200), **QR**, **TARJETA**,
   **PEYA** y **CUENTA POR COBRAR**. Se pueden combinar (pago mixto). QR, tarjeta, PEYA y fiado no dan
   vuelto: el vuelto sale solo del efectivo.
@@ -166,6 +168,16 @@ Comanda:  PENDIENTE ─▶ EN PREPARACIÓN ─▶ LISTA ─▶ ENTREGADA     (+ 
 - **Registrar pago**: total o abonos parciales, en efectivo, QR o tarjeta. Al completar, la cuenta
   pasa a "saldadas" (se ven las de los últimos 30 días).
 
+### Historial y cierre de caja
+
+- **Historial**: órdenes de cualquier día con filtros por estado, tipo, canal y método de pago; detalle
+  con productos, pagos (recibido/vuelto, fiado pendiente) y tiempos de cocina (espera y preparación).
+- **Cierre de caja**: ventas brutas, descuentos, netas, ticket promedio, por canal y por medio de pago,
+  cobros de fiados del día y productos vendidos. Avisa si quedaron órdenes por pagar.
+- **Arqueo**: fondo inicial + efectivo que entró (ventas + cobros de fiados) = efectivo esperado;
+  con lo contado muestra si **cuadra, falta o sobra**. Se guarda (y se puede corregir) y se imprime en 80 mm.
+- Órdenes por pagar de días anteriores se marcan con su fecha (el número se reinicia cada día).
+
 ### Usuarios de ejemplo (seed)
 
 | Usuario | PIN | Perfil |
@@ -180,7 +192,7 @@ Comanda:  PENDIENTE ─▶ EN PREPARACIÓN ─▶ LISTA ─▶ ENTREGADA     (+ 
 
 | Sección | Admin | Caja | Cocina |
 |---|:-:|:-:|:-:|
-| Vender, cobrar, cuentas por cobrar, historial | ✅ | ✅ | — |
+| Vender, cobrar, cuentas por cobrar, historial, cierre de caja | ✅ | ✅ | — |
 | Pantalla de cocina | ✅ | ✅ (ver) | ✅ |
 | Catálogo (precios, productos) | ✅ | — | — |
 | Ajustes (% PEYA, tiempos de cocina) | ✅ | — | — |
@@ -264,6 +276,7 @@ La tablet de cocina y la PC que corre el POS deben estar en **la misma red WiFi*
 - [x] 4. Pantalla de venta (POS) y órdenes por pagar
 - [x] 5. Envío a cocina + pantalla de cocina (KDS) en tiempo real
 - [x] 6. Cobro, ticket y cuentas por cobrar
-- [ ] 7. Anulaciones e historial
+- [x] 7a. Historial del día y cierre de caja
+- [ ] 7b. Anulaciones con motivo (pendiente)
 
 Después: reportería, despliegue en AWS (Terraform + GitHub Actions), inventario y costos.
