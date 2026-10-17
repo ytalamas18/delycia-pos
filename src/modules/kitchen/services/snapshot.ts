@@ -2,6 +2,7 @@ import { getSetting } from "@/core/settings";
 import type { ServiceType, TicketStatus } from "@/generated/prisma/enums";
 
 import { kdsThresholdsSetting } from "../settings";
+import { listPendingMessages } from "./messages";
 import { listActiveTickets, listRecentTickets, type TicketWithItems } from "./tickets";
 
 /** Lo que la pantalla de cocina necesita para dibujarse. Es la "fuente de verdad" tras cada evento. */
@@ -27,7 +28,11 @@ export type KdsTicket = {
   }[];
 };
 
+export type KdsMessage = { id: string; text: string; senderName: string; createdAt: string };
+
 export type KdsSnapshot = {
+  /** Mensajes de caja que cocina todavía no marcó como vistos. */
+  messages: KdsMessage[];
   active: KdsTicket[];
   recent: KdsTicket[];
   thresholds: { warnAfterMinutes: number; dangerAfterMinutes: number };
@@ -59,12 +64,19 @@ function toKdsTicket(t: TicketWithItems): KdsTicket {
 }
 
 export async function getKdsSnapshot(): Promise<KdsSnapshot> {
-  const [active, recent, thresholds] = await Promise.all([
+  const [active, recent, thresholds, messages] = await Promise.all([
     listActiveTickets(),
     listRecentTickets(),
     getSetting(kdsThresholdsSetting),
+    listPendingMessages(),
   ]);
   return {
+    messages: messages.map((m) => ({
+      id: m.id,
+      text: m.text,
+      senderName: m.senderName,
+      createdAt: m.createdAt.toISOString(),
+    })),
     active: active.map(toKdsTicket),
     recent: recent.map(toKdsTicket),
     thresholds,

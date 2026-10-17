@@ -1,19 +1,24 @@
 "use client";
 
-import { Bell, Check, Printer, Undo2, WifiOff } from "lucide-react";
+import { Bell, Check, Megaphone, Printer, Undo2, WifiOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { appConfig } from "@/core/config/app";
-import { audioUnlocked, playNewTicket, unlockAudio } from "@/lib/sound";
+import { audioUnlocked, playKitchenMessage, playNewTicket, unlockAudio } from "@/lib/sound";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { cn } from "@/lib/utils";
 
-import { advanceTicketAction, toggleItemReadyAction, undoTicketAction } from "../actions";
+import {
+  acknowledgeKitchenMessageAction,
+  advanceTicketAction,
+  toggleItemReadyAction,
+  undoTicketAction,
+} from "../actions";
 import { advanceLabel, waitLevel, type WaitLevel } from "../domain/status";
-import type { KdsSnapshot, KdsTicket } from "../services/snapshot";
+import type { KdsMessage, KdsSnapshot, KdsTicket } from "../services/snapshot";
 
 const clock = new Intl.DateTimeFormat("es-BO", { hour: "2-digit", minute: "2-digit", timeZone: appConfig.timezone });
 
@@ -35,6 +40,7 @@ export function KdsBoard({ initial, canOperate }: { initial: KdsSnapshot; canOpe
   const [soundOn, setSoundOn] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const known = useRef(new Set(initial.active.map((t) => t.id)));
+  const knownMessages = useRef(new Set(initial.messages.map((m) => m.id)));
   const refetchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const refetch = useCallback(async () => {
@@ -49,6 +55,10 @@ export function KdsBoard({ initial, canOperate }: { initial: KdsSnapshot; canOpe
       const fresh = next.active.filter((t) => !known.current.has(t.id));
       if (fresh.length > 0 && audioUnlocked()) playNewTicket();
       known.current = new Set(next.active.map((t) => t.id));
+      // Mensaje nuevo de caja: sonido propio (distinto al de comanda).
+      const freshMessages = next.messages.filter((m) => !knownMessages.current.has(m.id));
+      if (freshMessages.length > 0 && fresh.length === 0 && audioUnlocked()) playKitchenMessage();
+      knownMessages.current = new Set(next.messages.map((m) => m.id));
       setSnapshot(next);
     } catch {
       // sin red: el aviso de conexión ya lo muestra; se reintenta al reconectar
@@ -64,7 +74,7 @@ export function KdsBoard({ initial, canOperate }: { initial: KdsSnapshot; canOpe
   const { connected } = useLiveEvents({
     onConnected: refetch,
     onEvent: (e) => {
-      if (e.type.startsWith("order.") || e.type.startsWith("ticket.")) scheduleRefetch();
+      if (e.type.startsWith("order.") || e.type.startsWith("ticket.") || e.type.startsWith("kitchen.")) scheduleRefetch();
     },
   });
 
@@ -101,6 +111,14 @@ export function KdsBoard({ initial, canOperate }: { initial: KdsSnapshot; canOpe
           </Button>
         )}
       </div>
+
+      {snapshot.messages.length > 0 && (
+        <div className="grid gap-3 md:grid-cols-2" role="alert" aria-live="assertive">
+          {snapshot.messages.map((m) => (
+            <MessageCard key={m.id} message={m} canOperate={canOperate} onChanged={scheduleRefetch} />
+          ))}
+        </div>
+      )}
 
       {tickets.length === 0 ? (
         <p className="py-20 text-center text-2xl text-muted-foreground">
@@ -269,5 +287,43 @@ function TicketCard({
         </Button>
       </footer>
     </article>
+  );
+}
+
+function MessageCard({
+  message,
+  canOperate,
+  onChanged,
+}: {
+  message: KdsMessage;
+  canOperate: boolean;
+  onChanged: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  return (
+    <div className="flex items-center gap-4 rounded-xl border-4 border-sky-300 bg-sky-600 p-4 text-white shadow-lg">
+      <Megaphone className="size-10 shrink-0 animate-pulse" />
+      <div className="min-w-0 flex-1">
+        <div className="text-3xl leading-tight font-black uppercase">{message.text}</div>
+        <div className="text-sm opacity-90">
+          {message.senderName} · {clock.format(new Date(message.createdAt))}
+        </div>
+      </div>
+      {canOperate && (
+        <Button
+          size="lg"
+          className="h-16 shrink-0 bg-white text-xl text-sky-800 hover:bg-sky-50"
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              await acknowledgeKitchenMessageAction(message.id);
+              onChanged();
+            })
+          }
+        >
+          Visto ✔
+        </Button>
+      )}
+    </div>
   );
 }

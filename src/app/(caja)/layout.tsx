@@ -6,7 +6,10 @@ import { AppNav } from "@/components/shell/app-nav";
 import { Button } from "@/components/ui/button";
 import { modules } from "@/config/modules";
 import { appConfig } from "@/core/config/app";
+import { can } from "@/core/auth/permissions";
 import { getSession } from "@/core/auth/server";
+import { getSetting } from "@/core/settings";
+import { KitchenMessageButton, quickMessagesSetting } from "@/modules/kitchen";
 import { ReadyNotifier } from "@/modules/sales";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +18,8 @@ export default async function CajaLayout({ children }: LayoutProps<"/">) {
   const session = await getSession();
   if (!session) redirect("/login");
   const items = modules.navFor(session.role);
+  const canMessageKitchen = modules.isEnabled("kitchen") && can(session.role, "sales.sell");
+  const quickMessages = canMessageKitchen ? await getSetting(quickMessagesSetting) : [];
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -22,6 +27,7 @@ export default async function CajaLayout({ children }: LayoutProps<"/">) {
         <span className="text-xl font-bold text-primary">{appConfig.businessName}</span>
         <AppNav items={items} />
         <div className="ml-auto flex items-center gap-2">
+          {canMessageKitchen && <KitchenMessageButton quickMessages={quickMessages} />}
           <span className="text-sm text-muted-foreground">{session.name}</span>
           <form action={logoutAction}>
             <Button variant="ghost" size="sm" type="submit">

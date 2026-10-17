@@ -193,6 +193,13 @@ El menú inicial está en [`prisma/data/menu-delycia.json`](prisma/data/menu-del
 extras + 21 bebidas (las bebidas no van a cocina). Se carga **una sola vez** en la primera puesta en
 marcha; después se administra desde **Catálogo** y reiniciar no pisa los cambios.
 
+### Mensajes de caja a cocina
+
+- Botón **"Mensaje a cocina"** en la barra de caja (desde cualquier pantalla): botones rápidos de un
+  toque (**LLEGÓ GENTE**, **MÁS PAPA**, **DESCONGELEN PRODUCTO**; se editan en **Ajustes**) o texto libre.
+- En cocina aparece arriba, grande y en azul, con un sonido distinto al de las comandas, hasta que
+  alguien toca **"Visto ✔"**. Caja recibe la confirmación: *"Cocina vio: MÁS PAPA"*.
+
 ### Usuarios de ejemplo (seed)
 
 | Usuario | PIN | Perfil |

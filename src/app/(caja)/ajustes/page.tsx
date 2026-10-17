@@ -3,16 +3,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requirePermission } from "@/core/auth/server";
 import { getSetting } from "@/core/settings";
 import { getSellableCatalog } from "@/modules/catalog";
-import { KdsThresholdsForm, kdsThresholdsSetting } from "@/modules/kitchen";
+import {
+  KdsThresholdsForm,
+  kdsThresholdsSetting,
+  QuickMessagesForm,
+  quickMessagesSetting,
+} from "@/modules/kitchen";
 import { PeyaMarkupForm, peyaMarkupSetting } from "@/modules/sales";
 
 export default async function AjustesPage() {
   requireModule("settings");
   await requirePermission("settings.manage");
-  const [peya, kds, catalog] = await Promise.all([
+  const [peya, kds, catalog, quickMessages] = await Promise.all([
     getSetting(peyaMarkupSetting),
     getSetting(kdsThresholdsSetting),
     getSellableCatalog(),
+    getSetting(quickMessagesSetting),
   ]);
   // Vista previa con algunos productos reales del catálogo.
   const samples = catalog.flatMap((c) => c.products).slice(0, 6);
@@ -38,6 +44,15 @@ export default async function AjustesPage() {
         </CardHeader>
         <CardContent>
           <KdsThresholdsForm warn={kds.warnAfterMinutes} danger={kds.dangerAfterMinutes} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Mensajes rápidos a cocina</CardTitle>
+          <CardDescription>Botones de un toque en &quot;Mensaje a cocina&quot; (ej. LLEGÓ GENTE, MÁS PAPA).</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <QuickMessagesForm messages={quickMessages} />
         </CardContent>
       </Card>
     </div>

@@ -55,3 +55,15 @@ export function playReady() {
   tone(1100, 0.17, 0.15);
   tone(1320, 0.34, 0.3);
 }
+
+/**
+ * Mensaje de caja en cocina: "ding-dong" repetido (~3 s), distinto de la alarma de comanda
+ * para que se reconozca sin mirar la pantalla.
+ */
+export function playKitchenMessage() {
+  for (let i = 0; i < 4; i++) {
+    const t = i * 0.75;
+    tone(1568, t, 0.3, "triangle", 0.5); // sol
+    tone(1175, t + 0.32, 0.4, "triangle", 0.5); // re
+  }
+}

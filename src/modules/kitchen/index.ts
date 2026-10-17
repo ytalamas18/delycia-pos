@@ -3,8 +3,10 @@ import "./events";
 
 export { kitchenModule } from "./module";
 export { ticketStatusLabel } from "./domain/labels";
-export { kdsThresholdsSetting } from "./settings";
+export { kdsThresholdsSetting, quickMessagesSetting } from "./settings";
 export { getTicket, hasOpenTickets, kitchenSummaryByOrder, listTicketsForOrder, listActiveTickets, listRecentTickets } from "./services/tickets";
 export { KdsThresholdsForm } from "./components/kds-thresholds-form";
 export { getKdsSnapshot, type KdsSnapshot, type KdsTicket } from "./services/snapshot";
 export { KdsBoard } from "./components/kds-board";
+export { KitchenMessageButton } from "./components/kitchen-message-button";
+export { QuickMessagesForm } from "./components/quick-messages-form";
