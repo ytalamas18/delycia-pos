@@ -12,6 +12,7 @@ export const paymentMethodLabel: Record<PaymentMethod, string> = {
   QR: "QR",
   CARD: "TARJETA",
   PEYA: "PEYA",
+  CREDIT: "CUENTA POR COBRAR",
 };
 
 export const channelLabel: Record<SalesChannel, string> = {
@@ -25,8 +26,26 @@ export const serviceTypeLabel: Record<ServiceType, string> = {
 };
 
 export const orderStatusLabel: Record<OrderStatus, string> = {
-  OPEN: "Abierta",
+  OPEN: "Por pagar",
   PAID: "Pagada",
   CLOSED: "Cerrada",
   CANCELLED: "Anulada",
 };
+
+/** Cómo se identifica una orden en pantalla y en cocina: "Mesa 4 · Don Pedro", "Para llevar · Ana", "PEYA · Ana". */
+export function orderLabel(order: {
+  channel: SalesChannel;
+  serviceType: ServiceType;
+  tableNumber: string | null;
+  customerName: string | null;
+}): string {
+  const head =
+    order.channel === "PEYA"
+      ? "PEYA"
+      : order.serviceType === "DINE_IN"
+        ? order.tableNumber
+          ? `Mesa ${order.tableNumber}`
+          : "Comer aquí"
+        : "Para llevar";
+  return order.customerName ? `${head} · ${order.customerName}` : head;
+}

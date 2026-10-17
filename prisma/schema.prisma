@@ -137,6 +137,8 @@ enum PaymentMethod {
   QR
   CARD
   PEYA
+  /// Cuenta por cobrar (fiado): se registra la deuda y se cobra después.
+  CREDIT
 }
 
 /// Correlativo de órdenes por día de negocio (zona horaria del local).
