@@ -324,6 +324,22 @@ model KitchenTicketItem {
   @@index([ticketId])
 }
 
+/// Mensaje rápido de caja a cocina ("LLEGÓ GENTE", "MÁS PAPA"...). Queda visible hasta que cocina lo marca visto.
+model KitchenMessage {
+  id                 String    @id @default(cuid())
+  text               String
+  senderId           String
+  senderName         String
+  acknowledgedAt     DateTime?
+  acknowledgedById   String?
+  acknowledgedByName String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([acknowledgedAt])
+  @@index([createdAt])
+}
+
 /// Historial de cambios de estado: permite "deshacer" y medir tiempos de preparación.
 model TicketStatusLog {
   id         String        @id @default(cuid())
