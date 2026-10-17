@@ -1,0 +1,304 @@
+{
+  "negocio": "Delycia",
+  "moneda": "Bs",
+  "fuente": "Costos Delycia.xlsx (hoja 'Costos totales', columna PVP) + ajustes y carta de bebidas enviados por el dueño el 17/10/2026",
+  "nota": "Menú inicial. Después de la primera carga se administra desde Catálogo.",
+  "platos": [
+    {
+      "plato": "Hamburguesa Clásica Simple",
+      "categoria": "Hamburguesa Clásica",
+      "pvp_bs": 40
+    },
+    {
+      "plato": "Hamburguesa Clásica Doble",
+      "categoria": "Hamburguesa Clásica",
+      "pvp_bs": 50
+    },
+    {
+      "plato": "Hamburguesa Clásica Triple",
+      "categoria": "Hamburguesa Clásica",
+      "pvp_bs": 63
+    },
+    {
+      "plato": "Hamburguesa Suprema Simple",
+      "categoria": "Hamburguesa Suprema",
+      "pvp_bs": 57
+    },
+    {
+      "plato": "Hamburguesa Suprema Doble",
+      "categoria": "Hamburguesa Suprema",
+      "pvp_bs": 67
+    },
+    {
+      "plato": "Hamburguesa Suprema Triple",
+      "categoria": "Hamburguesa Suprema",
+      "pvp_bs": 78
+    },
+    {
+      "plato": "Hamburguesa Ranchera Simple",
+      "categoria": "Hamburguesa Ranchera",
+      "pvp_bs": 46
+    },
+    {
+      "plato": "Hamburguesa Ranchera Doble",
+      "categoria": "Hamburguesa Ranchera",
+      "pvp_bs": 56
+    },
+    {
+      "plato": "Hamburguesa Ranchera Triple",
+      "categoria": "Hamburguesa Ranchera",
+      "pvp_bs": 67
+    },
+    {
+      "plato": "Hamburguesa BBQ Simple",
+      "categoria": "Hamburguesa BBQ",
+      "pvp_bs": 37
+    },
+    {
+      "plato": "Hamburguesa BBQ Doble",
+      "categoria": "Hamburguesa BBQ",
+      "pvp_bs": 46
+    },
+    {
+      "plato": "Hamburguesa BBQ Triple",
+      "categoria": "Hamburguesa BBQ",
+      "pvp_bs": 57
+    },
+    {
+      "plato": "Hamburguesa Onion-String Simple",
+      "categoria": "Hamburguesa Onion-String",
+      "pvp_bs": 44
+    },
+    {
+      "plato": "Hamburguesa Onion Doble",
+      "categoria": "Hamburguesa Onion-String",
+      "pvp_bs": 54
+    },
+    {
+      "plato": "Hamburguesa Onion Triple",
+      "categoria": "Hamburguesa Onion-String",
+      "pvp_bs": 64
+    },
+    {
+      "plato": "Extra huevo",
+      "categoria": "Extras",
+      "pvp_bs": 3
+    },
+    {
+      "plato": "Extra tocino",
+      "categoria": "Extras",
+      "pvp_bs": 5
+    },
+    {
+      "plato": "Extra queso",
+      "categoria": "Extras",
+      "pvp_bs": 3
+    },
+    {
+      "plato": "Milanesa Picada Pollo",
+      "categoria": "Milanesa",
+      "pvp_bs": 37
+    },
+    {
+      "plato": "Milanesa Picada Carne",
+      "categoria": "Milanesa",
+      "pvp_bs": 39
+    },
+    {
+      "plato": "Milanesa Picada Mixta",
+      "categoria": "Milanesa",
+      "pvp_bs": 65
+    },
+    {
+      "plato": "Milanesa Napolitana Carne",
+      "categoria": "Milanesa",
+      "pvp_bs": 55
+    },
+    {
+      "plato": "Milanesa Napolitana Pollo",
+      "categoria": "Milanesa",
+      "pvp_bs": 55
+    },
+    {
+      "plato": "Sándwich Milanesa Pollo",
+      "categoria": "Sándwich",
+      "pvp_bs": 35
+    },
+    {
+      "plato": "Sándwich Milanesa Carne",
+      "categoria": "Sándwich",
+      "pvp_bs": 39
+    },
+    {
+      "plato": "Pipoca de Pollo",
+      "categoria": "Piqueos",
+      "pvp_bs": 38
+    },
+    {
+      "plato": "Salchipapa de Pollo",
+      "categoria": "Salchipapa",
+      "pvp_bs": 28
+    },
+    {
+      "plato": "Salchipapa de Cerdo",
+      "categoria": "Salchipapa",
+      "pvp_bs": 39
+    },
+    {
+      "plato": "Porción de Papas",
+      "categoria": "Papas",
+      "pvp_bs": 16
+    },
+    {
+      "plato": "Porción de Papas Suprema",
+      "categoria": "Papas",
+      "pvp_bs": 35
+    },
+    {
+      "plato": "Piqueo Familiar",
+      "categoria": "Piqueos",
+      "pvp_bs": 175
+    },
+    {
+      "plato": "Lomito Simple",
+      "categoria": "Lomito",
+      "pvp_bs": 35
+    },
+    {
+      "plato": "Lomito Doble",
+      "categoria": "Lomito",
+      "pvp_bs": 42
+    },
+    {
+      "plato": "Lomito Especial",
+      "categoria": "Lomito",
+      "pvp_bs": 59
+    },
+    {
+      "plato": "Coca Cola 300 ml",
+      "categoria": "Bebidas",
+      "pvp_bs": 6,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Coca Cola Zero 300 ml",
+      "categoria": "Bebidas",
+      "pvp_bs": 6,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Fanta Guaraná 300 ml",
+      "categoria": "Bebidas",
+      "pvp_bs": 6,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Fanta Papaya 300 ml",
+      "categoria": "Bebidas",
+      "pvp_bs": 6,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Sprite 300 ml",
+      "categoria": "Bebidas",
+      "pvp_bs": 6,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Coca Cola 500 ml",
+      "categoria": "Bebidas",
+      "pvp_bs": 9,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Coca Cola Zero 500 ml",
+      "categoria": "Bebidas",
+      "pvp_bs": 9,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Fanta Guaraná 500 ml",
+      "categoria": "Bebidas",
+      "pvp_bs": 9,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Fanta Papaya 500 ml",
+      "categoria": "Bebidas",
+      "pvp_bs": 9,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Fanta Naranja 500 ml",
+      "categoria": "Bebidas",
+      "pvp_bs": 9,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Agua c/gas 500 ml",
+      "categoria": "Bebidas",
+      "pvp_bs": 9,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Agua s/gas 500 ml",
+      "categoria": "Bebidas",
+      "pvp_bs": 9,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Sprite 500 ml",
+      "categoria": "Bebidas",
+      "pvp_bs": 9,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Coca Cola 2 L",
+      "categoria": "Bebidas",
+      "pvp_bs": 18,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Coca Cola Zero 2 L",
+      "categoria": "Bebidas",
+      "pvp_bs": 18,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Fanta Guaraná 2 L",
+      "categoria": "Bebidas",
+      "pvp_bs": 18,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Fanta Papaya 2 L",
+      "categoria": "Bebidas",
+      "pvp_bs": 18,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Fanta Naranja 2 L",
+      "categoria": "Bebidas",
+      "pvp_bs": 18,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Sprite 2 L",
+      "categoria": "Bebidas",
+      "pvp_bs": 18,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Simba Durazno 2 L",
+      "categoria": "Bebidas",
+      "pvp_bs": 16,
+      "va_a_cocina": false
+    },
+    {
+      "plato": "Simba Manzana 2 L",
+      "categoria": "Bebidas",
+      "pvp_bs": 16,
+      "va_a_cocina": false
+    }
+  ]
+}

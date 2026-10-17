@@ -13,7 +13,6 @@ describe("seed y ajustes", () => {
   beforeAll(async () => {
     await resetDatabase();
     await seed(db);
-    await seed(db); // idempotente: correrlo dos veces no duplica nada
   });
   afterAll(disconnectDb);
 
@@ -24,11 +23,42 @@ describe("seed y ajustes", () => {
     expect(await db.user.count()).toBe(3);
   });
 
-  it("incluye bebidas que NO van a cocina", async () => {
+  it("carga el menú real de Delycia (platos, extras y bebidas que no van a cocina)", async () => {
+    expect(await db.product.count()).toBe(55);
+    const clasica = await db.product.findFirstOrThrow({ where: { name: "Hamburguesa Clásica Simple" }, include: { category: true } });
+    expect(clasica).toMatchObject({ priceCents: 4000, sendsToKitchen: true, category: { name: "Hamburguesas" } });
+    const piqueo = await db.product.findFirstOrThrow({ where: { name: "Piqueo Familiar" } });
+    expect(piqueo.priceCents).toBe(17500);
+    expect(await db.product.count({ where: { category: { name: "Hamburguesas" } } })).toBe(15);
+    expect(await db.product.count({ where: { name: "Nachos Supremos" } })).toBe(0);
+    const extras = await db.product.findMany({ where: { category: { name: "Extras" } }, orderBy: { sortOrder: "asc" } });
+    expect(extras.map((p) => [p.name, p.priceCents])).toEqual([
+      ["Extra huevo", 300],
+      ["Extra tocino", 500],
+      ["Extra queso", 300],
+    ]);
     const bebidas = await db.product.findMany({ where: { category: { name: "Bebidas" } } });
-    expect(bebidas.length).toBeGreaterThan(0);
-    expect(bebidas.every((p) => !p.sendsToKitchen)).toBe(true);
-    expect(await db.product.count()).toBe(5);
+    expect(bebidas).toHaveLength(21);
+    expect(bebidas.every((b) => !b.sendsToKitchen)).toBe(true);
+    expect(bebidas.find((b) => b.name === "Simba Durazno 2 L")?.priceCents).toBe(1600);
+    expect((await db.category.findMany({ orderBy: { sortOrder: "asc" } })).map((c) => c.name)).toEqual([
+      "Hamburguesas", "Milanesas", "Sándwiches", "Lomitos", "Salchipapas", "Papas", "Piqueos", "Extras", "Bebidas",
+    ]);
+  });
+
+  it("el menú se carga una sola vez: reiniciar no pisa cambios hechos desde Catálogo", async () => {
+    await db.product.updateMany({ where: { name: "Lomito Simple" }, data: { priceCents: 3600, name: "Lomito Clásico" } });
+    expect(await seed(db)).toEqual({ loaded: false });
+    expect(await db.product.count({ where: { name: "Lomito Simple" } })).toBe(0);
+    expect(await db.product.count()).toBe(55);
+  });
+
+  it("borra los productos de ejemplo de versiones anteriores", async () => {
+    const cat = await db.category.create({ data: { name: "Platos" } });
+    await db.product.create({ data: { name: "Majadito (ejemplo)", categoryId: cat.id, priceCents: 3800 } });
+    await seed(db);
+    expect(await db.product.count({ where: { name: { endsWith: "(ejemplo)" } } })).toBe(0);
+    expect(await db.category.count({ where: { name: "Platos" } })).toBe(0);
   });
 
   it("el % PEYA viene del seed y se puede cambiar", async () => {

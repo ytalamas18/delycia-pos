@@ -7,9 +7,11 @@ import * as orders from "@/modules/sales/services/orders";
 
 import { seed } from "../../prisma/seed-data";
 import { resetDatabase } from "../support/db";
+import { seedTestCatalog } from "../support/test-catalog";
 
 async function fixtures() {
   await seed(db);
+  await seedTestCatalog(db);
   const user = await db.user.findUniqueOrThrow({ where: { name: "Caja" } });
   const plato = await db.product.findFirstOrThrow({ where: { name: "Majadito (ejemplo)" }, include: { modifiers: true } });
   const gaseosa = await db.product.findFirstOrThrow({ where: { name: "Gaseosa 500 ml (ejemplo)" } });

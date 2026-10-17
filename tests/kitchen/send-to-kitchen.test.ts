@@ -9,6 +9,7 @@ import * as orders from "@/modules/sales/services/orders";
 
 import { seed } from "../../prisma/seed-data";
 import { resetDatabase } from "../support/db";
+import { seedTestCatalog } from "../support/test-catalog";
 
 const line = (productId: string, extra: Record<string, unknown> = {}) => ({
   productId,
@@ -21,6 +22,7 @@ const line = (productId: string, extra: Record<string, unknown> = {}) => ({
 
 async function fixtures() {
   await seed(db);
+  await seedTestCatalog(db);
   const user = await db.user.findUniqueOrThrow({ where: { name: "Cocina" } });
   const caja = await db.user.findUniqueOrThrow({ where: { name: "Caja" } });
   const plato = await db.product.findFirstOrThrow({ where: { name: "Majadito (ejemplo)" }, include: { modifiers: true } });
