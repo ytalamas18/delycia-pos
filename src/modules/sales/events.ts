@@ -25,6 +25,16 @@ declare module "@/core/events/types" {
       customerName: string | null;
     };
     "order.item_added": { orderId: string; items: OrderItemSnapshot[] };
+    /** Solo trae los ítems NUEVOS que van a cocina. Cocina crea una comanda con ellos. */
+    "order.sent_to_kitchen": {
+      orderId: string;
+      orderNumber: number;
+      channel: SalesChannel;
+      serviceType: ServiceType;
+      /** "Mesa 4 · Don Pedro", "Para llevar · Ana", "PEYA · Ana" */
+      label: string;
+      items: OrderItemSnapshot[];
+    };
   }
 }
 

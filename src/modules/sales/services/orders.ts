@@ -7,6 +7,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { SalesChannel } from "@/generated/prisma/enums";
 import { getSellableProduct } from "@/modules/catalog";
 
+import { orderLabel } from "../domain/labels";
 import type { ModifierSnapshot } from "../domain/pricing";
 import { unitPriceFor } from "../domain/pricing";
 import { orderSubtotal } from "../domain/totals";
@@ -239,5 +240,52 @@ export async function removeItem(orderId: string, itemId: string) {
     await unsentItem(tx, orderId, itemId);
     await tx.orderItem.delete({ where: { id: itemId } });
     await recalcTotals(tx, orderId);
+  });
+}
+
+/** Cuántos ítems de cocina faltan enviar (para decidir si "Enviar a cocina" tiene algo que mandar). */
+export function countUnsentKitchenItems(orderId: string) {
+  return db.orderItem.count({
+    where: { orderId, status: "ACTIVE", sendsToKitchen: true, sentToKitchenAt: null },
+  });
+}
+
+/**
+ * Envía a cocina SOLO los ítems que van a cocina y todavía no se enviaron.
+ * Se puede enviar estando "por pagar" o ya pagada (para llevar se cobra antes).
+ * Cada envío genera una comanda; el segundo en adelante es una "adicional".
+ */
+export async function sendToKitchen(orderId: string) {
+  return runInTransaction(async (tx, publish) => {
+    await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
+    const order = await tx.order.findUnique({ where: { id: orderId }, include: { items: true } });
+    if (!order) throw new DomainError("La orden no existe");
+    if (order.status === "CANCELLED" || order.status === "CLOSED") {
+      throw new DomainError("La orden está anulada o cerrada: no se puede enviar a cocina.");
+    }
+
+    const pending = order.items.filter((i) => i.status === "ACTIVE" && i.sendsToKitchen && !i.sentToKitchenAt);
+    if (pending.length === 0) throw new DomainError("No hay platos nuevos para enviar a cocina.");
+
+    const sentAt = new Date();
+    await tx.orderItem.updateMany({ where: { id: { in: pending.map((i) => i.id) } }, data: { sentToKitchenAt: sentAt } });
+
+    await publish("order.sent_to_kitchen", {
+      orderId: order.id,
+      orderNumber: order.number,
+      channel: order.channel,
+      serviceType: order.serviceType,
+      label: orderLabel(order),
+      items: pending.map((i) => ({
+        orderItemId: i.id,
+        name: i.productName,
+        quantity: i.quantity,
+        modifiers: (i.modifiers as { name: string }[]).map((m) => m.name),
+        note: i.note,
+        serviceType: i.serviceType,
+        sendsToKitchen: true,
+      })),
+    });
+    return { sentCount: pending.length };
   });
 }

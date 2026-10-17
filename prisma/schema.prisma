@@ -266,6 +266,8 @@ model KitchenTicket {
   /// 1 = comanda original; 2, 3... = adicionales de la misma orden.
   sequence    Int
   channel     SalesChannel
+  /// Tipo de la orden: en una orden "comer aquí", los ítems para llevar se resaltan.
+  serviceType ServiceType         @default(DINE_IN)
   /// "Mesa 4" / "Para llevar · Juan" / "PEYA · Ana"
   label       String
   status      TicketStatus        @default(PENDING)
