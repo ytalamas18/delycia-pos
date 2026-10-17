@@ -4,7 +4,7 @@ Punto de venta web para **Delycia** (restaurante casual boliviano, Santa Cruz de
 Fase 1: **Ventas + Cocina (KDS)** en tiempo real, con la arquitectura preparada para sumar
 reportería, inventario, costos/recetas, clientes y roles sin reescribir lo existente.
 
-> Estado: **paso 4 de 7, pantalla de venta**. Ver [Hoja de ruta](#hoja-de-ruta).
+> Estado: **paso 5 de 7, cocina en tiempo real**. Ver [Hoja de ruta](#hoja-de-ruta).
 
 ---
 
@@ -57,8 +57,24 @@ Reglas (las vigila ESLint, no solo la disciplina):
   se revierte todo. Así nunca queda "ítem enviado a cocina" sin su comanda.
 - `afterCommit`: corre después de confirmar. Lo usa el empuje por SSE a las pantallas.
 
-Cada evento se guarda en una tabla (`DomainEvent`) con id secuencial. Cuando una pantalla se
-reconecta, pide lo que se perdió desde su último id: **no se pierde ninguna comanda**.
+Cada evento queda guardado en una tabla (`DomainEvent`), útil para auditoría y reportes.
+
+### Tiempo real (caja ↔ cocina)
+
+```
+ Caja: "Enviar a cocina"
+   └─ transacción: marca ítems enviados + Cocina crea la comanda  (todo o nada)
+        └─ tras confirmar: evento por SSE ──▶ pantallas conectadas
+                                               └─ "algo cambió" → piden el estado completo
+```
+
+- **SSE** (`/api/realtime`): el servidor empuja eventos; el navegador reconecta solo.
+- **Las pantallas no dependen de recibir cada evento**: al conectarse o reconectarse piden el
+  estado completo (`/api/cocina/comandas`). Una tablet que estuvo sin WiFi no pierde comandas.
+- **Latido cada 15 s** + vigilante en el cliente: si el WiFi se cae "en silencio" (sin cerrar la
+  conexión), a los ~35 s aparece el aviso rojo y se reconecta.
+- Probado: comanda en cocina en < 1 s; corte silencioso y corte total con recuperación de las
+  comandas enviadas mientras tanto.
 
 **Registro de módulos** (`src/config/modules.ts`): cada módulo declara su nombre, su menú y sus
 suscriptores. Si pones `enabled: false`, desaparece del menú, sus rutas devuelven 404 y sus
@@ -116,6 +132,19 @@ Comanda:  PENDIENTE ─▶ EN PREPARACIÓN ─▶ LISTA ─▶ ENTREGADA     (+ 
 - Tocar una línea abre su editor: cantidad, modificadores, nota para cocina y para llevar.
 - **Por pagar** lista las órdenes abiertas; tocar una permite agregarle ítems (se cobran con el mismo
   % PEYA con que se abrió).
+
+### Pantalla de cocina (`/cocina`)
+
+- Modo oscuro, letra grande, tarjetas de la más antigua a la más nueva.
+- Temporizador con colores (verde / amarillo / rojo; los minutos se cambian en **Ajustes**).
+- Un toque: **Empezar → Marcar lista → Entregada**. Botón ↶ para deshacer.
+- Tocar un ítem lo marca listo; con todos listos, la comanda pasa sola a "lista".
+- Notas resaltadas en amarillo, modificadores en ámbar, **PARA LLEVAR** en naranja.
+- Comandas adicionales de la misma orden: **"Mesa 4, adicional"**.
+- Pestaña **Recientes** (últimas 3 h) para deshacer una entrega por error.
+- Sonido al llegar una comanda (tocar "Activar sonido" una vez: los navegadores lo exigen).
+- Imprimir comanda en 80 mm (impresión del navegador: márgenes "Ninguno").
+- Cuando cocina marca una comanda lista, a caja le aparece **"¡Pedido listo!"** con sonido.
 
 ### Usuarios de ejemplo (seed)
 
@@ -213,7 +242,7 @@ La tablet de cocina y la PC que corre el POS deben estar en **la misma red WiFi*
 - [x] 2. Modelo de datos
 - [x] 3. Catálogo, login con PIN y ajustes
 - [x] 4. Pantalla de venta (POS) y órdenes por pagar
-- [ ] 5. Envío a cocina + KDS en tiempo real
+- [x] 5. Envío a cocina + pantalla de cocina (KDS) en tiempo real
 - [ ] 6. Cobro y ticket
 - [ ] 7. Anulaciones e historial
 
