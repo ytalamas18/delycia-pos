@@ -57,12 +57,18 @@ describe("historial y cierre de caja", () => {
     // efectivo: 48 de la venta + 10 cobrados del fiado
     expect(summary.moneyInByMethod.CASH).toBe(5800);
 
-    const saved = await history.saveClosing(today, { openingCashCents: 20000, countedCashCents: 25500 }, caja.id);
-    expect(saved).toMatchObject({ expectedCashCents: 25800, differenceCents: -300 });
+    // Apertura: una sola vez, no editable
+    await history.openCash(today, { openingCashCents: 20000 }, caja.id);
+    await expect(history.openCash(today, { openingCashCents: 50000 }, caja.id)).rejects.toThrow("ya se abrió");
+    expect((await history.getOpening(today))?.openingCashCents).toBe(20000);
+
+    const saved = await history.saveClosing(today, { countedCashCents: 25500 }, caja.id);
+    // el fondo del cierre sale de la apertura
+    expect(saved).toMatchObject({ openingCashCents: 20000, expectedCashCents: 25800, differenceCents: -300 });
     // se puede corregir el mismo día
     const fixed = await history.saveClosing(
       today,
-      { openingCashCents: 20000, countedCashCents: 25800, countedQrCents: 0, countedCardCents: null },
+      { countedCashCents: 25800, countedQrCents: 0, countedCardCents: null },
       caja.id,
     );
     expect(fixed).toMatchObject({ differenceCents: 0, expectedQrCents: 0, countedQrCents: 0, countedCardCents: null });

@@ -1,5 +1,5 @@
 import { db } from "@/core/db/client";
-import { DomainError } from "@/core/errors";
+import { DomainError, isUniqueViolation } from "@/core/errors";
 import { businessDayRange } from "@/core/time";
 import type { Prisma } from "@/generated/prisma/client";
 import type { OrderStatus, PaymentMethod, SalesChannel, ServiceType } from "@/generated/prisma/enums";
@@ -40,23 +40,72 @@ export function getOrderDetail(id: string) {
   });
 }
 
-/** Resumen del día + cierre guardado (si ya se hizo). */
+// ---------------------------------------------------------------------------
+// Apertura de caja
+// ---------------------------------------------------------------------------
+
+export async function getOpening(date: string) {
+  const opening = await db.cashOpening.findUnique({ where: { businessDate: date } });
+  if (!opening) return null;
+  const by = await db.user.findUnique({ where: { id: opening.openedById }, select: { name: true } });
+  return { ...opening, openedByName: by?.name ?? null };
+}
+
+/**
+ * Registra el efectivo con el que empieza el día. Es de UNA sola vez: una vez abierta,
+ * la caja no se puede volver a abrir ni cambiar el monto.
+ */
+export async function openCash(date: string, input: { openingCashCents: number; notes?: string | null }, userId: string) {
+  if (!Number.isSafeInteger(input.openingCashCents) || input.openingCashCents < 0) {
+    throw new DomainError("El monto inicial debe ser 0 o más.");
+  }
+  const existing = await db.cashOpening.findUnique({ where: { businessDate: date } });
+  if (existing) throw new DomainError("La caja de este día ya se abrió; el monto inicial no se puede cambiar.");
+  try {
+    return await db.cashOpening.create({
+      data: { businessDate: date, openingCashCents: input.openingCashCents, notes: input.notes?.trim() || null, openedById: userId },
+    });
+  } catch (error) {
+    // Dos cajas abriendo a la vez: gana la primera.
+    if (isUniqueViolation(error)) throw new DomainError("La caja de este día ya se abrió.");
+    throw error;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cierre de caja
+// ---------------------------------------------------------------------------
+
+/** Resumen del día + apertura + cierre guardado (si ya se hizo). */
 export async function getDailyClosing(date: string) {
   const { start, end } = businessDayRange(date);
-  const [orders, collections, saved] = await Promise.all([
+  const [orders, collections, saved, opening] = await Promise.all([
     db.order.findMany({ where: { businessDate: date }, include: { items: true, payments: true } }),
     db.creditCollection.findMany({ where: { createdAt: { gte: start, lt: end } } }),
     db.cashClosing.findUnique({ where: { businessDate: date } }),
+    getOpening(date),
   ]);
   const closedBy = saved ? await db.user.findUnique({ where: { id: saved.closedById }, select: { name: true } }) : null;
-  return { summary: summarizeDay(orders, collections), saved, closedByName: closedBy?.name ?? null };
+
+  // Categoría actual de cada producto vendido (para agrupar el reporte de productos).
+  const productIds = [...new Set(orders.flatMap((o) => o.items.map((i) => i.productId)))];
+  const products = await db.product.findMany({
+    where: { id: { in: productIds } },
+    select: { id: true, category: { select: { name: true, sortOrder: true } } },
+  });
+  const categoryOf = new Map(products.map((p) => [p.id, p.category]));
+  const withCategory = orders.map((o) => ({
+    ...o,
+    items: o.items.map((i) => ({ ...i, category: categoryOf.get(i.productId) ?? null })),
+  }));
+
+  return { summary: summarizeDay(withCategory, collections), saved, closedByName: closedBy?.name ?? null, opening };
 }
 
 /** Guarda (o corrige) el cierre de caja del día con el arqueo de efectivo. */
 export async function saveClosing(
   date: string,
   input: {
-    openingCashCents: number;
     countedCashCents: number;
     countedQrCents?: number | null;
     countedCardCents?: number | null;
@@ -64,8 +113,10 @@ export async function saveClosing(
   },
   userId: string,
 ) {
+  const { summary, opening } = await getDailyClosing(date);
   const counted = {
-    openingCashCents: input.openingCashCents,
+    // El fondo inicial sale de la apertura de caja del día (0 si no se abrió).
+    openingCashCents: opening?.openingCashCents ?? 0,
     countedCashCents: input.countedCashCents,
     countedQrCents: input.countedQrCents ?? null,
     countedCardCents: input.countedCardCents ?? null,
@@ -73,7 +124,6 @@ export async function saveClosing(
   for (const value of Object.values(counted)) {
     if (value !== null && (!Number.isSafeInteger(value) || value < 0)) throw new DomainError("Los montos deben ser 0 o más.");
   }
-  const { summary } = await getDailyClosing(date);
   const result = arqueo(summary, counted);
   const data = {
     ...counted,

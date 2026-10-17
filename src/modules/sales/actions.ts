@@ -9,6 +9,7 @@ import { requirePermission } from "@/core/auth/server";
 import { DomainError } from "@/core/errors";
 import { parseMoney } from "@/core/money";
 import { setSetting } from "@/core/settings";
+import { businessDate } from "@/core/time";
 
 import type { DraftLineInput, ItemUpdateInput, OrderHeaderInput } from "./schemas";
 import type { DiscountInput, PaymentEntry } from "./domain/checkout";
@@ -157,6 +158,26 @@ function parseMoneySafe(text: string): number {
 }
 
 // ---------------------------------------------------------------------------
+// Apertura de caja
+// ---------------------------------------------------------------------------
+
+export async function openCashAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  const session = await requirePermission("cash.close");
+  return toActionResult(async () => {
+    const amount = String(fd.get("amount") ?? "").trim();
+    if (!amount) throw new DomainError("Ingresa el efectivo inicial (puede ser 0).");
+    await history.openCash(
+      businessDate(),
+      { openingCashCents: parseMoneySafe(amount), notes: String(fd.get("notes") ?? "") },
+      session.userId,
+    );
+    revalidatePath("/pos");
+    revalidatePath("/cierre");
+    return "Caja abierta";
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Cierre de caja
 // ---------------------------------------------------------------------------
 
@@ -167,7 +188,6 @@ export async function saveClosingAction(_prev: ActionResult, fd: FormData): Prom
     await history.saveClosing(
       date,
       {
-        openingCashCents: parseMoneySafe(String(fd.get("opening") || "0")),
         countedCashCents: parseMoneySafe(String(fd.get("counted") ?? "")),
         countedQrCents: optionalMoney(fd.get("countedQr")),
         countedCardCents: optionalMoney(fd.get("countedCard")),

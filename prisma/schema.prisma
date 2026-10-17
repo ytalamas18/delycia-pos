@@ -362,3 +362,15 @@ model CashClosing {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
+
+/// Apertura de caja: efectivo con el que empieza el día (fondo). Una por día de negocio y no editable.
+model CashOpening {
+  id               String   @id @default(cuid())
+  businessDate     String   @unique
+  openingCashCents Int
+  notes            String?
+  openedById       String
+  openedAt         DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}

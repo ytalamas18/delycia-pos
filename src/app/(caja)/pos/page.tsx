@@ -3,12 +3,39 @@ import { notFound } from "next/navigation";
 import { requireModule } from "@/components/shell/require-module";
 import { requirePermission } from "@/core/auth/server";
 import { getSetting } from "@/core/settings";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { businessDate } from "@/core/time";
 import { getSellableCatalog } from "@/modules/catalog";
-import { getOrder, peyaMarkupSetting, PosScreen, type PosOrder, type PosProduct } from "@/modules/sales";
+import {
+  getOpening,
+  getOrder,
+  OpeningForm,
+  peyaMarkupSetting,
+  PosScreen,
+  type PosOrder,
+  type PosProduct,
+} from "@/modules/sales";
 
 export default async function PosPage({ searchParams }: PageProps<"/pos">) {
   requireModule("sales");
   await requirePermission("sales.sell");
+  // Antes de la primera venta del día hay que abrir la caja con el efectivo inicial.
+  if (!(await getOpening(businessDate()))) {
+    return (
+      <div className="flex flex-1 items-start justify-center pt-10">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl">Apertura de caja</CardTitle>
+            <CardDescription>Antes de vender, registra con cuánto efectivo empieza el día.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OpeningForm />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const { orden, cobrar, cobrada } = await searchParams;
   const orderId = typeof orden === "string" ? orden : null;
   const paidOrder = typeof cobrada === "string" ? await getOrder(cobrada) : null;
