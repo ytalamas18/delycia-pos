@@ -174,9 +174,16 @@ Comanda:  PENDIENTE ─▶ EN PREPARACIÓN ─▶ LISTA ─▶ ENTREGADA     (+ 
   con productos, pagos (recibido/vuelto, fiado pendiente) y tiempos de cocina (espera y preparación).
 - **Cierre de caja**: ventas brutas, descuentos, netas, ticket promedio, por canal y por medio de pago,
   cobros de fiados del día y productos vendidos. Avisa si quedaron órdenes por pagar.
-- **Arqueo**: fondo inicial + efectivo que entró (ventas + cobros de fiados) = efectivo esperado;
-  con lo contado muestra si **cuadra, falta o sobra**. Se guarda (y se puede corregir) y se imprime en 80 mm.
+- **Arqueo**: efectivo (fondo inicial + lo que entró = esperado, contra lo contado), **QR** (contra la
+  app del banco) y **tarjeta** (contra el datáfono). Muestra si **cuadra, falta o sobra** en cada uno.
+  PEYA y cuentas por cobrar no se cuentan. Se guarda (y se puede corregir) y se imprime en 80 mm.
 - Órdenes por pagar de días anteriores se marcan con su fecha (el número se reinicia cada día).
+
+### Menú
+
+El menú inicial está en [`prisma/data/menu-delycia.json`](prisma/data/menu-delycia.json): 34 platos y
+extras + 21 bebidas (las bebidas no van a cocina). Se carga **una sola vez** en la primera puesta en
+marcha; después se administra desde **Catálogo** y reiniciar no pisa los cambios.
 
 ### Usuarios de ejemplo (seed)
 
@@ -226,6 +233,9 @@ Esto levanta:
 | `db` | PostgreSQL 16 (puerto 5432). Crea también la base `delycia_test` para tests. |
 | `migrate` | Corre una vez: aplica migraciones y carga los datos de ejemplo. |
 | `app` | La aplicación en **http://localhost:3000** |
+
+Los servicios tienen `restart: unless-stopped`: si se reinicia la PC (con Docker Desktop configurado
+para iniciar con Windows), la base de datos y la app vuelven a levantar solas.
 
 Para apagar: `docker compose down` (los datos se conservan en el volumen `pgdata`).
 Para borrar también los datos: `docker compose down -v`.

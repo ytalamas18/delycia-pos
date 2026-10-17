@@ -5,6 +5,8 @@
 services:
   db:
     image: postgres:16-alpine
+    # Si se reinicia la PC del local, vuelve a levantar solo (con Docker Desktop iniciado con Windows).
+    restart: unless-stopped
     environment:
       POSTGRES_USER: delycia
       POSTGRES_PASSWORD: delycia
@@ -36,6 +38,7 @@ services:
     build:
       context: .
       target: runner
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://delycia:delycia@db:5432/delycia?schema=public
       SESSION_SECRET: ${SESSION_SECRET:-solo-para-desarrollo-cambiar-en-produccion}
