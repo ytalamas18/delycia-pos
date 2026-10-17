@@ -8,6 +8,7 @@ export type { Role };
  */
 const permissions = {
   "sales.sell": ["ADMIN", "CASHIER"],
+  "cash.close": ["ADMIN", "CASHIER"],
   "catalog.manage": ["ADMIN"],
   "settings.manage": ["ADMIN"],
   "kitchen.view": ["ADMIN", "CASHIER", "KITCHEN"],
@@ -28,6 +29,7 @@ export const routePermissions: { prefix: string; permission: Permission }[] = [
   { prefix: "/ordenes", permission: "sales.sell" },
   { prefix: "/historial", permission: "sales.sell" },
   { prefix: "/cuentas-por-cobrar", permission: "sales.sell" },
+  { prefix: "/cierre", permission: "cash.close" },
   { prefix: "/cocina", permission: "kitchen.view" },
 ];
 

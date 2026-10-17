@@ -34,6 +34,11 @@ export function listRecentTickets(hours = 3) {
   });
 }
 
+/** Comandas de una orden con sus horas (para el detalle en el historial). */
+export function listTicketsForOrder(orderId: string) {
+  return db.kitchenTicket.findMany({ where: { orderId }, orderBy: { sequence: "asc" } });
+}
+
 export function getTicket(id: string) {
   return db.kitchenTicket.findUnique({ where: { id }, include: ticketInclude });
 }
