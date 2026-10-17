@@ -8,11 +8,12 @@ import { seed } from "./seed-data";
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }) });
 
 seed(db)
-  .then((r) =>
+  .then((r) => {
     console.log(
       r.loaded ? `Seed listo: menú de Delycia cargado (${r.products} productos).` : "Seed listo (el menú ya estaba cargado).",
-    ),
-  )
+    );
+    for (const u of r.updates) console.log(`Actualización del menú aplicada → ${u}`);
+  })
   .catch((error) => {
     console.error(error);
     process.exitCode = 1;

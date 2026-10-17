@@ -7,7 +7,7 @@ import { defineSetting } from "@/core/settings";
 export const quickMessagesSetting = defineSetting(
   "kitchen.quickMessages",
   z.array(z.string().trim().min(1).max(60)).max(12),
-  ["LLEGÓ GENTE", "MÁS PAPA", "DESCONGELEN PRODUCTO"],
+  ["LLEGÓ GENTE", "MÁS PAPA"],
 );
 
 /** Minutos para pasar la tarjeta del KDS a amarillo y a rojo. */

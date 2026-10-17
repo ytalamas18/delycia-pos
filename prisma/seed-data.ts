@@ -44,7 +44,12 @@ const CATEGORIES = [
   "Bebidas",
 ];
 
-const MENU_VERSION = 1;
+/**
+ * Versión del menú inicial (prisma/data/menu-delycia.json). Los cambios posteriores al menú
+ * se hacen como "actualizaciones" numeradas (ver MENU_UPDATES): cada una se aplica UNA vez,
+ * tanto en instalaciones nuevas como en las que ya tienen el menú cargado.
+ */
+const BASE_MENU_VERSION = 1;
 
 export async function seedUsersAndSettings(db: PrismaClient) {
   // PIN de desarrollo: cámbialos antes de usar en el local.
@@ -104,10 +109,74 @@ export async function seedMenu(db: PrismaClient, { force = false } = {}) {
 
   await db.setting.upsert({
     where: { key: "seed.menuVersion" },
-    create: { key: "seed.menuVersion", value: MENU_VERSION },
-    update: { value: MENU_VERSION },
+    create: { key: "seed.menuVersion", value: BASE_MENU_VERSION },
+    update: { value: BASE_MENU_VERSION },
   });
   return { loaded: true, products: menu.platos.length };
+}
+
+// ---------------------------------------------------------------------------
+// Actualizaciones del menú (se aplican una sola vez, en orden)
+// ---------------------------------------------------------------------------
+
+/** Extras que pasan a ser modificadores (así cocina sabe a qué plato van). */
+const EXTRA_MODIFIERS = [
+  { name: "Extra huevo", priceDeltaCents: 300 },
+  { name: "Extra tocino", priceDeltaCents: 500 },
+  { name: "Extra queso", priceDeltaCents: 300 },
+];
+const CATEGORIES_WITH_EXTRAS = ["Hamburguesas", "Lomitos"];
+
+type MenuUpdate = { version: number; description: string; apply: (db: PrismaClient) => Promise<void> };
+
+const MENU_UPDATES: MenuUpdate[] = [
+  {
+    version: 2,
+    description: "Extras como modificadores de hamburguesas y lomitos; sin DESCONGELEN PRODUCTO",
+    async apply(db) {
+      // 1) Modificadores en cada hamburguesa y lomito (si ya existe uno con ese nombre, no se toca).
+      const products = await db.product.findMany({
+        where: { category: { name: { in: CATEGORIES_WITH_EXTRAS } } },
+        select: { id: true, modifiers: { select: { name: true, sortOrder: true } } },
+      });
+      for (const product of products) {
+        let order = Math.max(-1, ...product.modifiers.map((m) => m.sortOrder));
+        for (const extra of EXTRA_MODIFIERS) {
+          if (product.modifiers.some((m) => m.name === extra.name)) continue;
+          await db.productModifier.create({ data: { productId: product.id, ...extra, sortOrder: ++order } });
+        }
+      }
+      // 2) Los extras sueltos se desactivan (no se borran: quedan en el historial).
+      const names = EXTRA_MODIFIERS.map((e) => e.name);
+      await db.product.updateMany({ where: { name: { in: names }, category: { name: "Extras" } }, data: { active: false } });
+      await db.category.updateMany({
+        where: { name: "Extras", products: { none: { active: true } } },
+        data: { active: false },
+      });
+      // 3) Quitar "DESCONGELEN PRODUCTO" de los mensajes rápidos si ya estaban guardados.
+      const quick = await db.setting.findUnique({ where: { key: "kitchen.quickMessages" } });
+      if (quick && Array.isArray(quick.value)) {
+        const list = (quick.value as string[]).filter((m) => m.toUpperCase() !== "DESCONGELEN PRODUCTO");
+        await db.setting.update({ where: { key: "kitchen.quickMessages" }, data: { value: list } });
+      }
+    },
+  },
+];
+
+/** Aplica las actualizaciones del menú que falten. Devuelve las que se aplicaron. */
+export async function applyMenuUpdates(db: PrismaClient) {
+  const flag = await db.setting.findUnique({ where: { key: "seed.menuVersion" } });
+  let current = typeof flag?.value === "number" ? flag.value : 0;
+  if (current === 0) return []; // sin menú base no hay nada que actualizar
+  const applied: string[] = [];
+  for (const update of MENU_UPDATES.sort((a, b) => a.version - b.version)) {
+    if (update.version <= current) continue;
+    await update.apply(db);
+    current = update.version;
+    await db.setting.update({ where: { key: "seed.menuVersion" }, data: { value: current } });
+    applied.push(`v${update.version}: ${update.description}`);
+  }
+  return applied;
 }
 
 /** Quita los productos de ejemplo de versiones anteriores y las categorías que quedaron vacías. */
@@ -120,5 +189,7 @@ export async function removeExampleCatalog(db: PrismaClient) {
 export async function seed(db: PrismaClient) {
   await seedUsersAndSettings(db);
   await removeExampleCatalog(db);
-  return seedMenu(db);
+  const menu = await seedMenu(db);
+  const updates = await applyMenuUpdates(db);
+  return { ...menu, updates };
 }
