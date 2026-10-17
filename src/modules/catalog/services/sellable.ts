@@ -50,7 +50,11 @@ export async function getSellableProduct(id: string): Promise<SellableProduct | 
       name: true,
       priceCents: true,
       sendsToKitchen: true,
-      modifiers: { where: { active: true }, select: { id: true, name: true, priceDeltaCents: true } },
+      modifiers: {
+        where: { active: true },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        select: { id: true, name: true, priceDeltaCents: true },
+      },
     },
   });
 }
