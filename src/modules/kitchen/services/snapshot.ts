@@ -18,6 +18,8 @@ export type KdsTicket = {
   updatedAt: string;
   /** Caja anuló algo de esta comanda y cocina todavía no tocó "Entendido". */
   voidAlert: boolean;
+  /** Hora en que se anuló la comanda entera (null si no está anulada). */
+  cancelledAt: string | null;
   items: {
     id: string;
     name: string;
@@ -28,6 +30,7 @@ export type KdsTicket = {
     ready: boolean;
     voided: boolean;
     voidReason: string | null;
+    voidedAt: string | null;
   }[];
 };
 
@@ -54,6 +57,7 @@ function toKdsTicket(t: TicketWithItems): KdsTicket {
     receivedAt: t.receivedAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
     voidAlert: t.voidAlertAt !== null,
+    cancelledAt: t.cancelledAt?.toISOString() ?? null,
     items: t.items.map((i) => ({
       id: i.id,
       name: i.name,
@@ -64,6 +68,7 @@ function toKdsTicket(t: TicketWithItems): KdsTicket {
       ready: i.readyAt !== null,
       voided: i.voidedAt !== null,
       voidReason: i.voidReason,
+      voidedAt: i.voidedAt?.toISOString() ?? null,
     })),
   };
 }

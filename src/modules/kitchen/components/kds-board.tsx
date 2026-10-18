@@ -237,7 +237,11 @@ function TicketCard({
       {cancelled && (
         <div className={cn("bg-red-600 py-3 text-center text-3xl font-black tracking-wide text-white", ticket.voidAlert && "animate-pulse")}>
           ANULADA — NO PREPARAR
-          {ticket.items[0]?.voidReason && <div className="text-lg font-semibold">{ticket.items[0].voidReason}</div>}
+          <div className="text-lg font-semibold">
+            {[ticket.cancelledAt && clock.format(new Date(ticket.cancelledAt)), ticket.items[0]?.voidReason]
+              .filter(Boolean)
+              .join(" · ")}
+          </div>
         </div>
       )}
       {ticket.voidAlert && !cancelled && (
@@ -266,7 +270,12 @@ function TicketCard({
                 </span>
                 {item.voided && (
                   <span className="block text-lg font-black text-red-700 dark:text-red-400">
-                    ANULADO{item.voidReason && !cancelled ? ` · ${item.voidReason}` : ""}
+                    ANULADO
+                    {!cancelled &&
+                      [item.voidedAt && clock.format(new Date(item.voidedAt)), item.voidReason]
+                        .filter(Boolean)
+                        .map((x) => ` · ${x}`)
+                        .join("")}
                   </span>
                 )}
                 {item.serviceType === "TAKEAWAY" && ticket.serviceType === "DINE_IN" && (

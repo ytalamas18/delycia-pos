@@ -121,6 +121,25 @@ describe("anular un ítem", () => {
 });
 
 describe("anular la orden completa", () => {
+  it("cocina: la anulada NO sale de 'En curso' sin 'Entendido'; luego pasa a 'Recientes' con motivo y hora", async () => {
+    const { caja, plato, actor } = await fixtures();
+    const order = await orders.createOrder(dineIn, [line(plato.id)], caja.id);
+    await orders.sendToKitchen(order.id);
+    await voids.cancelOrder(order.id, "Cliente se fue", actor);
+
+    // Pasa el tiempo y nadie confirma: sigue a la vista.
+    let kds = await getKdsSnapshot();
+    expect(kds.active.map((t) => t.status)).toEqual(["CANCELLED"]);
+    expect(kds.recent).toHaveLength(0);
+
+    await tickets.acknowledgeVoid(kds.active[0].id);
+    kds = await getKdsSnapshot();
+    expect(kds.active).toHaveLength(0);
+    expect(kds.recent).toHaveLength(1);
+    expect(kds.recent[0].cancelledAt).not.toBeNull();
+    expect(kds.recent[0].items[0]).toMatchObject({ voided: true, voidReason: "Cliente se fue" });
+  });
+
   it("por pagar en cocina: orden ANULADA con motivo y sus comandas ANULADAS", async () => {
     const { caja, admin, plato, actor } = await fixtures();
     const order = await orders.createOrder(dineIn, [line(plato.id)], caja.id);
