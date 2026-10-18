@@ -187,6 +187,7 @@ model Order {
   @@unique([businessDate, number])
   @@index([status])
   @@index([businessDate])
+  @@index([cancelledAt])
 }
 
 model OrderItem {
@@ -220,6 +221,7 @@ model OrderItem {
   updatedAt          DateTime        @updatedAt
 
   @@index([orderId])
+  @@index([voidedAt])
 }
 
 model Payment {

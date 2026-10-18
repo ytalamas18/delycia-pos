@@ -2,7 +2,7 @@ import { fileBaseFor, formatPeriod, type ExportDocument } from "@/core/export";
 import { paymentMethodLabel } from "@/modules/sales";
 
 import { parseRange } from "./domain/range";
-import { getProductsSold, getSalesByChannel, listCategoriesForFilter } from "./services/reports";
+import { getProductsSold, getSalesByChannel, getVoids, listCategoriesForFilter } from "./services/reports";
 
 /** Parámetros de la URL: los mismos que usa la pantalla de Reportes. */
 export type ReportParams = { desde?: string; hasta?: string; cat?: string; orden?: string; [key: string]: string | undefined };
@@ -125,6 +125,66 @@ async function productsExport(params: ReportParams): Promise<ExportDocument> {
   };
 }
 
+async function voidsExport(params: ReportParams): Promise<ExportDocument> {
+  const range = parseRange(params);
+  const r = await getVoids(range);
+  return {
+    report: "Anulaciones",
+    fileBase: fileBaseFor("anulaciones", range.from, range.to),
+    period: formatPeriod(range.from, range.to),
+    filters: ["Por la hora en que se anuló"],
+    generatedAt: new Date(),
+    summary: [
+      { label: "Anulaciones", value: r.totals.count, type: "int" },
+      { label: "Monto anulado", value: r.totals.amountCents, type: "money" },
+      { label: "Órdenes completas", value: r.totals.orders, type: "int" },
+      { label: "Ítems sueltos", value: r.totals.items, type: "int" },
+    ],
+    tables: [
+      {
+        title: "Por motivo",
+        columns: [
+          { header: "Motivo", type: "text" },
+          { header: "Veces", type: "int" },
+          { header: "Monto", type: "money" },
+        ],
+        rows: r.byReason.map((g) => [g.reason, g.count, g.amountCents]),
+        totals: ["Total", r.totals.count, r.totals.amountCents],
+      },
+      {
+        title: "Detalle",
+        columns: [
+          { header: "Fecha y hora", type: "datetime" },
+          { header: "N° orden", type: "int" },
+          { header: "Día de la orden", type: "date" },
+          { header: "Tipo", type: "text" },
+          { header: "Producto(s)", type: "text" },
+          { header: "Monto", type: "money" },
+          { header: "Motivo", type: "text" },
+          { header: "Anuló", type: "text" },
+          { header: "Autorizó", type: "text" },
+          { header: "En cocina", type: "text" },
+          { header: "Cobrada", type: "text" },
+        ],
+        rows: r.entries.map((e) => [
+          e.at,
+          e.orderNumber,
+          e.orderDate,
+          e.kind === "order" ? "Orden completa" : "Ítem",
+          e.products,
+          e.amountCents,
+          e.reason,
+          e.voidedBy,
+          e.authorizedBy ?? "",
+          e.inKitchen ? "Sí" : "No",
+          e.wasPaid ? "Sí (devuelta)" : "No",
+        ]),
+        totals: ["Total", null, null, null, null, r.totals.amountCents, null, null, null, null, null],
+      },
+    ],
+  };
+}
+
 /** "Bebidas Frías" → "bebidas-frias" (para el nombre del archivo). */
 export function slug(text: string): string {
   return text
@@ -139,4 +199,5 @@ export function slug(text: string): string {
 export const reportExports: Record<string, (params: ReportParams) => Promise<ExportDocument>> = {
   "ventas-por-canal": salesByChannelExport,
   "productos-vendidos": productsExport,
+  anulaciones: voidsExport,
 };

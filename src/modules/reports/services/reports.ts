@@ -1,8 +1,10 @@
 import { db } from "@/core/db/client";
+import { businessDayRange } from "@/core/time";
 import { Prisma } from "@/generated/prisma/client";
 
 import { buildProducts, type ProductRow, type ProductSort } from "../domain/products";
 import type { DateRange } from "../domain/range";
+import { buildVoidsReport, type VoidEntry } from "../domain/voids";
 import { buildSalesByChannel, type ChannelDayRow, type DayRow } from "../domain/sales";
 
 /*
@@ -69,4 +71,67 @@ export async function getProductsSold(range: DateRange, opts: { categoryId?: str
 /** Categorías para el filtro del reporte de productos. */
 export function listCategoriesForFilter() {
   return db.category.findMany({ select: { id: true, name: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] });
+}
+
+/**
+ * Anulaciones hechas en el rango (por la HORA de la anulación, en días de La Paz): órdenes enteras
+ * e ítems sueltos. El monto de una orden anulada ya no incluye los ítems que se anularon antes,
+ * así que no se cuenta dos veces.
+ */
+export async function getVoids(range: DateRange) {
+  const start = businessDayRange(range.from).start;
+  const end = businessDayRange(range.to).end;
+  const [orders, items] = await Promise.all([
+    db.order.findMany({
+      where: { status: "CANCELLED", cancelledAt: { gte: start, lt: end } },
+      include: { items: true, payments: { select: { id: true } } },
+    }),
+    db.orderItem.findMany({
+      where: { status: "VOIDED", voidedAt: { gte: start, lt: end } },
+      include: { order: { select: { number: true, businessDate: true } } },
+    }),
+  ]);
+  const userIds = [
+    ...orders.flatMap((o) => [o.cancelledById, o.cancelAuthorizedById]),
+    ...items.flatMap((i) => [i.voidedById, i.voidAuthorizedById]),
+  ].filter((x): x is string => !!x);
+  const users = await db.user.findMany({ where: { id: { in: [...new Set(userIds)] } }, select: { id: true, name: true } });
+  const name = (id: string | null) => (id ? (users.find((u) => u.id === id)?.name ?? "—") : "—");
+  const authorizer = (by: string | null, auth: string | null) => (auth && auth !== by ? name(auth) : null);
+
+  const entries: VoidEntry[] = [
+    ...orders.map((o) => {
+      const active = o.items.filter((i) => i.status === "ACTIVE");
+      return {
+        kind: "order" as const,
+        at: o.cancelledAt!,
+        orderId: o.id,
+        orderNumber: o.number,
+        orderDate: o.businessDate,
+        products: active.map((i) => `${i.quantity}× ${i.productName}`).join(", "),
+        amountCents: o.totalCents,
+        reason: o.cancelReason ?? "",
+        voidedBy: name(o.cancelledById),
+        authorizedBy: authorizer(o.cancelledById, o.cancelAuthorizedById),
+        inKitchen: active.some((i) => i.sentToKitchenAt !== null),
+        wasPaid: o.payments.length > 0,
+      };
+    }),
+    ...items.map((i) => ({
+      kind: "item" as const,
+      at: i.voidedAt!,
+      orderId: i.orderId,
+      orderNumber: i.order.number,
+      orderDate: i.order.businessDate,
+      products: `${i.quantity}× ${i.productName}`,
+      amountCents: i.unitPriceCents * i.quantity,
+      reason: i.voidReason ?? "",
+      voidedBy: name(i.voidedById),
+      authorizedBy: authorizer(i.voidedById, i.voidAuthorizedById),
+      inKitchen: i.sentToKitchenAt !== null,
+      // Un ítem solo se anula en una orden por pagar.
+      wasPaid: false,
+    })),
+  ];
+  return buildVoidsReport(entries);
 }

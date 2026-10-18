@@ -6,7 +6,7 @@ import { kitchenModule } from "@/modules/kitchen";
 import { salesModule } from "@/modules/sales";
 
 import { reportExports } from "@/modules/reports";
-import { getProductsSold, getSalesByChannel } from "@/modules/reports/services/reports";
+import { getProductsSold, getSalesByChannel, getVoids } from "@/modules/reports/services/reports";
 import { buildHistoryExport } from "@/modules/sales";
 import * as checkout from "@/modules/sales/services/checkout";
 import * as orders from "@/modules/sales/services/orders";
@@ -142,5 +142,44 @@ describe("reportes contra la base", () => {
     expect(history.tables[0].rows[0][5]).toBe("Anulada");
     expect(history.tables[0].rows[0][9]).toBe(0); // anulada: no suma en "Cobrado"
     expect(history.tables[0].rows[0][10]).toBe("Se cobró mal");
+  });
+
+  it("anulaciones: órdenes e ítems por hora de anulación (La Paz), motivo agrupado y sin doble conteo", async () => {
+    const { caja, plato, gaseosa } = await fixtures();
+    const admin = await db.user.findUniqueOrThrow({ where: { name: "Admin" } });
+    const actor = { userId: caja.id, authorizedById: admin.id };
+
+    // 17/10 15:00: orden por pagar en cocina; se anula la gaseosa (no va a cocina) y después la orden entera.
+    vi.setSystemTime(new Date("2026-10-17T15:00:00Z"));
+    const open = await orders.createOrder(takeaway, [line(plato.id), line(gaseosa.id)], caja.id);
+    await orders.sendToKitchen(open.id);
+    const soda = (await orders.getOrder(open.id))!.items.find((i) => i.productId === gaseosa.id)!;
+    await voids.voidItem(open.id, soda.id, "Error al cargar", actor);
+    await voids.cancelOrder(open.id, "  cliente se fue ", actor);
+    // 17/10 23:30 en La Paz (03:30 UTC del 18): cobrada y anulada → cuenta el 17.
+    const paid = await saleAt("2026-10-18T03:30:00Z", caja.id, [line(plato.id)], [{ method: "CASH", amountCents: 3800 }]);
+    await voids.cancelOrder(paid.id, "Cliente se fue.", { userId: admin.id, authorizedById: admin.id }, "2026-10-17");
+    // 18/10 en La Paz: no entra en el reporte del 17.
+    vi.setSystemTime(new Date("2026-10-18T15:00:00Z"));
+    const other = await orders.createOrder(takeaway, [line(gaseosa.id)], caja.id);
+    await voids.cancelOrder(other.id, "Otro día", actor);
+
+    const r = await getVoids({ from: "2026-10-17", to: "2026-10-17" });
+    expect(r.totals).toEqual({ count: 3, orders: 2, items: 1, amountCents: 1000 + 3800 + 3800 });
+    expect(r.byReason).toEqual([
+      { reason: "cliente se fue", count: 2, amountCents: 7600 },
+      { reason: "Error al cargar", count: 1, amountCents: 1000 },
+    ]);
+    const item = r.entries.find((e) => e.kind === "item")!;
+    expect(item).toMatchObject({ orderNumber: 1, inKitchen: false, wasPaid: false, voidedBy: "Caja", authorizedBy: "Admin" });
+    const cancelledOpen = r.entries.find((e) => e.kind === "order" && e.orderNumber === 1)!;
+    expect(cancelledOpen).toMatchObject({ amountCents: 3800, products: "1× Majadito (ejemplo)", inKitchen: true, wasPaid: false });
+    const cancelledPaid = r.entries.find((e) => e.kind === "order" && e.orderNumber === 2)!;
+    expect(cancelledPaid).toMatchObject({ wasPaid: true, voidedBy: "Admin", authorizedBy: null, inKitchen: false });
+
+    const exp = await reportExports.anulaciones({ desde: "2026-10-17", hasta: "2026-10-17" });
+    expect(exp.fileBase).toBe("anulaciones_2026-10-17");
+    expect(exp.tables[1].rows).toHaveLength(3);
+    expect(exp.tables[1].totals?.[5]).toBe(8600);
   });
 });

@@ -12,6 +12,15 @@ import type { Cell } from "../domain/sales";
 import { getProductsSold, getSalesByChannel, listCategoriesForFilter } from "../services/reports";
 import { DailyBars } from "./daily-bars";
 import { RangeFilter } from "./range-filter";
+import { Stat } from "./stat";
+import { VoidsView } from "./voids-view";
+
+const VIEWS = [
+  { key: "canales", label: "Ventas por canal", report: "ventas-por-canal", note: "solo órdenes cobradas; las anuladas van aparte y no suman" },
+  { key: "productos", label: "Productos vendidos", report: "productos-vendidos", note: "solo órdenes cobradas; las anuladas van aparte y no suman" },
+  { key: "anulaciones", label: "Anulaciones", report: "anulaciones", note: "por la hora en que se anuló" },
+] as const;
+type ViewKey = (typeof VIEWS)[number]["key"];
 
 type Params = { desde?: string; hasta?: string; vista?: string; cat?: string; orden?: string };
 
@@ -20,7 +29,8 @@ const shortDate = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}/${day
 
 export async function ReportsScreen({ params }: { params: Params }) {
   const range = parseRange(params);
-  const view = params.vista === "productos" ? "productos" : "canales";
+  const view = VIEWS.some((v) => v.key === params.vista) ? (params.vista as ViewKey) : "canales";
+  const current = VIEWS.find((v) => v.key === view)!;
   const tabHref = (vista: string) => `/reportes?${new URLSearchParams({ vista, desde: range.from, hasta: range.to })}`;
   const keep: Record<string, string> = { vista: view };
   if (view === "productos" && params.cat) keep.cat = params.cat;
@@ -29,11 +39,8 @@ export async function ReportsScreen({ params }: { params: Params }) {
   return (
     <div className="max-w-6xl space-y-4">
       <h1 className="text-2xl font-bold">Reportes</h1>
-      <div className="flex gap-2" role="tablist">
-        {[
-          { key: "canales", label: "Ventas por canal" },
-          { key: "productos", label: "Productos vendidos" },
-        ].map((t) => (
+      <div className="flex flex-wrap gap-2" role="tablist">
+        {VIEWS.map((t) => (
           <Link
             key={t.key}
             href={tabHref(t.key)}
@@ -50,18 +57,18 @@ export async function ReportsScreen({ params }: { params: Params }) {
       </div>
       <RangeFilter range={range} keep={keep} />
       <ExportButtons
-        report={view === "productos" ? "productos-vendidos" : "ventas-por-canal"}
+        report={current.report}
         params={{ ...keep, desde: range.from, hasta: range.to }}
       />
       <p className="text-sm text-muted-foreground">
         {range.from === range.to ? shortDate(range.from) : `Del ${shortDate(range.from)} al ${shortDate(range.to)}`} · días según
-        la hora de La Paz · solo órdenes cobradas; las anuladas van aparte y no suman.
+        la hora de La Paz · {current.note}.
       </p>
-      {view === "canales" ? (
-        <SalesByChannel range={range} />
-      ) : (
+      {view === "canales" && <SalesByChannel range={range} />}
+      {view === "productos" && (
         <ProductsSold range={range} categoryId={params.cat ?? null} sort={params.orden === "monto" ? "monto" : "cantidad"} />
       )}
+      {view === "anulaciones" && <VoidsView range={range} />}
     </div>
   );
 }
@@ -360,14 +367,5 @@ function Cancelled({ orders, totalCents }: { orders: number; totalCents: number 
     <p className="mt-3 rounded-lg border border-red-600/40 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 dark:bg-red-950 dark:text-red-200">
       Anuladas en el período: {orders} órdenes · {formatMoney(totalCents)} (no suman)
     </p>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border bg-card p-4">
-      <div className="text-sm text-muted-foreground">{label}</div>
-      <div className="text-2xl font-bold tabular-nums">{value}</div>
-    </div>
   );
 }
