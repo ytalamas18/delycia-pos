@@ -5,6 +5,7 @@ declare module "@/core/events/types" {
   interface DomainEventMap {
     "ticket.status_changed": { ticketId: string; orderId: string; from: TicketStatus; to: TicketStatus };
     "ticket.ready": { ticketId: string; orderId: string; orderNumber: number; label: string; sequence: number };
+    "ticket.void_seen": { ticketId: string; orderId: string };
     "kitchen.message_sent": { messageId: string; text: string; senderName: string };
     "kitchen.message_seen": { messageId: string; text: string; seenBy: string };
   }

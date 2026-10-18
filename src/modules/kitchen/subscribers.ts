@@ -1,6 +1,8 @@
 import { eventBus } from "@/core/db/transaction";
 import type { Prisma } from "@/generated/prisma/client";
 
+import { cancelTicketsForOrder, voidTicketItem } from "./services/tickets";
+
 /**
  * Cocina reacciona a los eventos de Ventas. Corre DENTRO de la transacción de Ventas:
  * si no se puede crear la comanda, el envío a cocina se revierte entero.
@@ -29,5 +31,13 @@ export function registerKitchenSubscribers() {
         },
       },
     });
+  });
+
+  eventBus.onTransaction("order.item_voided", async ({ payload }, tx, publish) => {
+    if (payload.sentToKitchen) await voidTicketItem(tx, publish, payload.orderItemId, payload.reason);
+  });
+
+  eventBus.onTransaction("order.cancelled", async ({ payload }, tx, publish) => {
+    await cancelTicketsForOrder(tx, publish, payload.orderId, payload.reason);
   });
 }

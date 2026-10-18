@@ -18,7 +18,7 @@ import {
 
 export default async function PosPage({ searchParams }: PageProps<"/pos">) {
   requireModule("sales");
-  await requirePermission("sales.sell");
+  const session = await requirePermission("sales.sell");
   // Antes de la primera venta del día hay que abrir la caja con el efectivo inicial.
   if (!(await getOpening(businessDate()))) {
     return (
@@ -101,6 +101,7 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
       order={posOrder}
       openCheckout={cobrar === "1"}
       paid={paid}
+      isAdmin={session.role === "ADMIN"}
     />
   );
 }

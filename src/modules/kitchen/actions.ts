@@ -46,6 +46,13 @@ export async function toggleItemReadyAction(itemId: string): Promise<ActionResul
   });
 }
 
+export async function acknowledgeVoidAction(ticketId: string): Promise<ActionResult> {
+  await requirePermission("kitchen.operate");
+  return toActionResult(async () => {
+    await tickets.acknowledgeVoid(ticketId);
+  });
+}
+
 // --- Mensajes de caja a cocina ---
 
 export async function sendKitchenMessageAction(text: string): Promise<ActionResult> {

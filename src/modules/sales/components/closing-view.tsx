@@ -125,7 +125,17 @@ export async function ClosingView({ date }: { date: string }) {
               <Row label="Descuentos" value={`− ${formatMoney(s.discountCents)}`} />
               <Row label="Ventas netas" value={formatMoney(s.netCents)} strong />
             </div>
-            {s.cancelledCount > 0 && <p className="text-sm text-muted-foreground">Anuladas: {s.cancelledCount}</p>}
+            {(s.cancelledCount > 0 || s.voidedItemsCount > 0) && (
+              <div className="space-y-0.5 border-t pt-2 text-sm text-red-700 dark:text-red-400">
+                {s.cancelledCount > 0 && (
+                  <Row label={`Órdenes anuladas (${s.cancelledCount}) — no suman`} value={formatMoney(s.cancelledCents)} />
+                )}
+                {s.refundedCents > 0 && <Row label="  de ellas, cobradas y devueltas" value={formatMoney(s.refundedCents)} />}
+                {s.voidedItemsCount > 0 && (
+                  <Row label={`Ítems anulados (${s.voidedItemsCount}) — no suman`} value={formatMoney(s.voidedItemsCents)} />
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

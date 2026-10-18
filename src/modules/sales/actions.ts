@@ -6,6 +6,8 @@ import { z } from "zod";
 
 import { type ActionResult, toActionResult } from "@/core/actions/result";
 import { requirePermission } from "@/core/auth/server";
+import { authorizeWithAdminPin } from "@/core/auth/service";
+import type { SessionUser } from "@/core/auth/session";
 import { DomainError } from "@/core/errors";
 import { parseMoney } from "@/core/money";
 import { setSetting } from "@/core/settings";
@@ -16,6 +18,7 @@ import type { DiscountInput, PaymentEntry } from "./domain/checkout";
 import * as checkout from "./services/checkout";
 import * as history from "./services/history";
 import * as orders from "./services/orders";
+import * as voids from "./services/voids";
 import { peyaMarkupSetting } from "./settings";
 
 export async function savePeyaMarkupAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
@@ -104,6 +107,46 @@ export async function removeItemAction(orderId: string, itemId: string): Promise
   return toActionResult(async () => {
     await orders.removeItem(orderId, itemId);
     refreshSales();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Anulaciones: un Admin anula directo; Caja necesita el PIN de un Admin.
+// ---------------------------------------------------------------------------
+
+export type VoidInput = { reason: string; adminPin?: string };
+
+async function voidActor(session: SessionUser, adminPin?: string): Promise<voids.VoidActor> {
+  if (session.role === "ADMIN") return { userId: session.userId, authorizedById: session.userId };
+  const admin = await authorizeWithAdminPin(adminPin ?? "");
+  return { userId: session.userId, authorizedById: admin.userId };
+}
+
+function refreshAfterVoid(orderId: string) {
+  refreshSales();
+  revalidatePath("/historial");
+  revalidatePath(`/historial/${orderId}`);
+  revalidatePath("/cierre");
+  revalidatePath("/cuentas-por-cobrar");
+}
+
+export async function voidItemAction(orderId: string, itemId: string, input: VoidInput): Promise<ActionResult> {
+  const session = await requirePermission("sales.sell");
+  return toActionResult(async () => {
+    const actor = await voidActor(session, input.adminPin);
+    await voids.voidItem(orderId, itemId, input.reason, actor);
+    refreshAfterVoid(orderId);
+    return "Ítem anulado";
+  });
+}
+
+export async function cancelOrderAction(orderId: string, input: VoidInput): Promise<ActionResult> {
+  const session = await requirePermission("sales.sell");
+  return toActionResult(async () => {
+    const actor = await voidActor(session, input.adminPin);
+    const r = await voids.cancelOrder(orderId, input.reason, actor);
+    refreshAfterVoid(orderId);
+    return `Orden #${r.number} anulada${r.wasPaid ? " (pago devuelto)" : ""}`;
   });
 }
 

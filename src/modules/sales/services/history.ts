@@ -27,9 +27,9 @@ export function listOrdersForDay(date: string, filters: HistoryFilters = {}) {
   });
 }
 
-/** Detalle completo de una orden para el historial. */
-export function getOrderDetail(id: string) {
-  return db.order.findUnique({
+/** Detalle completo de una orden para el historial (con los nombres de quién anuló y autorizó). */
+export async function getOrderDetail(id: string) {
+  const order = await db.order.findUnique({
     where: { id },
     include: {
       items: { orderBy: { createdAt: "asc" } },
@@ -38,6 +38,15 @@ export function getOrderDetail(id: string) {
       createdBy: { select: { name: true } },
     },
   });
+  if (!order) return null;
+  const ids = [
+    order.cancelledById,
+    order.cancelAuthorizedById,
+    ...order.items.flatMap((i) => [i.voidedById, i.voidAuthorizedById]),
+  ].filter((x): x is string => !!x);
+  const users = ids.length ? await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : [];
+  const names = new Map(users.map((u) => [u.id, u.name]));
+  return { ...order, userName: (id: string | null) => (id ? (names.get(id) ?? "—") : null) };
 }
 
 // ---------------------------------------------------------------------------

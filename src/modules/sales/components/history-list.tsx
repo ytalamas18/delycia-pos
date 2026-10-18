@@ -51,6 +51,7 @@ export async function HistoryList({ date, params }: { date: string; params: Part
   const orders = await listOrdersForDay(date, filters);
   const active = Object.fromEntries(Object.entries(params).filter(([, v]) => v)) as Record<string, string>;
   const total = orders.filter((o) => o.status === "PAID" || o.status === "CLOSED").reduce((s, o) => s + o.totalCents, 0);
+  const cancelled = orders.filter((o) => o.status === "CANCELLED");
 
   const toggleHref = (key: FilterKey, value: string) => {
     const next: Record<string, string> = { ...active, fecha: date };
@@ -84,7 +85,11 @@ export async function HistoryList({ date, params }: { date: string; params: Part
       </div>
 
       <div className="flex items-baseline justify-between">
-        <span className="text-muted-foreground">{orders.length} órdenes</span>
+        <span className="text-muted-foreground">
+          {orders.length} órdenes
+          {cancelled.length > 0 &&
+            ` · ${cancelled.length} anuladas (${formatMoney(cancelled.reduce((s, o) => s + o.totalCents, 0))}, no suman)`}
+        </span>
         <span className="text-lg">
           Cobrado (filtro actual): <strong className="tabular-nums">{formatMoney(total)}</strong>
         </span>
@@ -120,6 +125,11 @@ export async function HistoryList({ date, params }: { date: string; params: Part
                       .filter((i) => i.status === "ACTIVE")
                       .map((i) => `${i.quantity}× ${i.productName}`)
                       .join(", ")}
+                    {o.items.some((i) => i.status === "VOIDED") && o.status !== "CANCELLED" && (
+                      <span className="ml-1 font-medium text-red-700 dark:text-red-400">
+                        · {o.items.filter((i) => i.status === "VOIDED").length} ítem(s) anulado(s)
+                      </span>
+                    )}
                   </span>
                 </td>
                 <td className="p-3">
@@ -128,7 +138,14 @@ export async function HistoryList({ date, params }: { date: string; params: Part
                 <td className="p-3 text-sm">
                   {[...new Set(o.payments.filter((p) => !p.refundedAt).map((p) => paymentMethodLabel[p.method]))].join(" + ") || "—"}
                 </td>
-                <td className="p-3 text-right text-lg font-semibold tabular-nums">{formatMoney(o.totalCents)}</td>
+                <td
+                  className={cn(
+                    "p-3 text-right text-lg font-semibold tabular-nums",
+                    o.status === "CANCELLED" && "text-muted-foreground line-through",
+                  )}
+                >
+                  {formatMoney(o.totalCents)}
+                </td>
               </tr>
             ))}
             {orders.length === 0 && (

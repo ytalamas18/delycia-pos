@@ -156,7 +156,13 @@ export async function buildClosingPdf(data: ClosingPdfData): Promise<Uint8Array>
   if (s.openCount > 0) {
     w.row([`Quedaron por pagar (${s.openCount}) - no incluidas`, formatMoney(s.openTotalCents)], two, { color: GRAY });
   }
-  if (s.cancelledCount > 0) w.row(["Órdenes anuladas", String(s.cancelledCount)], two, { color: GRAY });
+  if (s.cancelledCount > 0) {
+    w.row([`Órdenes anuladas (${s.cancelledCount}) - no incluidas`, formatMoney(s.cancelledCents)], two, { color: GRAY });
+  }
+  if (s.refundedCents > 0) w.row(["  de ellas, cobradas y devueltas", formatMoney(s.refundedCents)], two, { color: GRAY });
+  if (s.voidedItemsCount > 0) {
+    w.row([`Ítems anulados (${s.voidedItemsCount}) - no incluidos`, formatMoney(s.voidedItemsCents)], two, { color: GRAY });
+  }
 
   // Dinero por medio
   w.section("Dinero por medio de pago");

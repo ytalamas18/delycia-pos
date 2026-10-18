@@ -108,3 +108,23 @@ export async function changeUserPin(input: {
   });
   return user.name;
 }
+
+/**
+ * Autorización de un Admin para una acción delicada hecha desde Caja (ej. anular).
+ * Prueba el PIN contra los Admin activos con el mismo bloqueo por intentos que el login.
+ * Devuelve el Admin que autorizó.
+ */
+export async function authorizeWithAdminPin(pin: string, now = new Date()): Promise<SessionUser> {
+  if (!/^\d{4}$/.test(pin)) throw new DomainError("Ingresa el PIN de Admin (4 dígitos).", { adminPin: "4 dígitos" });
+  const admins = await db.user.findMany({ where: { role: "ADMIN", active: true }, select: { id: true } });
+  let locked: number | null = null;
+  for (const admin of admins) {
+    const result = await authenticate(admin.id, pin, now);
+    if (result.ok) return result.user;
+    if (result.reason === "locked") locked = result.minutesLeft;
+  }
+  if (locked !== null) {
+    throw new DomainError(`Demasiados intentos: el PIN de Admin está bloqueado ${locked} min.`, { adminPin: "Bloqueado" });
+  }
+  throw new DomainError("PIN de Admin incorrecto.", { adminPin: "PIN incorrecto" });
+}

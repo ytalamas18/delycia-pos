@@ -26,17 +26,17 @@ enum Role {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  pinHash   String
-  role      Role
-  active    Boolean  @default(true)
+  id                String    @id @default(cuid())
+  name              String    @unique
+  pinHash           String
+  role              Role
+  active            Boolean   @default(true)
   /// Intentos de PIN fallidos seguidos; al llegar al límite se bloquea un rato (lockedUntil).
   failedPinAttempts Int       @default(0)
   lockedUntil       DateTime?
-  orders    Order[]  @relation("OrderCreatedBy")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  orders            Order[]   @relation("OrderCreatedBy")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }
 
 /// Outbox de eventos de dominio. El id secuencial es el Last-Event-ID del SSE.
@@ -173,6 +173,9 @@ model Order {
   closedAt             DateTime?
   cancelledAt          DateTime?
   cancelReason         String?
+  /// Quién anuló y, si fue Caja, el Admin que autorizó con su PIN (si anuló un Admin, es él mismo).
+  cancelledById        String?
+  cancelAuthorizedById String?
   createdById          String
   createdBy            User             @relation("OrderCreatedBy", fields: [createdById], references: [id])
   items                OrderItem[]
@@ -187,32 +190,34 @@ model Order {
 }
 
 model OrderItem {
-  id              String          @id @default(cuid())
-  orderId         String
-  order           Order           @relation(fields: [orderId], references: [id])
-  productId       String
+  id                 String          @id @default(cuid())
+  orderId            String
+  order              Order           @relation(fields: [orderId], references: [id])
+  productId          String
   // --- copia del producto al momento de la venta ---
-  productName     String
+  productName        String
   /// Precio de lista del producto (sin recargo de canal).
-  listPriceCents  Int
+  listPriceCents     Int
   /// Precio unitario cobrado (con recargo PEYA y modificadores incluidos).
-  unitPriceCents  Int
-  sendsToKitchen  Boolean
+  unitPriceCents     Int
+  sendsToKitchen     Boolean
   /// [{ name, priceDeltaCents }]
-  modifiers       Json            @default("[]")
+  modifiers          Json            @default("[]")
   // ---
-  quantity        Int
-  note            String?
+  quantity           Int
+  note               String?
   /// Hereda el de la orden; se puede cambiar por ítem (ej. mesa que pide un plato para llevar).
-  serviceType     ServiceType
-  status          OrderItemStatus @default(ACTIVE)
+  serviceType        ServiceType
+  status             OrderItemStatus @default(ACTIVE)
   /// null = todavía no se envió a cocina.
-  sentToKitchenAt DateTime?
-  voidReason      String?
-  voidedAt        DateTime?
-  voidedById      String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  sentToKitchenAt    DateTime?
+  voidReason         String?
+  voidedAt           DateTime?
+  voidedById         String?
+  /// Admin que autorizó la anulación (el mismo voidedById si anuló un Admin).
+  voidAuthorizedById String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   @@index([orderId])
 }
@@ -298,6 +303,8 @@ model KitchenTicket {
   readyAt     DateTime?
   deliveredAt DateTime?
   cancelledAt DateTime?
+  /// Caja anuló algo de esta comanda mientras estaba en cocina: aviso en rojo hasta que cocina toque "Entendido".
+  voidAlertAt DateTime?
   items       KitchenTicketItem[]
   statusLog   TicketStatusLog[]
   createdAt   DateTime            @default(now())

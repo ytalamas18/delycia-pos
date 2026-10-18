@@ -29,6 +29,13 @@ export type DailySummary = {
   openCount: number;
   openTotalCents: Cents;
   cancelledCount: number;
+  /** Total de las órdenes anuladas (no suma en ventas). */
+  cancelledCents: Cents;
+  /** De lo anulado, lo que ya se había cobrado y se devolvió (sin contar fiado). */
+  refundedCents: Cents;
+  /** Ítems anulados dentro de órdenes que siguen vigentes. */
+  voidedItemsCount: number;
+  voidedItemsCents: Cents;
   grossCents: Cents;
   discountCents: Cents;
   netCents: Cents;
@@ -104,11 +111,20 @@ export function summarizeDay(orders: ClosingOrder[], collections: ClosingCollect
     });
 
   const netCents = paid.reduce((s, o) => s + o.totalCents, 0);
+  const cancelled = orders.filter((o) => o.status === "CANCELLED");
+  const voidedItems = orders.filter((o) => o.status !== "CANCELLED").flatMap((o) => o.items.filter((i) => i.status === "VOIDED"));
   return {
     paidCount: paid.length,
     openCount: open.length,
     openTotalCents: open.reduce((s, o) => s + o.totalCents, 0),
-    cancelledCount: orders.filter((o) => o.status === "CANCELLED").length,
+    cancelledCount: cancelled.length,
+    cancelledCents: cancelled.reduce((s, o) => s + o.totalCents, 0),
+    refundedCents: cancelled
+      .flatMap((o) => o.payments)
+      .filter((p) => p.refundedAt && p.method !== "CREDIT")
+      .reduce((s, p) => s + p.amountCents, 0),
+    voidedItemsCount: voidedItems.reduce((s, i) => s + i.quantity, 0),
+    voidedItemsCents: voidedItems.reduce((s, i) => s + i.unitPriceCents * i.quantity, 0),
     grossCents: paid.reduce((s, o) => s + o.subtotalCents, 0),
     discountCents: paid.reduce((s, o) => s + o.discountCents, 0),
     netCents,

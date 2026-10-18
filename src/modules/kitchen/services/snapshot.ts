@@ -16,6 +16,8 @@ export type KdsTicket = {
   status: TicketStatus;
   receivedAt: string;
   updatedAt: string;
+  /** Caja anuló algo de esta comanda y cocina todavía no tocó "Entendido". */
+  voidAlert: boolean;
   items: {
     id: string;
     name: string;
@@ -25,6 +27,7 @@ export type KdsTicket = {
     serviceType: ServiceType;
     ready: boolean;
     voided: boolean;
+    voidReason: string | null;
   }[];
 };
 
@@ -50,6 +53,7 @@ function toKdsTicket(t: TicketWithItems): KdsTicket {
     status: t.status,
     receivedAt: t.receivedAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
+    voidAlert: t.voidAlertAt !== null,
     items: t.items.map((i) => ({
       id: i.id,
       name: i.name,
@@ -59,6 +63,7 @@ function toKdsTicket(t: TicketWithItems): KdsTicket {
       serviceType: i.serviceType,
       ready: i.readyAt !== null,
       voided: i.voidedAt !== null,
+      voidReason: i.voidReason,
     })),
   };
 }
@@ -77,7 +82,8 @@ export async function getKdsSnapshot(): Promise<KdsSnapshot> {
       senderName: m.senderName,
       createdAt: m.createdAt.toISOString(),
     })),
-    active: active.map(toKdsTicket),
+    // Las anulaciones sin ver van primero: cocina tiene que enterarse antes que nada.
+    active: active.map(toKdsTicket).sort((a, b) => Number(b.voidAlert) - Number(a.voidAlert)),
     recent: recent.map(toKdsTicket),
     thresholds,
     serverNow: new Date().toISOString(),

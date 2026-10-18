@@ -12,10 +12,13 @@ const ticketInclude = {
 
 export type TicketWithItems = Prisma.KitchenTicketGetPayload<{ include: typeof ticketInclude }>;
 
-/** Comandas en curso (pendientes y en preparación), de la más antigua a la más nueva. */
+/**
+ * Comandas en curso (pendientes y en preparación), de la más antigua a la más nueva.
+ * Incluye las ANULADAS que cocina todavía no vio: se quedan a la vista hasta tocar "Entendido".
+ */
 export function listActiveTickets() {
   return db.kitchenTicket.findMany({
-    where: { status: { in: ACTIVE_STATUSES } },
+    where: { OR: [{ status: { in: ACTIVE_STATUSES } }, { status: "CANCELLED", voidAlertAt: { not: null } }] },
     include: ticketInclude,
     orderBy: { receivedAt: "asc" },
   });
@@ -26,6 +29,7 @@ export function listRecentTickets(hours = 3) {
   return db.kitchenTicket.findMany({
     where: {
       status: { in: DONE_STATUSES },
+      NOT: { status: "CANCELLED", voidAlertAt: { not: null } },
       updatedAt: { gte: new Date(Date.now() - hours * 3600_000) },
     },
     include: ticketInclude,
@@ -154,5 +158,53 @@ export function toggleItemReady(itemId: string, userId: string | null) {
       where: { ticketId: ticket.id, readyAt: null, voidedAt: null },
     });
     if (remaining === 0) await moveTo(tx, publish, ticket, "READY", userId);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Anulaciones (Cocina reacciona a lo que anula Caja)
+// ---------------------------------------------------------------------------
+
+/**
+ * Un ítem anulado en caja: su línea en la comanda queda ANULADO. Si la comanda seguía en cocina,
+ * se avisa en rojo; si ya no le queda nada por preparar, pasa a ANULADA (todo anulado) o a lista.
+ */
+export async function voidTicketItem(tx: Tx, publish: Publish, orderItemId: string, reason: string) {
+  const item = await tx.kitchenTicketItem.findUnique({ where: { orderItemId } });
+  if (!item || item.voidedAt) return;
+  const ticket = await lockTicket(tx, item.ticketId);
+  const now = new Date();
+  await tx.kitchenTicketItem.update({ where: { id: item.id }, data: { voidedAt: now, voidReason: reason } });
+  if (!ACTIVE_STATUSES.includes(ticket.status)) return; // ya entregada: solo queda registrado
+
+  await tx.kitchenTicket.update({ where: { id: ticket.id }, data: { voidAlertAt: now } });
+  const items = await tx.kitchenTicketItem.findMany({ where: { ticketId: ticket.id } });
+  if (items.every((i) => i.voidedAt)) {
+    await moveTo(tx, publish, ticket, "CANCELLED", null);
+  } else if (items.every((i) => i.voidedAt || i.readyAt)) {
+    await moveTo(tx, publish, ticket, "READY", null);
+  }
+}
+
+/** Orden anulada: sus comandas en cocina pasan a ANULADA (con aviso) y todos sus ítems quedan anulados. */
+export async function cancelTicketsForOrder(tx: Tx, publish: Publish, orderId: string, reason: string) {
+  const tickets = await tx.kitchenTicket.findMany({ where: { orderId } });
+  const now = new Date();
+  for (const t of tickets) {
+    const ticket = await lockTicket(tx, t.id);
+    await tx.kitchenTicketItem.updateMany({ where: { ticketId: ticket.id, voidedAt: null }, data: { voidedAt: now, voidReason: reason } });
+    if (!ACTIVE_STATUSES.includes(ticket.status)) continue;
+    await tx.kitchenTicket.update({ where: { id: ticket.id }, data: { voidAlertAt: now } });
+    await moveTo(tx, publish, ticket, "CANCELLED", null);
+  }
+}
+
+/** Cocina toca "Entendido" en una comanda con anulación: se quita el aviso. */
+export function acknowledgeVoid(ticketId: string) {
+  return runInTransaction(async (tx, publish) => {
+    const ticket = await lockTicket(tx, ticketId);
+    if (!ticket.voidAlertAt) return;
+    await tx.kitchenTicket.update({ where: { id: ticketId }, data: { voidAlertAt: null } });
+    await publish("ticket.void_seen", { ticketId, orderId: ticket.orderId });
   });
 }

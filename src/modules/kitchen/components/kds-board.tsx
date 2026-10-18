@@ -1,18 +1,19 @@
 "use client";
 
-import { Bell, Check, Megaphone, Printer, Undo2, WifiOff } from "lucide-react";
+import { Ban, Bell, Check, Megaphone, Printer, Undo2, WifiOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { appConfig } from "@/core/config/app";
-import { audioUnlocked, playKitchenMessage, playNewTicket, playReady, unlockAudio } from "@/lib/sound";
+import { audioUnlocked, playKitchenMessage, playNewTicket, playReady, playVoid, unlockAudio } from "@/lib/sound";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { cn } from "@/lib/utils";
 
 import {
   acknowledgeKitchenMessageAction,
+  acknowledgeVoidAction,
   advanceTicketAction,
   toggleItemReadyAction,
   undoTicketAction,
@@ -21,6 +22,9 @@ import { advanceLabel, waitLevel, type WaitLevel } from "../domain/status";
 import type { KdsMessage, KdsSnapshot, KdsTicket } from "../services/snapshot";
 
 const clock = new Intl.DateTimeFormat("es-BO", { hour: "2-digit", minute: "2-digit", timeZone: appConfig.timezone });
+
+/** Cambia si se anula otro ítem de la misma comanda: así vuelve a sonar. */
+const alertKey = (t: KdsTicket) => `${t.id}:${t.status}:${t.items.filter((i) => i.voided).length}`;
 
 const levelStyles: Record<WaitLevel, string> = {
   ok: "border-green-500",
@@ -41,6 +45,7 @@ export function KdsBoard({ initial, canOperate }: { initial: KdsSnapshot; canOpe
   const [now, setNow] = useState(() => Date.now());
   const known = useRef(new Set(initial.active.map((t) => t.id)));
   const knownMessages = useRef(new Set(initial.messages.map((m) => m.id)));
+  const knownAlerts = useRef(new Set(initial.active.filter((t) => t.voidAlert).map(alertKey)));
   const refetchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const refetch = useCallback(async () => {
@@ -59,6 +64,10 @@ export function KdsBoard({ initial, canOperate }: { initial: KdsSnapshot; canOpe
       const freshMessages = next.messages.filter((m) => !knownMessages.current.has(m.id));
       if (freshMessages.length > 0 && fresh.length === 0 && audioUnlocked()) playKitchenMessage();
       knownMessages.current = new Set(next.messages.map((m) => m.id));
+      // Anulación nueva (orden entera o un ítem): sonido propio, tiene prioridad sobre los demás.
+      const alerts = next.active.filter((t) => t.voidAlert).map(alertKey);
+      if (alerts.some((k) => !knownAlerts.current.has(k)) && audioUnlocked()) playVoid();
+      knownAlerts.current = new Set(alerts);
       setSnapshot(next);
     } catch {
       // sin red: el aviso de conexión ya lo muestra; se reintenta al reconectar
@@ -198,6 +207,7 @@ function TicketCard({
         inKitchen && levelStyles[level],
         (ticket.status === "READY" || ticket.status === "DELIVERED") && "border-green-700 opacity-90",
         cancelled && "border-red-600 bg-red-950",
+        ticket.voidAlert && "border-red-600 ring-4 ring-red-500",
         pending && "opacity-60",
       )}
     >
@@ -225,7 +235,13 @@ function TicketCard({
       </header>
 
       {cancelled && (
-        <div className="bg-red-600 py-2 text-center text-2xl font-black tracking-wide text-white">ANULADA — NO PREPARAR</div>
+        <div className={cn("bg-red-600 py-3 text-center text-3xl font-black tracking-wide text-white", ticket.voidAlert && "animate-pulse")}>
+          ANULADA — NO PREPARAR
+          {ticket.items[0]?.voidReason && <div className="text-lg font-semibold">{ticket.items[0].voidReason}</div>}
+        </div>
+      )}
+      {ticket.voidAlert && !cancelled && (
+        <div className="animate-pulse bg-red-600 py-2 text-center text-2xl font-black tracking-wide text-white">ÍTEM ANULADO — REVISAR</div>
       )}
 
       <ul className="flex-1 divide-y">
@@ -248,7 +264,11 @@ function TicketCard({
                 <span className={cn("block text-2xl leading-tight font-bold", (item.ready || item.voided) && "line-through")}>
                   {item.name}
                 </span>
-                {item.voided && <span className="block text-lg font-black text-red-400">ANULADO</span>}
+                {item.voided && (
+                  <span className="block text-lg font-black text-red-400">
+                    ANULADO{item.voidReason && !cancelled ? ` · ${item.voidReason}` : ""}
+                  </span>
+                )}
                 {item.serviceType === "TAKEAWAY" && ticket.serviceType === "DINE_IN" && (
                   <span className="inline-block rounded bg-orange-500 px-2 text-base font-bold text-black">PARA LLEVAR</span>
                 )}
@@ -266,6 +286,16 @@ function TicketCard({
       </ul>
 
       <footer className="flex gap-2 border-t p-3">
+        {canOperate && ticket.voidAlert && (
+          <Button
+            size="lg"
+            className="h-16 flex-1 bg-red-600 text-xl text-white hover:bg-red-700"
+            disabled={pending}
+            onClick={() => run(() => acknowledgeVoidAction(ticket.id))}
+          >
+            <Ban className="size-6" /> Entendido
+          </Button>
+        )}
         {canOperate && advanceLabel[ticket.status] && (
           <Button
             size="lg"

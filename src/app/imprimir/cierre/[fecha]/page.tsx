@@ -32,6 +32,9 @@ export default async function ImprimirCierrePage({ params }: PageProps<"/imprimi
       <L label="VENTAS NETAS" value={formatMoney(s.netCents)} bold />
       <L label="Ticket promedio" value={formatMoney(s.averageTicketCents)} />
       {s.openCount > 0 && <L label={`Por pagar (${s.openCount})`} value={formatMoney(s.openTotalCents)} />}
+      {s.cancelledCount > 0 && <L label={`Anuladas (${s.cancelledCount})`} value={formatMoney(s.cancelledCents)} />}
+      {s.refundedCents > 0 && <L label="Devuelto" value={formatMoney(s.refundedCents)} />}
+      {s.voidedItemsCount > 0 && <L label={`Ítems anulados (${s.voidedItemsCount})`} value={formatMoney(s.voidedItemsCents)} />}
       <hr className="my-2 border-dashed border-black" />
       <div className="font-bold">Ventas por medio</div>
       {METHODS.map((m) => (

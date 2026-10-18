@@ -27,6 +27,18 @@ declare module "@/core/events/types" {
     "order.item_added": { orderId: string; items: OrderItemSnapshot[] };
     "order.paid": { orderId: string; number: number; totalCents: number; methods: string[] };
     "order.closed": { orderId: string; number: number };
+    /** Ítem anulado (con motivo). Si ya estaba en cocina, Cocina lo marca ANULADO en su comanda. */
+    "order.item_voided": {
+      orderId: string;
+      orderNumber: number;
+      orderItemId: string;
+      name: string;
+      quantity: number;
+      reason: string;
+      sentToKitchen: boolean;
+    };
+    /** Orden anulada entera. `refundedCents` = lo que se devolvió si ya estaba cobrada. */
+    "order.cancelled": { orderId: string; number: number; reason: string; wasPaid: boolean; refundedCents: number };
     "credit.collected": { paymentId: string; amountCents: number; settled: boolean };
     /** Solo trae los ítems NUEVOS que van a cocina. Cocina crea una comanda con ellos. */
     "order.sent_to_kitchen": {

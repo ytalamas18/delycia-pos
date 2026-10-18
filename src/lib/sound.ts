@@ -67,3 +67,12 @@ export function playKitchenMessage() {
     tone(1175, t + 0.32, 0.4, "triangle", 0.5); // re
   }
 }
+
+/** Anulación en cocina: tonos graves descendentes (~3 s), muy distintos de comanda nueva y mensaje. */
+export function playVoid() {
+  for (let i = 0; i < 4; i++) {
+    const t = i * 0.8;
+    tone(880, t, 0.3, "sawtooth", 0.35);
+    tone(440, t + 0.32, 0.4, "sawtooth", 0.35);
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Banknote, ChefHat, Lock } from "lucide-react";
+import { Ban, Banknote, ChefHat, Lock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -15,7 +15,14 @@ import { formatMoney } from "@/core/money";
 import type { SalesChannel, ServiceType } from "@/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 
-import { createOrderAction, removeItemAction, saveOrderChangesAction, updateItemAction } from "../actions";
+import {
+  cancelOrderAction,
+  createOrderAction,
+  removeItemAction,
+  saveOrderChangesAction,
+  updateItemAction,
+  voidItemAction,
+} from "../actions";
 import { addDraftLine, type DraftLine } from "../domain/lines";
 import { unitPriceFor } from "../domain/pricing";
 import { CheckoutDialog } from "./checkout-dialog";
@@ -23,9 +30,15 @@ import { LineEditor, type LineEditorValue } from "./line-editor";
 import { PaidDialog, type PaidSummary } from "./paid-dialog";
 import type { PosCategory, PosOrder, PosProduct, PosSavedItem } from "./pos-types";
 import { ProductGrid } from "./product-grid";
+import { VoidDialog } from "./void-dialog";
 
 type Header = { channel: SalesChannel; serviceType: ServiceType; tableNumber: string; customerName: string };
-type Editing = { kind: "draft"; index: number } | { kind: "saved"; item: PosSavedItem } | null;
+type Editing =
+  | { kind: "draft"; index: number }
+  | { kind: "saved"; item: PosSavedItem }
+  | { kind: "void-item"; item: PosSavedItem }
+  | { kind: "void-order" }
+  | null;
 
 const emptyHeader: Header = { channel: "LOCAL", serviceType: "DINE_IN", tableNumber: "", customerName: "" };
 
@@ -36,6 +49,7 @@ export function PosScreen({
   order,
   openCheckout = false,
   paid = null,
+  isAdmin = false,
 }: {
   categories: PosCategory[];
   products: PosProduct[];
@@ -45,6 +59,8 @@ export function PosScreen({
   openCheckout?: boolean;
   /** Orden recién cobrada: muestra el vuelto encima de una orden nueva. */
   paid?: PaidSummary | null;
+  /** Admin anula sin PIN; Caja necesita el PIN de un Admin. */
+  isAdmin?: boolean;
 }) {
   const router = useRouter();
   const [header, setHeader] = useState<Header>(
@@ -161,7 +177,7 @@ export function PosScreen({
   const showTakeawayBadge = (type: ServiceType) => type === "TAKEAWAY" && header.serviceType === "DINE_IN";
 
   return (
-    <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_420px]">
+    <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
       <ProductGrid
         categories={categories}
         products={products}
@@ -173,7 +189,20 @@ export function PosScreen({
       <aside className="flex flex-col gap-3 rounded-xl border bg-card p-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-6rem)]">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-xl font-bold">{order ? `Orden #${order.number}` : "Nueva orden"}</h2>
-          {order && <Badge variant="secondary">Por pagar</Badge>}
+          {order && (
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">Por pagar</Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive"
+                onClick={() => setEditing({ kind: "void-order" })}
+                disabled={pending}
+              >
+                <Ban className="size-4" /> Anular orden
+              </Button>
+            </div>
+          )}
         </div>
 
         <Toggle
@@ -227,7 +256,7 @@ export function PosScreen({
               takeaway={showTakeawayBadge(item.serviceType)}
               totalCents={item.unitPriceCents * item.quantity}
               locked={item.sentToKitchen}
-              onClick={() => !item.sentToKitchen && setEditing({ kind: "saved", item })}
+              onClick={() => setEditing(item.sentToKitchen ? { kind: "void-item", item } : { kind: "saved", item })}
             />
           ))}
           {drafts.map((line, index) => {
@@ -348,6 +377,32 @@ export function PosScreen({
           }
         />
       )}
+      {editing?.kind === "void-item" && order && (
+        <VoidDialog
+          title={`Anular ${editing.item.quantity}× ${editing.item.productName}`}
+          description="Ya está en cocina: se marcará ANULADO en la pantalla de cocina y deja de sumar en la cuenta."
+          needsAdminPin={!isAdmin}
+          onClose={() => setEditing(null)}
+          onConfirm={async (input) => {
+            const result = await voidItemAction(order.id, editing.item.id, input);
+            if (result.ok) setStatus(result);
+            return result;
+          }}
+        />
+      )}
+      {editing?.kind === "void-order" && order && (
+        <VoidDialog
+          title={`Anular la orden #${order.number}`}
+          description="La orden queda como Anulada (no se borra) y lo que esté en cocina se marca ANULADO."
+          needsAdminPin={!isAdmin}
+          onClose={() => setEditing(null)}
+          onConfirm={async (input) => {
+            const result = await cancelOrderAction(order.id, input);
+            if (result.ok) router.push("/pos");
+            return result;
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -414,8 +469,8 @@ function LineRow({
       <button
         type="button"
         onClick={onClick}
-        disabled={locked}
-        className="flex w-full items-start gap-3 py-2.5 text-left disabled:cursor-default"
+        title={locked ? "Ya está en cocina: tócalo para anularlo" : undefined}
+        className="flex w-full items-start gap-3 py-2.5 text-left"
       >
         <span className="w-8 shrink-0 text-lg font-bold tabular-nums">{quantity}×</span>
         <span className="min-w-0 flex-1">
