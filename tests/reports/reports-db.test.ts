@@ -6,7 +6,8 @@ import { kitchenModule } from "@/modules/kitchen";
 import { salesModule } from "@/modules/sales";
 
 import { reportExports } from "@/modules/reports";
-import { getProductsSold, getSalesByChannel, getVoids } from "@/modules/reports/services/reports";
+import { getMoneyIn, getProductsSold, getReceivables, getSalesByChannel, getVoids } from "@/modules/reports/services/reports";
+import * as history from "@/modules/sales/services/history";
 import { buildHistoryExport } from "@/modules/sales";
 import * as checkout from "@/modules/sales/services/checkout";
 import * as orders from "@/modules/sales/services/orders";
@@ -181,5 +182,70 @@ describe("reportes contra la base", () => {
     expect(exp.fileBase).toBe("anulaciones_2026-10-17");
     expect(exp.tables[1].rows).toHaveLength(3);
     expect(exp.tables[1].totals?.[5]).toBe(8600);
+  });
+
+  it("cuentas por cobrar: saldo, estado, método de pago, filtros y total por cliente", async () => {
+    const { caja, plato, gaseosa } = await fixtures();
+    const credit = async (at: string, customer: string, lines: ReturnType<typeof line>[], amountCents: number) => {
+      vi.setSystemTime(new Date(at));
+      const o = await orders.createOrder({ ...takeaway, customerName: customer }, lines, caja.id);
+      await checkout.payOrder(o.id, { discount: null, entries: [{ method: "CREDIT", amountCents }] }, caja.id);
+      return (await orders.getOrder(o.id))!.payments[0];
+    };
+    // Don Pedro fía 48 Bs el 17; abona 10 por QR el 17 y 38 en efectivo el 18 → pagada.
+    const p1 = await credit("2026-10-17T15:00:00Z", "Don Pedro", [line(plato.id), line(gaseosa.id)], 4800);
+    vi.setSystemTime(new Date("2026-10-17T20:00:00Z"));
+    await checkout.collectCredit(p1.id, { method: "QR", amountCents: 1000 }, caja.id);
+    vi.setSystemTime(new Date("2026-10-18T15:00:00Z"));
+    await checkout.collectCredit(p1.id, { method: "CASH", amountCents: 3800 }, caja.id);
+    // "don pedro " (mismo cliente, escrito distinto) fía 10 Bs el 17 y no paga.
+    await credit("2026-10-17T16:00:00Z", "don pedro ", [line(gaseosa.id)], 1000);
+    // Ana fía 38 el 17.
+    await credit("2026-10-17T17:00:00Z", "Ana", [line(plato.id)], 3800);
+    // Venta normal en efectivo el 17 (para comparar venta vs dinero).
+    await saleAt("2026-10-17T18:00:00Z", caja.id, [line(gaseosa.id)], [{ method: "CASH", amountCents: 1000 }]);
+
+    const range = { from: "2026-10-17", to: "2026-10-17" };
+    const all = await getReceivables(range);
+    expect(all.totals).toEqual({ accounts: 3, amountCents: 9600, collectedCents: 4800, balanceCents: 4800 });
+    expect(all.customers).toEqual(["Ana", "don pedro"]);
+    expect(all.byCustomer).toEqual([
+      { customer: "Ana", accounts: 1, amountCents: 3800, collectedCents: 0, balanceCents: 3800 },
+      { customer: "don pedro", accounts: 2, amountCents: 5800, collectedCents: 4800, balanceCents: 1000 },
+    ]);
+    const paid = all.rows.find((r) => r.paymentId === p1.id)!;
+    expect(paid).toMatchObject({ status: "pagada", balanceCents: 0, methods: ["QR", "CASH"] });
+    expect(paid.settledAt).toBeInstanceOf(Date);
+
+    expect((await getReceivables(range, { status: "pendiente" })).rows).toHaveLength(2);
+    expect((await getReceivables(range, { status: "pagada" })).rows).toHaveLength(1);
+    const pedro = await getReceivables(range, { customer: "DON PEDRO" });
+    expect(pedro.totals).toMatchObject({ accounts: 2, balanceCents: 1000 });
+
+    // Venta del día ≠ dinero cobrado: el 17 se vendieron 106 Bs (96 fiados), pero entraron 10 + 10 (abono QR).
+    const sales17 = await getSalesByChannel(range);
+    expect(sales17.totals.total.totalCents).toBe(10600);
+    expect(sales17.totals.byChannel.CREDIT.totalCents).toBe(9600);
+    const money17 = await getMoneyIn(range);
+    expect(money17.creditSalesCents).toBe(9600);
+    expect(money17.rows).toEqual([
+      { channel: "CASH", salesCents: 1000, collectionsCents: 0, totalCents: 1000 },
+      { channel: "QR", salesCents: 0, collectionsCents: 1000, totalCents: 1000 },
+    ]);
+    // El abono del 18 entra el 18 (aunque la orden sea del 17).
+    const money18 = await getMoneyIn({ from: "2026-10-18", to: "2026-10-18" });
+    expect(money18.totals).toEqual({ salesCents: 0, collectionsCents: 3800, totalCents: 3800 });
+
+    // Cuadra con el cierre de caja de cada día.
+    for (const [day, m] of [["2026-10-17", money17], ["2026-10-18", money18]] as const) {
+      const { summary } = await history.getDailyClosing(day);
+      const closingIn = Object.values(summary.moneyInByMethod).reduce((s, v) => s + v, 0);
+      expect(m.totals.totalCents).toBe(closingIn);
+    }
+
+    const exp = await reportExports["cuentas-por-cobrar"]({ desde: "2026-10-17", hasta: "2026-10-17", estado: "pendiente" });
+    expect(exp.filters).toContain("Estado: Pendientes");
+    expect(exp.tables[1].rows).toHaveLength(2);
+    expect(exp.tables[1].totals?.[5]).toBe(4800);
   });
 });

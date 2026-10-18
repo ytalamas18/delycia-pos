@@ -1,5 +1,7 @@
 import type { Cents } from "@/core/money";
 
+import { textKey } from "./text";
+
 /** Una anulación: una orden entera o un ítem suelto. */
 export type VoidEntry = {
   kind: "order" | "item";
@@ -26,15 +28,8 @@ export type VoidsReport = {
   byReason: ReasonGroup[];
 };
 
-/** "  Cliente se FUE " y "cliente se fue" son el mismo motivo. */
-export const reasonKey = (reason: string) =>
-  reason
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/\s+/g, " ")
-    .replace(/[.!]+$/, "");
+/** "  Cliente se FUE " y "cliente se fue." son el mismo motivo. */
+export const reasonKey = textKey;
 
 export function buildVoidsReport(entries: VoidEntry[]): VoidsReport {
   const sorted = [...entries].sort((a, b) => a.at.getTime() - b.at.getTime());

@@ -4,8 +4,9 @@ import { Prisma } from "@/generated/prisma/client";
 
 import { buildProducts, type ProductRow, type ProductSort } from "../domain/products";
 import type { DateRange } from "../domain/range";
+import { buildMoneyIn, buildReceivables, type CreditAccount, type CreditStatusFilter } from "../domain/receivables";
 import { buildVoidsReport, type VoidEntry } from "../domain/voids";
-import { buildSalesByChannel, type ChannelDayRow, type DayRow } from "../domain/sales";
+import { buildSalesByChannel, orderChannels, type ChannelDayRow, type DayRow } from "../domain/sales";
 
 /*
  * Reportes = SOLO LECTURA. Es el único módulo que lee tablas de otro (Ventas y el catálogo),
@@ -134,4 +135,52 @@ export async function getVoids(range: DateRange) {
     })),
   ];
   return buildVoidsReport(entries);
+}
+
+/**
+ * Cuentas por cobrar (fiados) de órdenes del período (día de negocio de la orden), con sus abonos.
+ * Las de órdenes anuladas no se muestran (su pago quedó devuelto).
+ */
+export async function getReceivables(range: DateRange, filters: { status?: CreditStatusFilter; customer?: string | null } = {}) {
+  const payments = await db.payment.findMany({
+    where: { method: "CREDIT", refundedAt: null, order: { businessDate: { gte: range.from, lte: range.to } } },
+    include: {
+      order: { select: { id: true, number: true, businessDate: true, customerName: true } },
+      collections: { orderBy: { createdAt: "asc" }, select: { method: true, amountCents: true, createdAt: true } },
+    },
+  });
+  const accounts: CreditAccount[] = payments.map((p) => ({
+    paymentId: p.id,
+    orderId: p.order.id,
+    orderNumber: p.order.number,
+    orderDate: p.order.businessDate,
+    customer: p.debtorName ?? p.order.customerName ?? "(sin nombre)",
+    amountCents: p.amountCents,
+    collections: p.collections.map((c) => ({ method: c.method, amountCents: c.amountCents, at: c.createdAt })),
+    settledAt: p.settledAt,
+  }));
+  return buildReceivables(accounts, filters);
+}
+
+/**
+ * Dinero que ENTRÓ en el período, por medio: pagos de órdenes cobradas (sin lo fiado) + abonos
+ * de fiados recibidos en esos días (de cualquier orden). Es lo que se compara con la caja.
+ */
+export async function getMoneyIn(range: DateRange) {
+  const start = businessDayRange(range.from).start;
+  const end = businessDayRange(range.to).end;
+  const [sales, collections] = await Promise.all([
+    db.$queryRaw<{ channel: string; totalCents: number }[]>`
+      SELECT p.method::text AS channel, SUM(p."amountCents")::int AS "totalCents"
+      FROM "Payment" p JOIN "Order" o ON o.id = p."orderId"
+      WHERE o."businessDate" BETWEEN ${range.from} AND ${range.to}
+        AND o.status IN ('PAID', 'CLOSED') AND p."refundedAt" IS NULL
+      GROUP BY 1`,
+    db.$queryRaw<{ channel: string; totalCents: number }[]>`
+      SELECT method::text AS channel, SUM("amountCents")::int AS "totalCents"
+      FROM "CreditCollection"
+      WHERE "createdAt" >= ${start} AND "createdAt" < ${end}
+      GROUP BY 1`,
+  ]);
+  return buildMoneyIn(sales, collections, orderChannels);
 }

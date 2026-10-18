@@ -4,8 +4,8 @@ import { ExportButtons } from "@/components/shell/export-buttons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatMoney } from "@/core/money";
 import { cn } from "@/lib/utils";
-import { paymentMethodLabel } from "@/modules/sales";
 
+import { channelName } from "../domain/labels";
 import type { ProductSort } from "../domain/products";
 import { parseRange, type DateRange } from "../domain/range";
 import type { Cell } from "../domain/sales";
@@ -13,18 +13,21 @@ import { getProductsSold, getSalesByChannel, listCategoriesForFilter } from "../
 import { DailyBars } from "./daily-bars";
 import { RangeFilter } from "./range-filter";
 import { Stat } from "./stat";
+import { parseCreditStatus } from "../domain/receivables";
+import { MoneyIn } from "./money-in";
+import { ReceivablesView } from "./receivables-view";
 import { VoidsView } from "./voids-view";
 
 const VIEWS = [
   { key: "canales", label: "Ventas por canal", report: "ventas-por-canal", note: "solo órdenes cobradas; las anuladas van aparte y no suman" },
   { key: "productos", label: "Productos vendidos", report: "productos-vendidos", note: "solo órdenes cobradas; las anuladas van aparte y no suman" },
   { key: "anulaciones", label: "Anulaciones", report: "anulaciones", note: "por la hora en que se anuló" },
+  { key: "fiados", label: "Cuentas por cobrar", report: "cuentas-por-cobrar", note: "fiados de órdenes del período (día de la orden)" },
 ] as const;
 type ViewKey = (typeof VIEWS)[number]["key"];
 
-type Params = { desde?: string; hasta?: string; vista?: string; cat?: string; orden?: string };
+type Params = { desde?: string; hasta?: string; vista?: string; cat?: string; orden?: string; estado?: string; cliente?: string };
 
-const channelName = (c: string) => (paymentMethodLabel as Record<string, string>)[c] ?? c;
 const shortDate = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
 
 export async function ReportsScreen({ params }: { params: Params }) {
@@ -35,6 +38,8 @@ export async function ReportsScreen({ params }: { params: Params }) {
   const keep: Record<string, string> = { vista: view };
   if (view === "productos" && params.cat) keep.cat = params.cat;
   if (view === "productos" && params.orden) keep.orden = params.orden;
+  if (view === "fiados" && params.estado) keep.estado = params.estado;
+  if (view === "fiados" && params.cliente) keep.cliente = params.cliente;
 
   return (
     <div className="max-w-6xl space-y-4">
@@ -69,6 +74,7 @@ export async function ReportsScreen({ params }: { params: Params }) {
         <ProductsSold range={range} categoryId={params.cat ?? null} sort={params.orden === "monto" ? "monto" : "cantidad"} />
       )}
       {view === "anulaciones" && <VoidsView range={range} />}
+      {view === "fiados" && <ReceivablesView range={range} status={parseCreditStatus(params.estado)} customer={params.cliente ?? null} />}
     </div>
   );
 }
@@ -110,7 +116,10 @@ async function SalesByChannel({ range }: { range: DateRange }) {
             <tbody className="divide-y tabular-nums">
               {shown.map((c) => (
                 <tr key={c}>
-                  <td className="py-2 font-medium">{channelName(c)}</td>
+                  <td className="py-2 font-medium">
+                    {channelName(c)}
+                    {c === "CREDIT" && <span className="block text-xs font-normal text-muted-foreground">venta, todavía no es dinero</span>}
+                  </td>
                   <CellCols cell={totals.byChannel[c]} />
                   <td className="py-2 text-right text-muted-foreground">
                     {totals.total.totalCents ? Math.round((totals.byChannel[c].totalCents / totals.total.totalCents) * 100) : 0} %
@@ -139,6 +148,8 @@ async function SalesByChannel({ range }: { range: DateRange }) {
           <Cancelled orders={totals.cancelled.orders} totalCents={totals.cancelled.totalCents} />
         </CardContent>
       </Card>
+
+      <MoneyIn range={range} />
 
       {report.days.length > 1 && (
         <Card>

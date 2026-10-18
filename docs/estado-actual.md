@@ -1,6 +1,6 @@
 # Estado actual de la app — 18/10/2026
 
-112 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: anulaciones, tema claro/oscuro y módulo Reportes.
+112 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: exportar PDF/Excel, reportes de Anulaciones y Cuentas por cobrar.
 
 ## Hecho
 
@@ -13,7 +13,10 @@ efectivo/QR/tarjeta, PDF, CSV y 80 mm · menú real (55 productos) con actualiza
 **anulaciones** de ítem u orden (motivo obligatorio, PIN de Admin desde Caja, aviso en cocina hasta "Entendido",
 pagos devueltos, aparte en historial y cierre) · **tema claro/oscuro** por dispositivo (POS claro, Cocina oscuro) ·
 **Reportes** (solo Admin): ventas por canal = medio de pago (por día, totales, barras) y productos vendidos
-(filtro por categoría, orden por cantidad o monto), con atajos Hoy/Ayer/7 días/Este mes.
+(filtro por categoría, orden por cantidad o monto), **Anulaciones** (detalle, por motivo) y **Cuentas por
+cobrar** (por cliente, estado, saldo y método de pago), con atajos Hoy/Ayer/7 días/Este mes; "Dinero cobrado"
+(ventas sin fiado + abonos) separado de la venta · **Exportar PDF/Excel** en todos los reportes y el Historial ·
+cocina: anulada queda a la vista hasta "Entendido" y luego pasa a Recientes con hora y motivo.
 
 ## Pendiente (app)
 
@@ -24,8 +27,8 @@ pagos devueltos, aparte en historial y cierre) · **tema claro/oscuro** por disp
 3. **Respaldo** automático de la base.
 4. Precios de **Extra cheddar** y **Extra mozzarella** (Yasser los carga con "+ Modificador a todos").
 5. Renombrar "Hamburguesa Onion Doble/Triple" → lo hace Yasser desde Catálogo.
-6. ✅ Reportes de ventas y productos. Faltan: tiempos de cocina, exportar reportes (CSV/PDF); luego inventario,
-   costos/recetas, clientes.
+6. ✅ Reportes (ventas, productos, anulaciones, fiados) con exportación. Faltan: tiempos de cocina; luego
+   inventario, costos/recetas, clientes (hoy el cliente del fiado es el nombre escrito, sin teléfono).
 7. Prueba piloto en el local (impresora 80 mm real, tablet de cocina, sonido, IP fija, firewall).
 
 ## Bugs / limitaciones conocidas
@@ -33,6 +36,9 @@ pagos devueltos, aparte en historial y cierre) · **tema claro/oscuro** por disp
 - Una orden cobrada solo se anula el mismo día; un fiado con abonos no se puede anular.
 - Reportes: un pago mixto cuenta en cada canal usado (el total del día cuenta la orden una vez); productos
   agrupados por la **categoría actual** y montos antes del descuento de la orden (igual que el cierre).
+- Fiados: el cliente se identifica por el nombre escrito (se agrupa sin mayúsculas/tildes/espacios); dos
+  personas con el mismo nombre se juntan. Sin teléfono (decisión de Yasser).
+- Exportes: el PDF usa fuentes estándar (Latin-1): emojis u otros símbolos salen como "?".
 - El tema se guarda en el navegador: si se borran los datos del navegador vuelve al de por defecto.
 - La apertura de caja no se puede corregir ni por Admin (decisión de Yasser); un error requiere tocar la base.
 - Cuentas por cobrar agrupadas por **texto** del nombre (no hay entidad Cliente).

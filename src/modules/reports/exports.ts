@@ -1,17 +1,26 @@
 import { fileBaseFor, formatPeriod, type ExportDocument } from "@/core/export";
-import { paymentMethodLabel } from "@/modules/sales";
+import { formatMoney as formatMoneyText } from "@/core/money";
 
+import { channelName } from "./domain/labels";
+import { parseCreditStatus } from "./domain/receivables";
 import { parseRange } from "./domain/range";
-import { getProductsSold, getSalesByChannel, getVoids, listCategoriesForFilter } from "./services/reports";
+import { getMoneyIn, getProductsSold, getReceivables, getSalesByChannel, getVoids, listCategoriesForFilter } from "./services/reports";
 
 /** Parámetros de la URL: los mismos que usa la pantalla de Reportes. */
-export type ReportParams = { desde?: string; hasta?: string; cat?: string; orden?: string; [key: string]: string | undefined };
+export type ReportParams = {
+  desde?: string;
+  hasta?: string;
+  cat?: string;
+  orden?: string;
+  estado?: string;
+  cliente?: string;
+  [key: string]: string | undefined;
+};
 
-export const channelName = (c: string) => (paymentMethodLabel as Record<string, string>)[c] ?? c;
 
 async function salesByChannelExport(params: ReportParams): Promise<ExportDocument> {
   const range = parseRange(params);
-  const r = await getSalesByChannel(range);
+  const [r, money] = await Promise.all([getSalesByChannel(range), getMoneyIn(range)]);
   const channels = r.channels.filter((c) => r.totals.byChannel[c].orders > 0);
   const total = r.totals.total.totalCents;
   return {
@@ -42,6 +51,20 @@ async function salesByChannelExport(params: ReportParams): Promise<ExportDocumen
         }),
         totals: ["Total del período", r.totals.total.orders, total, r.totals.total.averageCents, total ? 1 : 0],
         notes: ["Una orden pagada con dos medios cuenta en los dos canales, pero una sola vez en el total."],
+      },
+      {
+        title: "Dinero cobrado",
+        columns: [
+          { header: "Medio", type: "text" },
+          { header: "Ventas cobradas", type: "money" },
+          { header: "Abonos de fiados", type: "money" },
+          { header: "Total entró", type: "money" },
+        ],
+        rows: money.rows.map((m) => [channelName(m.channel), m.salesCents, m.collectionsCents, m.totalCents]),
+        totals: ["Total", money.totals.salesCents, money.totals.collectionsCents, money.totals.totalCents],
+        notes: [
+          `Lo fiado es venta pero no dinero: en el período se fiaron ${formatMoneyText(money.creditSalesCents)}; entra cuando se abona.`,
+        ],
       },
       {
         // Formato "largo" (una fila por día y canal): ideal para tablas dinámicas.
@@ -185,6 +208,66 @@ async function voidsExport(params: ReportParams): Promise<ExportDocument> {
   };
 }
 
+async function receivablesExport(params: ReportParams): Promise<ExportDocument> {
+  const range = parseRange(params);
+  const status = parseCreditStatus(params.estado);
+  const r = await getReceivables(range, { status, customer: params.cliente || null });
+  const statusLabel = { todas: "Todas", pendiente: "Pendientes", pagada: "Pagadas" }[status];
+  return {
+    report: "Cuentas por cobrar",
+    fileBase: fileBaseFor(params.cliente ? `cuentas-por-cobrar_${slug(params.cliente)}` : "cuentas-por-cobrar", range.from, range.to),
+    period: formatPeriod(range.from, range.to),
+    filters: [`Estado: ${statusLabel}`, `Cliente: ${params.cliente || "Todos"}`, "Por día de la orden"],
+    generatedAt: new Date(),
+    summary: [
+      { label: "Total fiado", value: r.totals.amountCents, type: "money" },
+      { label: "Total cobrado", value: r.totals.collectedCents, type: "money" },
+      { label: "Pendiente", value: r.totals.balanceCents, type: "money" },
+      { label: "Cuentas", value: r.totals.accounts, type: "int" },
+    ],
+    tables: [
+      {
+        title: "Por cliente",
+        columns: [
+          { header: "Cliente", type: "text" },
+          { header: "Cuentas", type: "int" },
+          { header: "Fiado", type: "money" },
+          { header: "Cobrado", type: "money" },
+          { header: "Debe", type: "money" },
+        ],
+        rows: r.byCustomer.map((c) => [c.customer, c.accounts, c.amountCents, c.collectedCents, c.balanceCents]),
+        totals: ["Total", r.totals.accounts, r.totals.amountCents, r.totals.collectedCents, r.totals.balanceCents],
+      },
+      {
+        title: "Cuentas",
+        columns: [
+          { header: "Cliente", type: "text" },
+          { header: "Fecha orden", type: "date" },
+          { header: "N° orden", type: "int" },
+          { header: "Monto", type: "money" },
+          { header: "Abonado", type: "money" },
+          { header: "Saldo", type: "money" },
+          { header: "Estado", type: "text" },
+          { header: "Fecha de pago", type: "datetime" },
+          { header: "Método de pago", type: "text" },
+        ],
+        rows: r.rows.map((a) => [
+          a.customer,
+          a.orderDate,
+          a.orderNumber,
+          a.amountCents,
+          a.collectedCents,
+          a.balanceCents,
+          a.status === "pagada" ? "Pagada" : "Pendiente",
+          a.settledAt,
+          a.methods.map(channelName).join(" + "),
+        ]),
+        totals: ["Total", null, null, r.totals.amountCents, r.totals.collectedCents, r.totals.balanceCents, null, null, null],
+      },
+    ],
+  };
+}
+
 /** "Bebidas Frías" → "bebidas-frias" (para el nombre del archivo). */
 export function slug(text: string): string {
   return text
@@ -200,4 +283,5 @@ export const reportExports: Record<string, (params: ReportParams) => Promise<Exp
   "ventas-por-canal": salesByChannelExport,
   "productos-vendidos": productsExport,
   anulaciones: voidsExport,
+  "cuentas-por-cobrar": receivablesExport,
 };

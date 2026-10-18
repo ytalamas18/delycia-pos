@@ -16,7 +16,7 @@ Lee también: `AGENTS.md` (reglas de Next 16), `docs/estado-actual.md` (pendient
 | Validación | Zod 4 |
 | Auth | Cookie JWT HS256 (`jose`) + PIN de 4 dígitos (bcrypt) |
 | Tiempo real | SSE (`/api/realtime`) + hub en memoria |
-| PDF | `pdf-lib` (cierre de caja) |
+| PDF / Excel | `pdf-lib` (cierre y exportes A4) + `exceljs` (exportes .xlsx), vía `core/export` |
 | Tests | Vitest 4 (unitarios + integración contra Postgres real) |
 | Infra local | Docker multi-stage + docker-compose (db, migrate, app) |
 
@@ -28,20 +28,21 @@ Lee también: `AGENTS.md` (reglas de Next 16), `docs/estado-actual.md` (pendient
 ```
 src/
 ├─ app/                  rutas (solo composición): (caja)/pos|ordenes|cuentas-por-cobrar|historial|cierre|reportes|catalogo|ajustes,
-│                        cocina/, login/, imprimir/{ticket,comanda,cierre}, api/{realtime,cocina/comandas,reportes/cierre,health}
+│                        cocina/, login/, imprimir/{ticket,comanda,cierre}, api/{realtime,cocina/comandas,reportes/cierre,exportar/[reporte],health}
 ├─ config/               raíz de composición: modules.ts (módulos activos), bootstrap.ts (suscriptores + SSE)
 ├─ core/                 núcleo compartido (NO importa módulos): money, events (bus), db (cliente lazy + runInTransaction),
-│                        auth (permisos, sesión, PIN), settings, time (día de negocio La Paz), realtime (hub SSE), actions
+│                        auth (permisos, sesión, PIN), settings, time (día de negocio La Paz), realtime (hub SSE), actions,
+│                        export (ExportDocument → Excel/PDF reutilizable)
 ├─ modules/
 │  ├─ catalog/           categorías, productos, modificadores, "modificador a toda la categoría", getSellableCatalog()
 │  ├─ sales/             órdenes, precios por canal (PEYA), cobro, fiado, historial, apertura/cierre, reportes PDF/CSV
 │  ├─ kitchen/           comandas (KDS), estados, mensajes caja→cocina, avisos de anulación
-│  └─ reports/           SOLO LECTURA: ventas por canal (= medio de pago) y productos vendidos, por rango de días
+│  └─ reports/           SOLO LECTURA: ventas por canal (+ dinero cobrado), productos, anulaciones, cuentas por cobrar
 ├─ components/ui|shell|print
 ├─ lib/                  use-live-events (SSE + vigilante), sound (Web Audio), theme (claro/oscuro), utils
 ├─ instrumentation.ts    llama bootstrap() al arrancar
 └─ proxy.ts              sesión + permisos por ruta
-prisma/  schema.prisma, migrations/ (12), seed.ts + seed-data.ts, data/menu-delycia.json
+prisma/  schema.prisma, migrations/ (13), seed.ts + seed-data.ts, data/menu-delycia.json
 tests/   core, catalog, sales, kitchen, reports, integration, support (db reset, catálogo fijo de tests)
 ```
 
@@ -64,6 +65,13 @@ tests/   core, catalog, sales, kitchen, reports, integration, support (db reset,
   Catálogo con SQL agregado (`$queryRaw` + GROUP BY), **nunca escribe** y no escucha eventos. Filtra por
   `Order.businessDate` (ya en hora de La Paz). Montos = snapshot de la orden. Solo PAGADA/CERRADA suman; anuladas aparte.
   Canal = medio de pago; un medio nuevo aparece solo (`CHANNEL_ORDER` solo fija el orden).
+  **Venta ≠ dinero:** lo fiado es venta del día; el dinero entra cuando se abona (por fecha del abono).
+  "Dinero cobrado" (`getMoneyIn`) cuadra con `moneyInByMethod` del cierre. Anulaciones se filtran por la hora
+  de la anulación; fiados, por el día de la orden. Clientes y motivos se agrupan con `textKey()`.
+- **Exportar:** cada reporte arma un `ExportDocument` (columnas tipadas: text/int/money/date/datetime/percent)
+  y `core/export` genera Excel (valores reales, hora La Paz) y PDF A4. Se descarga por
+  `/api/exportar/<clave>?formato=xlsx|pdf&<mismos filtros que la pantalla>`; las claves y permisos están en
+  `app/api/exportar/[reporte]/route.ts` (+ `reportExports` del módulo Reportes). Botones: `components/shell/export-buttons`.
 - **Tema claro/oscuro** por dispositivo y por pantalla (`localStorage` `delycia.theme.pos|cocina`; POS claro,
   Cocina oscuro por defecto). `themeBootScript` en `app/layout.tsx` lo aplica antes de pintar; usar siempre
   variantes `dark:` en colores fijos (ej. `text-red-700 dark:text-red-400`). `/imprimir` siempre en claro.
