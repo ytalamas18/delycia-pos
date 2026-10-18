@@ -27,7 +27,7 @@ Lee también: `AGENTS.md` (reglas de Next 16), `docs/estado-actual.md` (pendient
 
 ```
 src/
-├─ app/                  rutas (solo composición): (caja)/pos|ordenes|cuentas-por-cobrar|historial|cierre|catalogo|ajustes,
+├─ app/                  rutas (solo composición): (caja)/pos|ordenes|cuentas-por-cobrar|historial|cierre|reportes|catalogo|ajustes,
 │                        cocina/, login/, imprimir/{ticket,comanda,cierre}, api/{realtime,cocina/comandas,reportes/cierre,health}
 ├─ config/               raíz de composición: modules.ts (módulos activos), bootstrap.ts (suscriptores + SSE)
 ├─ core/                 núcleo compartido (NO importa módulos): money, events (bus), db (cliente lazy + runInTransaction),
@@ -35,13 +35,14 @@ src/
 ├─ modules/
 │  ├─ catalog/           categorías, productos, modificadores, "modificador a toda la categoría", getSellableCatalog()
 │  ├─ sales/             órdenes, precios por canal (PEYA), cobro, fiado, historial, apertura/cierre, reportes PDF/CSV
-│  └─ kitchen/           comandas (KDS), estados, mensajes caja→cocina
+│  ├─ kitchen/           comandas (KDS), estados, mensajes caja→cocina, avisos de anulación
+│  └─ reports/           SOLO LECTURA: ventas por canal (= medio de pago) y productos vendidos, por rango de días
 ├─ components/ui|shell|print
-├─ lib/                  use-live-events (SSE + vigilante), sound (Web Audio), utils
+├─ lib/                  use-live-events (SSE + vigilante), sound (Web Audio), theme (claro/oscuro), utils
 ├─ instrumentation.ts    llama bootstrap() al arrancar
 └─ proxy.ts              sesión + permisos por ruta
-prisma/  schema.prisma, migrations/ (10), seed.ts + seed-data.ts, data/menu-delycia.json
-tests/   core, catalog, sales, kitchen, integration, support (db reset, catálogo fijo de tests)
+prisma/  schema.prisma, migrations/ (12), seed.ts + seed-data.ts, data/menu-delycia.json
+tests/   core, catalog, sales, kitchen, reports, integration, support (db reset, catálogo fijo de tests)
 ```
 
 ## Decisiones de arquitectura (no romper)
@@ -59,6 +60,13 @@ tests/   core, catalog, sales, kitchen, integration, support (db reset, catálog
 - **Snapshots:** `OrderItem` copia nombre, precio y modificadores; cambiar el catálogo no altera ventas.
 - **Nada se borra** en ventas (estados + motivo). Productos se desactivan.
 - **Día de negocio** = fecha en `America/La_Paz` (`core/time`); numeración de órdenes diaria (`DailyCounter`).
+- **Reportes** (`modules/reports`) es la única excepción a "cada módulo lee solo sus tablas": lee Ventas y
+  Catálogo con SQL agregado (`$queryRaw` + GROUP BY), **nunca escribe** y no escucha eventos. Filtra por
+  `Order.businessDate` (ya en hora de La Paz). Montos = snapshot de la orden. Solo PAGADA/CERRADA suman; anuladas aparte.
+  Canal = medio de pago; un medio nuevo aparece solo (`CHANNEL_ORDER` solo fija el orden).
+- **Tema claro/oscuro** por dispositivo y por pantalla (`localStorage` `delycia.theme.pos|cocina`; POS claro,
+  Cocina oscuro por defecto). `themeBootScript` en `app/layout.tsx` lo aplica antes de pintar; usar siempre
+  variantes `dark:` en colores fijos (ej. `text-red-700 dark:text-red-400`). `/imprimir` siempre en claro.
 - **Permisos** en un solo mapa (`core/auth/permissions.ts`): de ahí salen menú, `proxy.ts` y `requirePermission()`.
 - **Menú:** se carga una vez desde `prisma/data/menu-delycia.json`; cambios posteriores = `MENU_UPDATES`
   versionados en `prisma/seed-data.ts` (setting `seed.menuVersion`, hoy v2).
@@ -74,6 +82,11 @@ tests/   core, catalog, sales, kitchen, integration, support (db reset, catálog
 - **PIN:** nunca en el repo (ni README ni docs). Seed: `ADMIN_PIN`/`CAJA_PIN`/`COCINA_PIN` o aleatorios impresos
   una vez. Cambio en Ajustes (Admin + su PIN; rechaza PIN débiles). 5 fallos seguidos → bloqueo 15 min.
 - Pagos: EFECTIVO (vuelto), QR, TARJETA, PEYA, CUENTA POR COBRAR (exige nombre; abonos en `CreditCollection`). Pago mixto.
+- **Anulaciones** (`sales/services/voids.ts`): ítem (solo orden por pagar) u orden completa, motivo obligatorio;
+  guarda quién anuló y quién autorizó. **Caja necesita el PIN de un Admin**, Admin anula directo. Orden cobrada:
+  solo el mismo día de negocio, pagos → `refundedAt`. Fiado con abonos: no se anula. Eventos `order.item_voided` /
+  `order.cancelled` → Cocina marca ANULADO y deja la comanda con aviso (`voidAlertAt`) hasta "Entendido".
+- **Reportes**, **Ajustes** y **Catálogo**: solo Admin (`reports.view`, `settings.manage`, `catalog.manage`).
 - Apertura de caja obligatoria antes de vender; **una por día, no editable**. Cierre: arqueo efectivo/QR/tarjeta.
 
 ## Correr en local

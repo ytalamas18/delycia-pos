@@ -1,6 +1,6 @@
-# Estado actual de la app — 17/10/2026
+# Estado actual de la app — 18/10/2026
 
-91 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: extras como modificadores (menú v2).
+112 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: anulaciones, tema claro/oscuro y módulo Reportes.
 
 ## Hecho
 
@@ -9,23 +9,31 @@ Catálogo (CRUD, modificadores, modificador a toda una categoría) · login PIN 
 adicionales · KDS en tiempo real (alarma ~6 s, deshacer, imprimir comanda 80 mm, "lista" = entregada) ·
 mensajes caja→cocina con "visto" · cobro (descuento, vuelto, pago mixto, ticket 80 mm) · cuentas por cobrar
 con abonos · historial con filtros y detalle · apertura de caja (no editable) · cierre con arqueo
-efectivo/QR/tarjeta, PDF, CSV y 80 mm · menú real (55 productos) con actualizaciones versionadas.
+efectivo/QR/tarjeta, PDF, CSV y 80 mm · menú real (55 productos) con actualizaciones versionadas ·
+**anulaciones** de ítem u orden (motivo obligatorio, PIN de Admin desde Caja, aviso en cocina hasta "Entendido",
+pagos devueltos, aparte en historial y cierre) · **tema claro/oscuro** por dispositivo (POS claro, Cocina oscuro) ·
+**Reportes** (solo Admin): ventas por canal = medio de pago (por día, totales, barras) y productos vendidos
+(filtro por categoría, orden por cantidad o monto), con atajos Hoy/Ayer/7 días/Este mes.
 
 ## Pendiente (app)
 
-1. **Anulaciones** (ítem u orden con motivo; ítem ya en cocina → comanda marcada ANULADA). Pospuesto por Yasser.
-   Los estados y campos (`VOIDED`, `CANCELLED`, `voidReason`, `refundedAt`) ya existen en el modelo.
+1. ✅ Anulaciones. Pendiente de decidir: anular una orden cobrada de un día anterior (hoy se bloquea porque esa
+   caja ya cerró; haría falta registrar la devolución en la caja del día en que se hace).
 2. ✅ Seguridad de login: PIN fuera del repo, cambio en Ajustes, bloqueo tras 5 fallos. Sin HTTPS por decisión.
    Limitación: cambiar un PIN no cierra las sesiones abiertas (la cookie dura hasta 14 h).
 3. **Respaldo** automático de la base.
 4. Precios de **Extra cheddar** y **Extra mozzarella** (Yasser los carga con "+ Modificador a todos").
 5. Renombrar "Hamburguesa Onion Doble/Triple" → lo hace Yasser desde Catálogo.
-6. Reportes (ventas por rango, más vendidos, tiempos de cocina); luego inventario, costos/recetas, clientes.
+6. ✅ Reportes de ventas y productos. Faltan: tiempos de cocina, exportar reportes (CSV/PDF); luego inventario,
+   costos/recetas, clientes.
 7. Prueba piloto en el local (impresora 80 mm real, tablet de cocina, sonido, IP fija, firewall).
 
 ## Bugs / limitaciones conocidas
 
-- Sin anulaciones: un cobro o envío a cocina por error no se puede revertir desde la app.
+- Una orden cobrada solo se anula el mismo día; un fiado con abonos no se puede anular.
+- Reportes: un pago mixto cuenta en cada canal usado (el total del día cuenta la orden una vez); productos
+  agrupados por la **categoría actual** y montos antes del descuento de la orden (igual que el cierre).
+- El tema se guarda en el navegador: si se borran los datos del navegador vuelve al de por defecto.
 - La apertura de caja no se puede corregir ni por Admin (decisión de Yasser); un error requiere tocar la base.
 - Cuentas por cobrar agrupadas por **texto** del nombre (no hay entidad Cliente).
 - El reporte de productos agrupa por la **categoría actual** del producto (si se renombra/mueve, cambia el
