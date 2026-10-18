@@ -48,7 +48,7 @@ export function KitchenMessageButton({ quickMessages }: { quickMessages: string[
 
   return (
     <>
-      <Button variant="outline" onClick={() => { setResult(null); setOpen(true); }} className="border-sky-600 text-sky-700">
+      <Button variant="outline" onClick={() => { setResult(null); setOpen(true); }} className="border-sky-600 text-sky-700 dark:border-sky-400 dark:text-sky-300">
         <Megaphone /> Mensaje a cocina
       </Button>
 

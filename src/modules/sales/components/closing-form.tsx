@@ -96,7 +96,13 @@ export function ClosingForm({
                   <td
                     className={cn(
                       "text-right font-semibold whitespace-nowrap tabular-nums",
-                      !filled ? "text-muted-foreground" : diff === 0 ? "text-green-700" : diff < 0 ? "text-destructive" : "text-blue-700",
+                      !filled
+                        ? "text-muted-foreground"
+                        : diff === 0
+                          ? "text-green-700 dark:text-green-400"
+                          : diff < 0
+                            ? "text-destructive"
+                            : "text-blue-700 dark:text-blue-400",
                     )}
                   >
                     {!filled ? "—" : diff === 0 ? "Cuadra ✔" : `${diff < 0 ? "Falta" : "Sobra"} ${formatMoney(Math.abs(diff))}`}

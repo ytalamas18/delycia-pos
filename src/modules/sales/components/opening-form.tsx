@@ -52,7 +52,7 @@ export function OpeningForm() {
           Abrir caja
         </Button>
       ) : (
-        <div className="space-y-3 rounded-lg border-2 border-yellow-400 bg-yellow-50 p-3 text-yellow-950">
+        <div className="space-y-3 rounded-lg border-2 border-yellow-400 bg-yellow-50 p-3 text-yellow-950 dark:bg-yellow-950 dark:text-yellow-100">
           <p>
             ¿Abrir la caja con <strong>{formatMoney(cents ?? 0)}</strong>? <br />
             Este monto <strong>no se podrá cambiar</strong> después.

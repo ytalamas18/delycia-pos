@@ -18,7 +18,7 @@ export default async function EditarProductoPage({ params, searchParams }: PageP
         ← Volver al catálogo
       </Link>
       <h1 className="text-2xl font-bold">{product.name}</h1>
-      {nuevo && <p className="font-medium text-green-700">Producto creado. Si quieres, agrégale modificadores abajo.</p>}
+      {nuevo && <p className="font-medium text-green-700 dark:text-green-400">Producto creado. Si quieres, agrégale modificadores abajo.</p>}
       <ProductForm
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
         product={{

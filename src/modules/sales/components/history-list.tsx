@@ -136,7 +136,10 @@ export async function HistoryList({ date, params }: { date: string; params: Part
                   <Badge className={statusStyle[o.status]}>{orderStatusLabel[o.status]}</Badge>
                 </td>
                 <td className="p-3 text-sm">
-                  {[...new Set(o.payments.filter((p) => !p.refundedAt).map((p) => paymentMethodLabel[p.method]))].join(" + ") || "—"}
+                  {[...new Set(o.payments.filter((p) => !p.refundedAt).map((p) => paymentMethodLabel[p.method]))].join(" + ") ||
+                    (o.payments.length > 0
+                      ? `${[...new Set(o.payments.map((p) => paymentMethodLabel[p.method]))].join(" + ")} (devuelto)`
+                      : "—")}
                 </td>
                 <td
                   className={cn(

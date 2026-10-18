@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { logoutAction } from "@/app/login/actions";
 import { AppNav } from "@/components/shell/app-nav";
+import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { modules } from "@/config/modules";
 import { appConfig } from "@/core/config/app";
@@ -28,6 +29,7 @@ export default async function CajaLayout({ children }: LayoutProps<"/">) {
         <AppNav items={items} />
         <div className="ml-auto flex items-center gap-2">
           {canMessageKitchen && <KitchenMessageButton quickMessages={quickMessages} />}
+          <ThemeToggle section="pos" />
           <span className="text-sm text-muted-foreground">{session.name}</span>
           <form action={logoutAction}>
             <Button variant="ghost" size="sm" type="submit">

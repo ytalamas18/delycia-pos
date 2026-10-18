@@ -36,7 +36,7 @@ export function PaidDialog({ paid, onClose }: { paid: PaidSummary; onClose: () =
         {paid.unsentKitchen > 0 ? (
           <SendToKitchenButton orderId={paid.orderId} count={paid.unsentKitchen} />
         ) : (
-          paid.kitchenItems > 0 && <p className="font-semibold text-green-700">✔ En cocina</p>
+          paid.kitchenItems > 0 && <p className="font-semibold text-green-700 dark:text-green-400">✔ En cocina</p>
         )}
         <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" size="lg" asChild>

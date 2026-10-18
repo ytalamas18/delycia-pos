@@ -206,7 +206,7 @@ function TicketCard({
         "flex flex-col overflow-hidden rounded-xl border-4 bg-card",
         inKitchen && levelStyles[level],
         (ticket.status === "READY" || ticket.status === "DELIVERED") && "border-green-700 opacity-90",
-        cancelled && "border-red-600 bg-red-950",
+        cancelled && "border-red-600 bg-red-50 dark:bg-red-950",
         ticket.voidAlert && "border-red-600 ring-4 ring-red-500",
         pending && "opacity-60",
       )}
@@ -220,7 +220,7 @@ function TicketCard({
           </div>
           <div className="text-xl font-semibold">
             {ticket.label}
-            {ticket.sequence > 1 && <span className="text-blue-300">, adicional</span>}
+            {ticket.sequence > 1 && <span className="text-blue-700 dark:text-blue-300">, adicional</span>}
           </div>
           <div className="text-sm text-muted-foreground">Entró {clock.format(new Date(ticket.receivedAt))}</div>
         </div>
@@ -254,7 +254,7 @@ function TicketCard({
               className={cn(
                 "flex w-full items-start gap-3 p-3 text-left disabled:cursor-default",
                 item.ready && "opacity-50",
-                item.voided && "bg-red-950",
+                item.voided && "bg-red-100 dark:bg-red-950",
               )}
             >
               <span className={cn("text-2xl font-black tabular-nums", (item.ready || item.voided) && "line-through")}>
@@ -265,7 +265,7 @@ function TicketCard({
                   {item.name}
                 </span>
                 {item.voided && (
-                  <span className="block text-lg font-black text-red-400">
+                  <span className="block text-lg font-black text-red-700 dark:text-red-400">
                     ANULADO{item.voidReason && !cancelled ? ` · ${item.voidReason}` : ""}
                   </span>
                 )}
@@ -273,13 +273,13 @@ function TicketCard({
                   <span className="inline-block rounded bg-orange-500 px-2 text-base font-bold text-black">PARA LLEVAR</span>
                 )}
                 {item.modifiers.length > 0 && (
-                  <span className="block text-lg font-semibold text-amber-300">{item.modifiers.join(" · ")}</span>
+                  <span className="block text-lg font-semibold text-amber-700 dark:text-amber-300">{item.modifiers.join(" · ")}</span>
                 )}
                 {item.note && (
                   <span className="block rounded bg-yellow-300 px-2 py-0.5 text-lg font-bold text-black">⚠ {item.note}</span>
                 )}
               </span>
-              {item.ready && <Check className="size-8 shrink-0 text-green-400" />}
+              {item.ready && <Check className="size-8 shrink-0 text-green-600 dark:text-green-400" />}
             </button>
           </li>
         ))}
