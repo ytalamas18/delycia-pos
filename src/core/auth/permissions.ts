@@ -11,6 +11,7 @@ const permissions = {
   "cash.close": ["ADMIN", "CASHIER"],
   "catalog.manage": ["ADMIN"],
   "settings.manage": ["ADMIN"],
+  "reports.view": ["ADMIN"],
   "kitchen.view": ["ADMIN", "CASHIER", "KITCHEN"],
   "kitchen.operate": ["ADMIN", "KITCHEN"],
 } as const satisfies Record<string, readonly Role[]>;
@@ -25,6 +26,7 @@ export function can(role: Role, permission: Permission): boolean {
 export const routePermissions: { prefix: string; permission: Permission }[] = [
   { prefix: "/catalogo", permission: "catalog.manage" },
   { prefix: "/ajustes", permission: "settings.manage" },
+  { prefix: "/reportes", permission: "reports.view" },
   { prefix: "/pos", permission: "sales.sell" },
   { prefix: "/ordenes", permission: "sales.sell" },
   { prefix: "/historial", permission: "sales.sell" },
