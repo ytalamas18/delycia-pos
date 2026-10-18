@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ExportButtons } from "@/components/shell/export-buttons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatMoney } from "@/core/money";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,10 @@ export async function ReportsScreen({ params }: { params: Params }) {
         ))}
       </div>
       <RangeFilter range={range} keep={keep} />
+      <ExportButtons
+        report={view === "productos" ? "productos-vendidos" : "ventas-por-canal"}
+        params={{ ...keep, desde: range.from, hasta: range.to }}
+      />
       <p className="text-sm text-muted-foreground">
         {range.from === range.to ? shortDate(range.from) : `Del ${shortDate(range.from)} al ${shortDate(range.to)}`} · días según
         la hora de La Paz · solo órdenes cobradas; las anuladas van aparte y no suman.

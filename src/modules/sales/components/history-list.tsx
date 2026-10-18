@@ -1,12 +1,13 @@
 import Link from "next/link";
 
+import { ExportButtons } from "@/components/shell/export-buttons";
 import { Badge } from "@/components/ui/badge";
 import { appConfig } from "@/core/config/app";
 import { formatMoney } from "@/core/money";
 import { cn } from "@/lib/utils";
 
 import { channelLabel, orderLabel, orderStatusLabel, paymentMethodLabel } from "../domain/labels";
-import { listOrdersForDay, type HistoryFilters } from "../services/history";
+import { listOrdersForDay, parseHistoryFilters } from "../services/history";
 import { DayPicker } from "./day-picker";
 
 const time = new Intl.DateTimeFormat("es-BO", { hour: "2-digit", minute: "2-digit", timeZone: appConfig.timezone });
@@ -42,13 +43,7 @@ const FILTERS: { key: FilterKey; label: string; options: { value: string; label:
 ];
 
 export async function HistoryList({ date, params }: { date: string; params: Partial<Record<FilterKey, string>> }) {
-  const filters: HistoryFilters = {
-    status: params.estado as HistoryFilters["status"],
-    serviceType: params.tipo as HistoryFilters["serviceType"],
-    channel: params.canal as HistoryFilters["channel"],
-    method: params.metodo as HistoryFilters["method"],
-  };
-  const orders = await listOrdersForDay(date, filters);
+  const orders = await listOrdersForDay(date, parseHistoryFilters(params));
   const active = Object.fromEntries(Object.entries(params).filter(([, v]) => v)) as Record<string, string>;
   const total = orders.filter((o) => o.status === "PAID" || o.status === "CLOSED").reduce((s, o) => s + o.totalCents, 0);
   const cancelled = orders.filter((o) => o.status === "CANCELLED");
@@ -83,6 +78,8 @@ export async function HistoryList({ date, params }: { date: string; params: Part
           </div>
         ))}
       </div>
+
+      <ExportButtons report="historial" params={{ ...active, fecha: date }} />
 
       <div className="flex items-baseline justify-between">
         <span className="text-muted-foreground">

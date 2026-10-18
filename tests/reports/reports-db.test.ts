@@ -5,7 +5,9 @@ import { eventBus } from "@/core/db/transaction";
 import { kitchenModule } from "@/modules/kitchen";
 import { salesModule } from "@/modules/sales";
 
+import { reportExports } from "@/modules/reports";
 import { getProductsSold, getSalesByChannel } from "@/modules/reports/services/reports";
+import { buildHistoryExport } from "@/modules/sales";
 import * as checkout from "@/modules/sales/services/checkout";
 import * as orders from "@/modules/sales/services/orders";
 import * as voids from "@/modules/sales/services/voids";
@@ -116,5 +118,29 @@ describe("reportes contra la base", () => {
 
     const otherDay = await getProductsSold({ from: "2026-10-18", to: "2026-10-18" });
     expect(otherDay.products).toEqual([]);
+  });
+
+  it("la exportación usa los mismos filtros que la pantalla", async () => {
+    const { caja, plato, gaseosa, actor } = await fixtures();
+    await saleAt("2026-10-17T15:00:00Z", caja.id, [line(plato.id), line(gaseosa.id, 2)], [{ method: "CASH", amountCents: 5800 }]);
+    const cancelled = await saleAt("2026-10-17T16:00:00Z", caja.id, [line(gaseosa.id)], [{ method: "QR", amountCents: 1000 }]);
+    await voids.cancelOrder(cancelled.id, "Se cobró mal", actor, "2026-10-17");
+    const bebidas = await db.category.findFirstOrThrow({ where: { name: "Test Bebidas" } });
+
+    const products = await reportExports["productos-vendidos"]({ desde: "2026-10-17", hasta: "2026-10-17", cat: bebidas.id });
+    expect(products.fileBase).toBe("productos-vendidos_test-bebidas_2026-10-17");
+    expect(products.filters).toContain("Categoría: Test Bebidas");
+    expect(products.tables[0].rows).toEqual([["Gaseosa 500 ml (ejemplo)", "Test Bebidas", 2, 2000]]);
+    expect(products.tables[0].totals).toEqual(["Total", null, 2, 2000]);
+
+    const sales = await reportExports["ventas-por-canal"]({ desde: "2026-10-17", hasta: "2026-10-17" });
+    expect(sales.tables[0].rows).toEqual([["EFECTIVO", 1, 5800, 5800, 1]]);
+
+    const history = await buildHistoryExport("2026-10-17", { estado: "CANCELLED" });
+    expect(history.filters).toEqual(["Estado: Anulada"]);
+    expect(history.tables[0].rows).toHaveLength(1);
+    expect(history.tables[0].rows[0][5]).toBe("Anulada");
+    expect(history.tables[0].rows[0][9]).toBe(0); // anulada: no suma en "Cobrado"
+    expect(history.tables[0].rows[0][10]).toBe("Se cobró mal");
   });
 });

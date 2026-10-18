@@ -13,6 +13,20 @@ export type HistoryFilters = {
   method?: PaymentMethod;
 };
 
+/** Filtros del historial tal como vienen en la URL (?estado=&tipo=&canal=&metodo=). Ignora valores inválidos. */
+export type HistoryParams = { estado?: string; tipo?: string; canal?: string; metodo?: string };
+
+export function parseHistoryFilters(params: HistoryParams): HistoryFilters {
+  const pick = <T extends string>(value: string | undefined, allowed: readonly T[]) =>
+    allowed.includes(value as T) ? (value as T) : undefined;
+  return {
+    status: pick(params.estado, ["OPEN", "PAID", "CLOSED", "CANCELLED"] as const),
+    serviceType: pick(params.tipo, ["DINE_IN", "TAKEAWAY"] as const),
+    channel: pick(params.canal, ["LOCAL", "PEYA"] as const),
+    method: pick(params.metodo, ["CASH", "QR", "CARD", "PEYA", "CREDIT"] as const),
+  };
+}
+
 /** Órdenes de un día de negocio, con filtros. La más reciente primero. */
 export function listOrdersForDay(date: string, filters: HistoryFilters = {}) {
   const where: Prisma.OrderWhereInput = { businessDate: date };
