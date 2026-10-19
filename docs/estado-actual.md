@@ -7,7 +7,7 @@
 
 - ✅ **Fase 1 (código):** migración `tipos_de_item` (solo agrega; todo queda Normal sin stock), Catálogo con tipo,
   unidad base, check de stock, stock mínimo, último costo, presentaciones de compra y filtro por tipo. El POS
-  solo muestra Normal y Preparado. Pendiente: backup de producción confirmado + aprobar clasificación (v3).
+  solo muestra Normal y Preparado. Clasificación aprobada (menú v3: platos → Preparado, bebidas → Normal con stock). Pendiente: backup de producción confirmado antes de desplegar.
 - Sigue: **Fase 2** (recetas de Preparado e Ingrediente con costo y margen).
 
 ## Hecho

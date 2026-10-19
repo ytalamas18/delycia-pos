@@ -53,6 +53,10 @@ describe("seed y ajustes", () => {
     expect(bebidas).toHaveLength(21);
     expect(bebidas.every((b) => !b.sendsToKitchen)).toBe(true);
     expect(bebidas.find((b) => b.name === "Simba Durazno 2 L")?.priceCents).toBe(1600);
+    // v3: platos → Preparado; bebidas → Normal con stock; extras sin cambios.
+    expect(await db.product.count({ where: { type: "PREPARED" } })).toBe(31);
+    expect(bebidas.every((b) => b.type === "NORMAL" && b.tracksStock)).toBe(true);
+    expect(extras.every((e) => e.type === "NORMAL" && !e.tracksStock)).toBe(true);
     expect((await db.category.findMany({ orderBy: { sortOrder: "asc" } })).map((c) => c.name)).toEqual([
       "Hamburguesas", "Milanesas", "Sándwiches", "Lomitos", "Salchipapas", "Papas", "Piqueos", "Extras", "Bebidas",
     ]);
@@ -76,7 +80,7 @@ describe("seed y ajustes", () => {
     const burger = await db.product.findFirstOrThrow({ where: { name: "Hamburguesa Clásica Simple" } });
     await db.productModifier.deleteMany({ where: { productId: burger.id, name: "Extra tocino" } });
 
-    expect(await applyMenuUpdates(db)).toHaveLength(1);
+    expect(await applyMenuUpdates(db)).toHaveLength(2); // v2 y v3
     expect(await applyMenuUpdates(db)).toEqual([]); // segunda vez: nada
 
     expect((await db.setting.findUniqueOrThrow({ where: { key: "kitchen.quickMessages" } })).value).toEqual([
@@ -85,6 +89,16 @@ describe("seed y ajustes", () => {
     ]);
     const mods = await db.productModifier.findMany({ where: { productId: burger.id } });
     expect(mods.map((m) => m.name).sort()).toEqual(["Extra huevo", "Extra queso", "Extra tocino"]); // sin duplicados
+  });
+
+  it("v3 clasifica por tipo sin pisar lo que se cambió a mano", async () => {
+    await db.setting.update({ where: { key: "seed.menuVersion" }, data: { value: 2 } });
+    await db.product.updateMany({ data: { type: "NORMAL", tracksStock: false } });
+    await db.product.updateMany({ where: { name: "Coca Cola 2 L" }, data: { type: "SUPPLY" } }); // cambio manual
+    expect(await applyMenuUpdates(db)).toEqual(["v3: Tipos de ítem: platos → Preparado; bebidas → Normal con stock"]);
+    expect((await db.product.findFirstOrThrow({ where: { name: "Lomito Doble" } })).type).toBe("PREPARED");
+    expect(await db.product.findFirstOrThrow({ where: { name: "Coca Cola 2 L" } })).toMatchObject({ type: "SUPPLY", tracksStock: false });
+    expect(await db.product.findFirstOrThrow({ where: { name: "Sprite 500 ml" } })).toMatchObject({ type: "NORMAL", tracksStock: true });
   });
 
   it("borra los productos de ejemplo de versiones anteriores", async () => {

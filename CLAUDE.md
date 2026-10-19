@@ -77,7 +77,7 @@ tests/   core, catalog, sales, kitchen, reports, integration, support (db reset,
   variantes `dark:` en colores fijos (ej. `text-red-700 dark:text-red-400`). `/imprimir` siempre en claro.
 - **Permisos** en un solo mapa (`core/auth/permissions.ts`): de ahí salen menú, `proxy.ts` y `requirePermission()`.
 - **Menú:** se carga una vez desde `prisma/data/menu-delycia.json`; cambios posteriores = `MENU_UPDATES`
-  versionados en `prisma/seed-data.ts` (setting `seed.menuVersion`, hoy v2).
+  versionados en `prisma/seed-data.ts` (setting `seed.menuVersion`, hoy v3).
 - Server Actions devuelven `ActionResult` vía `toActionResult()` (errores en español; `DomainError` para negocio).
 
 ## Reglas de negocio clave

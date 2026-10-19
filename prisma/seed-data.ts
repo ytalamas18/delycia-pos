@@ -143,6 +143,9 @@ const EXTRA_MODIFIERS = [
 ];
 const CATEGORIES_WITH_EXTRAS = ["Hamburguesas", "Lomitos"];
 
+/** v3: categorías cuyos productos son platos con receta (Preparado). Aprobado por Yasser el 19/10/2026. */
+const PREPARED_CATEGORIES = ["Hamburguesas", "Milanesas", "Sándwiches", "Lomitos", "Salchipapas", "Papas", "Piqueos"];
+
 type MenuUpdate = { version: number; description: string; apply: (db: PrismaClient) => Promise<void> };
 
 const MENU_UPDATES: MenuUpdate[] = [
@@ -175,6 +178,22 @@ const MENU_UPDATES: MenuUpdate[] = [
         const list = (quick.value as string[]).filter((m) => m.toUpperCase() !== "DESCONGELEN PRODUCTO");
         await db.setting.update({ where: { key: "kitchen.quickMessages" }, data: { value: list } });
       }
+    },
+  },
+  {
+    version: 3,
+    description: "Tipos de ítem: platos → Preparado; bebidas → Normal con stock",
+    async apply(db) {
+      // Solo lo que sigue como quedó tras la migración (Normal, sin stock): no pisa cambios hechos a mano.
+      const untouched = { type: "NORMAL" as const, tracksStock: false };
+      await db.product.updateMany({
+        where: { ...untouched, category: { name: { in: PREPARED_CATEGORIES } } },
+        data: { type: "PREPARED" },
+      });
+      await db.product.updateMany({
+        where: { ...untouched, category: { name: "Bebidas" } },
+        data: { tracksStock: true, baseUnit: "UNIT" },
+      });
     },
   },
 ];

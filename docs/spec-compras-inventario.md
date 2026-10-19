@@ -7,7 +7,7 @@
 
 | Fase | Estado |
 |---|---|
-| 1. Catálogo: tipos, unidades, presentaciones, stock mínimo + migración segura + propuesta de clasificación | ✅ Código listo (migración `tipos_de_item`). Falta: backup de producción confirmado por Yasser + aprobar clasificación (se aplicará como `MENU_UPDATES` v3) |
+| 1. Catálogo: tipos, unidades, presentaciones, stock mínimo + migración segura + propuesta de clasificación | ✅ Código listo (migración `tipos_de_item`). Clasificación aprobada y en `MENU_UPDATES` v3. Falta: backup de producción confirmado por Yasser antes de desplegar |
 | 2. Recetas (Preparado e Ingrediente) con costo y margen | Pendiente |
 | 3. Proveedores, compras, crédito y abonos | Pendiente |
 | 4. Inventario: movimientos, descuento por ventas, ingreso a inventario, conteo físico y alertas | Pendiente |
