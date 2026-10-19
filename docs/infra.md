@@ -1,9 +1,17 @@
 # Infraestructura — Delycia POS
 
-Estado al 17/10/2026. **Despliegue manual de prueba listo para lanzar** (aún sin recursos creados): EC2 + User Data,
-ver `docs/deploy-manual.md`. Archivos: `docker-compose.prod.yml` (db sin puertos, migrate, app, Caddy :80),
-`Caddyfile` (SSE sin buffer; HTTPS cambiando `SITE_ADDRESS`), `infra/user-data.sh`, `.env.production.example`.
-Probado en local con Docker (build, migraciones + seed, login por Caddy, SSE). No probado aún en AWS.
+Estado al 19/10/2026. **EC2 de prueba en marcha** (creada a mano con User Data, ver `docs/deploy-manual.md`):
+Amazon Linux 2023, t3.small, sa-east-1, Elastic IP, Security Group HTTP 80 + SSH 22, sin dominio ni HTTPS.
+Última versión desplegada: `9bdbd2e` (19/10/2026, "SETUP OK"). La IP no se anota aquí (repo público).
+Archivos: `docker-compose.prod.yml` (db sin puertos, migrate, app, Caddy :80), `Caddyfile` (SSE sin buffer;
+HTTPS cambiando `SITE_ADDRESS`), `infra/user-data.sh`, `.env.production.example`.
+
+**Actualizar la EC2 (sin CI/CD todavía)**, desde EC2 Instance Connect:
+1. Respaldo: `cd /opt/delycia && sudo docker compose -f docker-compose.prod.yml exec -T db pg_dump -U delycia delycia | sudo tee ~/respaldo-$(date +%F-%H%M).sql > /dev/null`
+2. `sudo /usr/local/sbin/delycia-setup` (trae `main`, conserva `.env` y la base, aplica migraciones; 10-15 min).
+3. Verificar: `cat /var/lib/delycia-setup.status` = OK, `sudo git -C /opt/delycia log -1 --oneline`.
+Fuera del horario de atención (12:00-15:00). Volver atrás: `sudo git -C /opt/delycia reset --hard <commit>` +
+`docker compose -f docker-compose.prod.yml up -d --build` (no correr `delycia-setup`, que vuelve a `main`).
 
 ## 1. Qué está configurado y funcionando (local)
 
@@ -55,9 +63,10 @@ portafolio (Terraform + CI/CD + backups + OIDC). Volver a verificar precios ante
 
 ## 3. Pendiente / sin probar
 
-- Nada de AWS creado: ni cuenta configurada para el proyecto, ni Terraform, ni workflows de GitHub Actions.
+- EC2 creada a mano (sin Terraform ni GitHub Actions). Secretos en `/opt/delycia/.env` de la instancia (sin SSM).
+- SSH 22 abierto: restringir a la IP de Yasser o cerrarlo y usar solo Instance Connect / SSM.
 - **Build ARM64** (Graviton) no probado (Prisma 7 + adapter pg en alpine arm64).
-- Sin **respaldo** automático de la base (ni local ni en la nube).
+- Sin **respaldo** automático de la base: hoy solo el `pg_dump` manual antes de actualizar (queda en la EC2).
 - Sin **HTTPS** (decisión: por ahora HTTP con la IP).
 - ✅ Hecho: PIN fuera del repo (seed con variables `*_PIN` o aleatorios), cambio de PIN en Ajustes, bloqueo
   15 min tras 5 fallos, cabeceras de seguridad. Falta: `SESSION_SECRET` y `POSTGRES_PASSWORD` reales en la EC2

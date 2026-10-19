@@ -1,4 +1,4 @@
-# Estado actual de la app — 18/10/2026
+# Estado actual de la app — 19/10/2026
 
 112 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: exportar PDF/Excel, reportes de Anulaciones y Cuentas por cobrar.
 
@@ -29,7 +29,8 @@ cocina: anulada queda a la vista hasta "Entendido" y luego pasa a Recientes con 
 5. Renombrar "Hamburguesa Onion Doble/Triple" → lo hace Yasser desde Catálogo.
 6. ✅ Reportes (ventas, productos, anulaciones, fiados) con exportación. Faltan: tiempos de cocina; luego
    inventario, costos/recetas, clientes (hoy el cliente del fiado es el nombre escrito, sin teléfono).
-7. Prueba piloto en el local (impresora 80 mm real, tablet de cocina, sonido, IP fija, firewall).
+7. Prueba piloto en el local (impresora 80 mm real, tablet de cocina, sonido, IP fija, firewall). La app ya corre
+   en la EC2 de prueba (ver `docs/infra.md`).
 
 ## Bugs / limitaciones conocidas
 
