@@ -126,7 +126,16 @@ export function ProductForm({ categories, product, defaultCategoryId }: ProductF
           hint="Marcado: maneja stock (sube con compras, baja con ventas o recetas). Sin marcar: solo se registra el gasto."
         />
       )}
-      {type === "INGREDIENT" && <p className="text-sm text-muted-foreground">Un Ingrediente siempre maneja stock.</p>}
+      {type === "INGREDIENT" && (
+        // Solo informativo: el servidor fuerza el stock en Ingrediente (un input deshabilitado no se envía).
+        <SwitchField
+          checked
+          disabled
+          readOnly
+          label="Suma al inventario al registrar compra"
+          hint="Un Ingrediente siempre maneja stock: sube con el ingreso a inventario (producción) o si se compra hecho."
+        />
+      )}
 
       <div className={cn("grid max-w-xs gap-2", !stock && "hidden")}>
         <Label htmlFor="minStock">Stock mínimo ({unitLabel})</Label>

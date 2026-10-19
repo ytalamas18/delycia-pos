@@ -11,6 +11,13 @@ export const ITEM_TYPE_LABEL: Record<ItemType, string> = {
   SUPPLY: "Insumo",
 };
 
+export const ITEM_TYPE_PLURAL: Record<ItemType, string> = {
+  NORMAL: "Normales",
+  PREPARED: "Preparados",
+  INGREDIENT: "Ingredientes",
+  SUPPLY: "Insumos",
+};
+
 export const ITEM_TYPE_HINT: Record<ItemType, string> = {
   NORMAL: "Se vende tal cual (ej. gaseosa). Stock solo si se marca la compra.",
   PREPARED: "Se vende y se arma con receta (ej. hamburguesa). Descuenta los componentes; no tiene stock propio.",

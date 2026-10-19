@@ -37,6 +37,16 @@ Forma de trabajo:
   como línea aparte "Pagos a proveedores" (por fecha del pago/abono). QR/transferencia/tarjeta, igual por canal.
 - **Permisos:** Compras e Inventario solo Admin por ahora (`purchases.manage`, `inventory.manage`).
 - **Anular compra con abonos:** se exige anular primero los abonos.
+- **Catálogo agrupado por Tipo** por defecto (opción "Agrupar por: Tipo / Categoría"; por categoría se ve el
+  orden del POS y se puede subir/bajar). La categoría sigue existiendo (pestañas del POS).
+- **Ingrediente:** siempre suma stock (check marcado y bloqueado en el formulario).
+- **Envases para llevar (Yasser, 19/10):** los mismos envases sirven para llevar y para sobras, y no se cobran.
+  - Cada componente de receta lleva condición: *Siempre / Solo para llevar / Solo comer aquí* (Fase 2). Se evalúa
+    con el `serviceType` de cada ítem de la orden (PEYA siempre es para llevar). Así el envase se descuenta solo.
+  - **Sobras** (comió aquí y pide envase): NO como ítem de venta de Bs 0 (Ventas no cobra órdenes de Bs 0 ni
+    modifica órdenes pagadas). Va como **"Salida rápida" de inventario** (Fase 4): botón en Caja → elige el
+    envase y la cantidad → movimiento `CONSUMPTION` con motivo "Envase para sobras". Excepción al "solo Admin":
+    este botón lo usa también Caja.
 - Cambiar la unidad base de un ítem con movimientos de stock: se bloqueará en la Fase 4.
 - Clasificación de productos actuales: se aplica como actualización de menú versionada (`MENU_UPDATES` v3,
   por categoría) solo con lo que Yasser apruebe.
@@ -133,7 +143,8 @@ Al guardar:
 
 ## Movimientos (kárdex)
 - Todo cambio de stock es un movimiento: tipo (compra, ingreso a inventario,
-  venta, anulación de venta, anulación de compra, ajuste por conteo), ítem,
+  venta, anulación de venta, anulación de compra, ajuste por conteo, inventario inicial,
+  salida rápida/consumo), ítem,
   cantidad (+/-), costo, fecha, usuario y referencia al documento de origen.
 - El stock se calcula a partir de los movimientos. Nunca se edita a mano.
 
