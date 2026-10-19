@@ -1,12 +1,21 @@
 import { db } from "@/core/db/client";
 import { DomainError } from "@/core/errors";
 
-import { modifierInput, productInput, type ModifierInput, type ProductInput } from "../schemas";
+import {
+  modifierInput,
+  presentationInput,
+  productInput,
+  type ModifierInput,
+  type PresentationInput,
+  type ProductInput,
+} from "../schemas";
+import { SELLABLE_TYPES } from "../domain/item-types";
 import { normalizedOrder } from "./ordering";
 
 const productInclude = {
   category: { select: { id: true, name: true, active: true } },
   modifiers: { orderBy: [{ sortOrder: "asc" as const }, { name: "asc" as const }] },
+  presentations: { orderBy: [{ factor: "asc" as const }, { name: "asc" as const }] },
 };
 
 /** Todos los productos (activos e inactivos), agrupables por categoría en la pantalla de catálogo. */
@@ -83,7 +92,8 @@ export function removeModifier(id: string) {
 export async function addModifierToCategory(categoryId: string, input: ModifierInput) {
   const data = modifierInput.parse(input);
   const products = await db.product.findMany({
-    where: { categoryId },
+    // Solo lo que se vende: un Insumo o Ingrediente no lleva modificadores.
+    where: { categoryId, type: { in: SELLABLE_TYPES } },
     select: { id: true, modifiers: { select: { name: true, sortOrder: true } } },
   });
   if (products.length === 0) throw new DomainError("La categoría no tiene productos.");
@@ -95,4 +105,20 @@ export async function addModifierToCategory(categoryId: string, input: ModifierI
     added++;
   }
   return { added, skipped: products.length - added };
+}
+
+// --- Presentaciones de compra ---
+
+/** Ej. "Bolsa x12" = 12 unidades base. Solo para ítems que se compran (no Preparado). */
+export async function addPresentation(productId: string, input: PresentationInput) {
+  const data = presentationInput.parse(input);
+  const product = await db.product.findUnique({ where: { id: productId }, select: { type: true } });
+  if (!product) throw new DomainError("El producto no existe");
+  if (product.type === "PREPARED") throw new DomainError("Un Preparado no se compra: no lleva presentaciones.");
+  return db.productPresentation.create({ data: { productId, ...data } });
+}
+
+/** Se puede borrar: las compras guardarán su propia copia (nombre y factor) de la presentación usada. */
+export function removePresentation(id: string) {
+  return db.productPresentation.delete({ where: { id } });
 }

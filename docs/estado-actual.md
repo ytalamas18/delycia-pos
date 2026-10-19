@@ -1,6 +1,14 @@
 # Estado actual de la app — 19/10/2026
 
-112 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: exportar PDF/Excel, reportes de Anulaciones y Cuentas por cobrar.
+129 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: **Fase 1 de compras/inventario**
+(tipos de ítem, unidades, presentaciones, stock mínimo, último costo). Ver `docs/spec-compras-inventario.md`.
+
+## En curso: compras, inventario y recetas (`docs/spec-compras-inventario.md`)
+
+- ✅ **Fase 1 (código):** migración `tipos_de_item` (solo agrega; todo queda Normal sin stock), Catálogo con tipo,
+  unidad base, check de stock, stock mínimo, último costo, presentaciones de compra y filtro por tipo. El POS
+  solo muestra Normal y Preparado. Pendiente: backup de producción confirmado + aprobar clasificación (v3).
+- Sigue: **Fase 2** (recetas de Preparado e Ingrediente con costo y margen).
 
 ## Hecho
 

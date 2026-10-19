@@ -101,4 +101,80 @@ describe("catálogo", () => {
     const all = await db.productModifier.findMany({ where: { product: { categoryId: platos.id } } });
     expect(all.map((m) => m.priceDeltaCents)).toEqual([400, 400]);
   });
+
+  it("tipos: solo Normal y Preparado se venden; Insumo e Ingrediente no necesitan precio", async () => {
+    const { platos, plato } = await setup();
+    const carne = await products.createProduct({
+      name: "Carne molida",
+      categoryId: platos.id,
+      type: "SUPPLY",
+      priceCents: "",
+      sendsToKitchen: true,
+      active: true,
+      baseUnit: "KG",
+      tracksStock: true,
+      minStock: "2,5",
+      lastCostCents: "52",
+    });
+    expect(carne).toMatchObject({ priceCents: 0, sendsToKitchen: false, tracksStock: true, baseUnit: "KG" });
+    expect(carne.minStock?.toString()).toBe("2.5");
+    expect(carne.lastCostCents?.toString()).toBe("5200");
+
+    const medallon = await products.createProduct({
+      name: "Carne de hamburguesa",
+      categoryId: platos.id,
+      type: "INGREDIENT",
+      sendsToKitchen: false,
+      active: true,
+      tracksStock: false, // Ingrediente: siempre maneja stock
+    });
+    expect(medallon.tracksStock).toBe(true);
+
+    await products.updateProduct(plato.id, {
+      name: "Majadito",
+      categoryId: platos.id,
+      type: "PREPARED",
+      priceCents: "38",
+      sendsToKitchen: true,
+      active: true,
+      baseUnit: "KG",
+      tracksStock: true, // Preparado: nunca maneja stock
+      minStock: "3",
+    });
+    const updated = await db.product.findUniqueOrThrow({ where: { id: plato.id } });
+    expect(updated).toMatchObject({ type: "PREPARED", tracksStock: false, baseUnit: "UNIT", minStock: null });
+
+    const sellable = await getSellableCatalog();
+    expect(sellable.flatMap((c) => c.products.map((p) => p.name)).sort()).toEqual(["Gaseosa", "Majadito"]);
+    expect(await getSellableProduct(carne.id)).toBeNull();
+
+    await expect(
+      products.createProduct({ name: "Sin precio", categoryId: platos.id, type: "PREPARED", priceCents: "", sendsToKitchen: true, active: true }),
+    ).rejects.toThrow("Ingresa el precio");
+  });
+
+  it("el modificador a toda la categoría no se agrega a insumos", async () => {
+    const { platos } = await setup();
+    await products.createProduct({ name: "Pan", categoryId: platos.id, type: "SUPPLY", sendsToKitchen: false, active: true });
+    const r = await products.addModifierToCategory(platos.id, { name: "Extra queso", priceDeltaCents: "3" });
+    expect(r.added).toBe(1);
+  });
+
+  it("presentaciones de compra: no en Preparado, sin repetir nombre", async () => {
+    const { platos, gaseosa } = await setup();
+    const bolsa = await products.addPresentation(gaseosa.id, { name: "Paquete x6", factor: "6" });
+    expect(bolsa.factor.toString()).toBe("6");
+    await expect(products.addPresentation(gaseosa.id, { name: "Paquete x6", factor: "6" })).rejects.toMatchObject({ code: "P2002" });
+    await expect(products.addPresentation(gaseosa.id, { name: "Cero", factor: "0" })).rejects.toThrow("Cantidad inválida");
+
+    const hamburguesa = await products.createProduct({
+      name: "Hamburguesa",
+      categoryId: platos.id,
+      type: "PREPARED",
+      priceCents: "40",
+      sendsToKitchen: true,
+      active: true,
+    });
+    await expect(products.addPresentation(hamburguesa.id, { name: "Caja", factor: "10" })).rejects.toThrow("no se compra");
+  });
 });

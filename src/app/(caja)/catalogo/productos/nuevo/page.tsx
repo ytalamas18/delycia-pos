@@ -9,7 +9,7 @@ export default async function NuevoProductoPage() {
       <Link href="/catalogo" className="text-sm text-muted-foreground hover:underline">
         ← Volver al catálogo
       </Link>
-      <h1 className="text-2xl font-bold">Nuevo producto</h1>
+      <h1 className="text-2xl font-bold">Nuevo ítem</h1>
       {categories.length === 0 ? (
         <p>
           Primero crea una categoría en{" "}

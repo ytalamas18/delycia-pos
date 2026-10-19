@@ -7,7 +7,7 @@
 
 | Fase | Estado |
 |---|---|
-| 1. Catálogo: tipos, unidades, presentaciones, stock mínimo + migración segura + propuesta de clasificación | Pendiente (plan esperando aprobación) |
+| 1. Catálogo: tipos, unidades, presentaciones, stock mínimo + migración segura + propuesta de clasificación | ✅ Código listo (migración `tipos_de_item`). Falta: backup de producción confirmado por Yasser + aprobar clasificación (se aplicará como `MENU_UPDATES` v3) |
 | 2. Recetas (Preparado e Ingrediente) con costo y margen | Pendiente |
 | 3. Proveedores, compras, crédito y abonos | Pendiente |
 | 4. Inventario: movimientos, descuento por ventas, ingreso a inventario, conteo físico y alertas | Pendiente |
@@ -19,6 +19,27 @@ Forma de trabajo:
 - Al terminar cada fase, actualizar `docs/estado-actual.md` (y la tabla de arriba) indicando qué fase quedó lista y cuál sigue.
 - Si el contexto supera el 90%, avisar para continuar en una sesión nueva.
 - Respuestas cortas.
+
+## Decisiones tomadas (19/10/2026, aprobadas por Yasser)
+
+- **Ítem = `Product`** con campos nuevos (`type`, `baseUnit`, `tracksStock`, `minStock`, `lastCostCents`,
+  `lastCostAt`) + tabla `ProductPresentation`. Cantidades `Decimal(12,3)`; costo unitario en centavos
+  `Decimal(14,4)` (1 g puede costar menos de 1 centavo); totales en centavos `Int`.
+- Unidades: kg ↔ g y litro ↔ ml se convierten solos; además, presentaciones con factor (`catalog/domain/units.ts`).
+- Insumo/Ingrediente guardan `priceCents = 0` y `sendsToKitchen = false`. Preparado: siempre `UNIT`, sin stock.
+- **Eventos de Ventas:** se agregan datos a los payloads (ej. `productId`, ítems en `order.paid`,
+  modificadores con id) sin cambiar la lógica de Ventas. Inventario descuenta con el primer evento que llegue
+  (envío a cocina o cobro) y no repite (idempotente por `orderItemId`). Al anular, revierte los movimientos que
+  guardó (no recalcula con la receta actual).
+- **Modificadores:** sí deben descontar stock (ej. "Extra queso"). Plan: receta propia por modificador (Fase 2/4).
+  Si se complica, se deja para después y se anota aquí.
+- **Pagos a proveedores en efectivo** restan del efectivo esperado del cierre de caja y aparecen en el cierre
+  como línea aparte "Pagos a proveedores" (por fecha del pago/abono). QR/transferencia/tarjeta, igual por canal.
+- **Permisos:** Compras e Inventario solo Admin por ahora (`purchases.manage`, `inventory.manage`).
+- **Anular compra con abonos:** se exige anular primero los abonos.
+- Cambiar la unidad base de un ítem con movimientos de stock: se bloqueará en la Fase 4.
+- Clasificación de productos actuales: se aplica como actualización de menú versionada (`MENU_UPDATES` v3,
+  por categoría) solo con lo que Yasser apruebe.
 
 Fuera de alcance: gastos que no son ítems (luz, gas, alquiler, sueldos). Van en un módulo "Gastos" más adelante.
 

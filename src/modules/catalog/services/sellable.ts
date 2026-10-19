@@ -1,5 +1,7 @@
 import { db } from "@/core/db/client";
 
+import { SELLABLE_TYPES } from "../domain/item-types";
+
 export type SellableProduct = {
   id: string;
   name: string;
@@ -11,7 +13,7 @@ export type SellableProduct = {
 export type SellableCategory = { id: string; name: string; products: SellableProduct[] };
 
 /**
- * Lo que se puede vender ahora: categorías y productos activos, en el orden configurado.
+ * Lo que se puede vender ahora: categorías y productos activos de tipo Normal o Preparado, en el orden configurado.
  * Es lo que consume Ventas (pantalla POS) a través de la API pública del catálogo.
  */
 export async function getSellableCatalog(): Promise<SellableCategory[]> {
@@ -22,7 +24,8 @@ export async function getSellableCatalog(): Promise<SellableCategory[]> {
       id: true,
       name: true,
       products: {
-        where: { active: true },
+        // Ingredientes e Insumos no se venden.
+        where: { active: true, type: { in: SELLABLE_TYPES } },
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
         select: {
           id: true,
@@ -44,7 +47,7 @@ export async function getSellableCatalog(): Promise<SellableCategory[]> {
 /** Datos de un producto activo para venderlo (Ventas los copia en la orden). */
 export async function getSellableProduct(id: string): Promise<SellableProduct | null> {
   return db.product.findFirst({
-    where: { id, active: true, category: { active: true } },
+    where: { id, active: true, type: { in: SELLABLE_TYPES }, category: { active: true } },
     select: {
       id: true,
       name: true,

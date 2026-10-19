@@ -6,12 +6,14 @@ import { redirect } from "next/navigation";
 import { type ActionResult, toActionResult } from "@/core/actions/result";
 import { requirePermission } from "@/core/auth/server";
 
+import type { ProductInput } from "./schemas";
 import * as categories from "./services/categories";
 import * as products from "./services/products";
 
 const DUPLICATE_CATEGORY = "Ya existe una categoría con ese nombre.";
 const DUPLICATE_PRODUCT = "Ya existe un producto con ese nombre en esa categoría.";
 const DUPLICATE_MODIFIER = "Ese modificador ya existe en el producto.";
+const DUPLICATE_PRESENTATION = "Esa presentación ya existe en el ítem.";
 
 function refreshCatalog() {
   revalidatePath("/catalogo", "layout");
@@ -64,9 +66,14 @@ function productFromForm(fd: FormData) {
   return {
     name: text(fd, "name"),
     categoryId: text(fd, "categoryId"),
+    type: text(fd, "type") as ProductInput["type"],
     priceCents: text(fd, "price"),
     sendsToKitchen: fd.get("sendsToKitchen") === "on",
     active: fd.get("active") === "on",
+    baseUnit: text(fd, "baseUnit") as ProductInput["baseUnit"],
+    tracksStock: fd.get("tracksStock") === "on",
+    minStock: text(fd, "minStock"),
+    lastCostCents: text(fd, "lastCost"),
   };
 }
 
@@ -137,5 +144,25 @@ export async function addModifierToCategoryAction(_prev: ActionResult, fd: FormD
 export async function removeModifierAction(id: string) {
   await requirePermission("catalog.manage");
   await products.removeModifier(id);
+  refreshCatalog();
+}
+
+// --- Presentaciones de compra ---
+
+export async function addPresentationAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  await requirePermission("catalog.manage");
+  return toActionResult(
+    async () => {
+      await products.addPresentation(text(fd, "productId"), { name: text(fd, "name"), factor: text(fd, "factor") });
+      refreshCatalog();
+      return "Presentación agregada";
+    },
+    { duplicate: DUPLICATE_PRESENTATION },
+  );
+}
+
+export async function removePresentationAction(id: string) {
+  await requirePermission("catalog.manage");
+  await products.removePresentation(id);
   refreshCatalog();
 }
