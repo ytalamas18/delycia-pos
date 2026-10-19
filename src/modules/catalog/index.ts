@@ -16,6 +16,8 @@ export { CatalogTabs } from "./components/catalog-tabs";
 export { CategoryManager } from "./components/category-manager";
 export { ModifierEditor } from "./components/modifier-editor";
 export { PresentationEditor } from "./components/presentation-editor";
+export { RecipeSection } from "./components/recipe-section";
+export { hasRecipeTab, ProductTabs } from "./components/product-tabs";
 export { ProductForm } from "./components/product-form";
 export { PRODUCT_LIST_FILTERS, ProductList, type ProductListFilter, type ProductListGroup } from "./components/product-list";
 
@@ -31,3 +33,5 @@ export {
 } from "./domain/item-types";
 export { BASE_UNITS, compatibleUnits, toBaseQuantity, UNIT_LABEL, UNIT_SHORT, unitFactor, type BaseUnit } from "./domain/units";
 export { formatUnitCost, formatUnitCostInput, parseUnitCost } from "./domain/costs";
+export { RECIPE_CONDITION_LABEL, type RecipeCondition } from "./domain/recipe-conditions";
+export { stockConsumption, type SoldItem } from "./domain/recipes";

@@ -8,7 +8,7 @@
 | Fase | Estado |
 |---|---|
 | 1. Catálogo: tipos, unidades, presentaciones, stock mínimo + migración segura + propuesta de clasificación | ✅ Código listo (migración `tipos_de_item`). Clasificación aprobada y en `MENU_UPDATES` v3. Falta: backup de producción confirmado por Yasser antes de desplegar |
-| 2. Recetas (Preparado e Ingrediente) con costo y margen | Pendiente |
+| 2. Recetas (Preparado e Ingrediente) con costo y margen | ✅ Lista (migración `recetas`): receta con condición Siempre/Para llevar/Comer aquí, receta de referencia de Ingrediente con rendimiento, receta de modificadores (+ copiar a los del mismo nombre), costo y margen. `stockConsumption()` listo para la Fase 4 |
 | 3. Proveedores, compras, crédito y abonos | Pendiente |
 | 4. Inventario: movimientos, descuento por ventas, ingreso a inventario, conteo físico y alertas | Pendiente |
 | 5. Carga rápida e importación desde Excel/CSV | Pendiente |
@@ -31,8 +31,13 @@ Forma de trabajo:
   modificadores con id) sin cambiar la lógica de Ventas. Inventario descuenta con el primer evento que llegue
   (envío a cocina o cobro) y no repite (idempotente por `orderItemId`). Al anular, revierte los movimientos que
   guardó (no recalcula con la receta actual).
-- **Modificadores:** sí deben descontar stock (ej. "Extra queso"). Plan: receta propia por modificador (Fase 2/4).
-  Si se complica, se deja para después y se anota aquí.
+- **Modificadores:** sí descuentan stock. Cada `ProductModifier` tiene su receta (`ModifierRecipeLine`, por unidad
+  vendida); botón "Copiar a todos los <nombre>" para no cargarla en cada hamburguesa. En la venta se busca el
+  modificador por (productId, nombre), porque el snapshot de la orden guarda solo nombre y precio.
+- **Costo de un Ingrediente** usado en recetas: su último costo (el del último ingreso a inventario) o, si no
+  tiene, el estimado por su receta de referencia (costo de insumos ÷ rendimiento). Componentes sin costo cuentan
+  0 y se avisa "costo incompleto".
+- Cambiar tipo o unidad de un ítem que rompe recetas (propias o donde es componente) se bloquea con mensaje.
 - **Pagos a proveedores en efectivo** restan del efectivo esperado del cierre de caja y aparecen en el cierre
   como línea aparte "Pagos a proveedores" (por fecha del pago/abono). QR/transferencia/tarjeta, igual por canal.
 - **Permisos:** Compras e Inventario solo Admin por ahora (`purchases.manage`, `inventory.manage`).
@@ -47,7 +52,7 @@ Forma de trabajo:
     modifica órdenes pagadas). Va como **"Salida rápida" de inventario** (Fase 4): botón en Caja → elige el
     envase y la cantidad → movimiento `CONSUMPTION` con motivo "Envase para sobras". Excepción al "solo Admin":
     este botón lo usa también Caja.
-- Cambiar la unidad base de un ítem con movimientos de stock: se bloqueará en la Fase 4.
+- Cambiar la unidad base de un ítem con movimientos de stock: se bloqueará en la Fase 4 (en recetas ya se bloquea).
 - Clasificación de productos actuales: se aplica como actualización de menú versionada (`MENU_UPDATES` v3,
   por categoría) solo con lo que Yasser apruebe.
 

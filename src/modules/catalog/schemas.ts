@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { parseMoney } from "@/core/money";
 import { parseQuantity } from "@/core/quantity";
-import { BaseUnit, ItemType } from "@/generated/prisma/enums";
+import { BaseUnit, ItemType, RecipeCondition } from "@/generated/prisma/enums";
 
 import { parseUnitCost } from "./domain/costs";
 import { isSellable, tracksStockFor } from "./domain/item-types";
@@ -88,12 +88,12 @@ export const productInput = z
     };
   });
 
-export const presentationInput = z.object({
-  name: z.string().trim().min(1, "Ingresa la presentación").max(40, "Máximo 40 caracteres"),
-  factor: z
+/** Cantidad > 0 con hasta 3 decimales. */
+const positiveQuantity = (empty: string) =>
+  z
     .string()
     .trim()
-    .min(1, "Ingresa cuántas unidades trae")
+    .min(1, empty)
     .transform((value, ctx) => {
       try {
         const v = parseQuantity(value);
@@ -103,7 +103,24 @@ export const presentationInput = z.object({
         ctx.addIssue({ code: "custom", message: "Cantidad inválida (mayor a 0, hasta 3 decimales)" });
         return z.NEVER;
       }
-    }),
+    });
+
+export const recipeLineInput = z.object({
+  componentId: z.string().min(1, "Elige un componente"),
+  quantity: positiveQuantity("Ingresa la cantidad"),
+  condition: z.enum(RecipeCondition).default("ALWAYS"),
+});
+
+export const modifierRecipeLineInput = z.object({
+  componentId: z.string().min(1, "Elige un componente"),
+  quantity: positiveQuantity("Ingresa la cantidad"),
+});
+
+export const recipeYieldInput = z.object({ recipeYield: positiveQuantity("Ingresa cuánto rinde") });
+
+export const presentationInput = z.object({
+  name: z.string().trim().min(1, "Ingresa la presentación").max(40, "Máximo 40 caracteres"),
+  factor: positiveQuantity("Ingresa cuántas unidades trae"),
 });
 
 export const modifierInput = z.object({
@@ -120,3 +137,5 @@ export type CategoryInput = z.input<typeof categoryInput>;
 export type ProductInput = z.input<typeof productInput>;
 export type ModifierInput = z.input<typeof modifierInput>;
 export type PresentationInput = z.input<typeof presentationInput>;
+export type RecipeLineInput = z.input<typeof recipeLineInput>;
+export type ModifierRecipeLineInput = z.input<typeof modifierRecipeLineInput>;

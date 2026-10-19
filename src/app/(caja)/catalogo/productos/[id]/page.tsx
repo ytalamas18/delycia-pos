@@ -6,10 +6,12 @@ import { formatQuantity } from "@/core/quantity";
 import {
   formatUnitCostInput,
   getProduct,
+  hasRecipeTab,
   isSellable,
   listCategories,
   ModifierEditor,
   PresentationEditor,
+  ProductTabs,
   ProductForm,
 } from "@/modules/catalog";
 
@@ -27,6 +29,7 @@ export default async function EditarProductoPage({ params, searchParams }: PageP
         ← Volver al catálogo
       </Link>
       <h1 className="text-2xl font-bold">{product.name}</h1>
+      <ProductTabs id={product.id} active="datos" showRecipe={hasRecipeTab(product)} />
       {nuevo && <p className="font-medium text-green-700 dark:text-green-400">Ítem creado. Si quieres, completa abajo modificadores o presentaciones de compra.</p>}
       <ProductForm
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}

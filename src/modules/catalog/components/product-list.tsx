@@ -126,6 +126,11 @@ function ProductRow({
               {p.sendsToKitchen ? "Va a cocina" : "No va a cocina"}
             </Badge>
           )}
+          {p.type === "PREPARED" && p._count.recipeLines === 0 && (
+            <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400">
+              Sin receta
+            </Badge>
+          )}
           {p.tracksStock && (
             <Badge variant="outline">
               Stock en {UNIT_LABEL[p.baseUnit]}

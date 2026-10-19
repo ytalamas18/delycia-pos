@@ -113,8 +113,13 @@ model Product {
   /// Último costo por unidad base, en centavos con decimales (1 g puede costar menos de 1 centavo).
   lastCostCents  Decimal?              @db.Decimal(14, 4)
   lastCostAt     DateTime?
+  /// Solo Ingrediente: cuánto rinde su receta de referencia (en su unidad base), ej. 16 unidades.
+  recipeYield    Decimal?              @db.Decimal(12, 3)
   modifiers      ProductModifier[]
   presentations  ProductPresentation[]
+  recipeLines    RecipeLine[]          @relation("RecipeOwner")
+  usedInRecipes  RecipeLine[]          @relation("RecipeComponent")
+  usedInModifier ModifierRecipeLine[]
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
 
@@ -140,17 +145,62 @@ model ProductPresentation {
 
 /// Opciones rápidas por producto, ej. "sin cebolla" (0) o "extra queso" (+5 Bs).
 model ProductModifier {
-  id              String   @id @default(cuid())
+  id              String               @id @default(cuid())
   productId       String
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product         Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
   name            String
-  priceDeltaCents Int      @default(0)
-  active          Boolean  @default(true)
-  sortOrder       Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  priceDeltaCents Int                  @default(0)
+  active          Boolean              @default(true)
+  sortOrder       Int                  @default(0)
+  /// Lo que descuenta del stock al venderse (ej. "Extra queso" → 1 lámina de queso).
+  recipeLines     ModifierRecipeLine[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   @@unique([productId, name])
+}
+
+/// Cuándo aplica una línea de receta según el ítem de la orden (PEYA siempre es para llevar).
+enum RecipeCondition {
+  ALWAYS
+  TAKEAWAY
+  DINE_IN
+}
+
+/**
+ * Línea de receta.
+ * - Dueño Preparado: componentes Normal/Insumo/Ingrediente; al vender descuenta los que manejan stock.
+ * - Dueño Ingrediente: solo Insumos; es referencia de costo (rinde `recipeYield`), NO descuenta stock.
+ * Cantidad en la unidad base del componente.
+ */
+model RecipeLine {
+  id          String          @id @default(cuid())
+  productId   String
+  product     Product         @relation("RecipeOwner", fields: [productId], references: [id], onDelete: Cascade)
+  componentId String
+  component   Product         @relation("RecipeComponent", fields: [componentId], references: [id])
+  quantity    Decimal         @db.Decimal(12, 3)
+  condition   RecipeCondition @default(ALWAYS)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([productId, componentId, condition])
+  @@index([componentId])
+}
+
+/// Lo que descuenta un modificador al venderse (por cada unidad del ítem). Cantidad en unidad base del componente.
+model ModifierRecipeLine {
+  id          String          @id @default(cuid())
+  modifierId  String
+  modifier    ProductModifier @relation(fields: [modifierId], references: [id], onDelete: Cascade)
+  componentId String
+  component   Product         @relation(fields: [componentId], references: [id])
+  quantity    Decimal         @db.Decimal(12, 3)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([modifierId, componentId])
+  @@index([componentId])
 }
 
 // ============================================================================

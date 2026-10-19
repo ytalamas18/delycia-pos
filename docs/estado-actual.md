@@ -1,14 +1,17 @@
 # Estado actual de la app — 19/10/2026
 
-129 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: **Fase 1 de compras/inventario**
-(tipos de ítem, unidades, presentaciones, stock mínimo, último costo). Ver `docs/spec-compras-inventario.md`.
+138 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: **Fases 1 y 2 de compras/inventario**
+(tipos de ítem, unidades, presentaciones, stock mínimo, último costo; recetas con costo y margen). Ver `docs/spec-compras-inventario.md`.
 
 ## En curso: compras, inventario y recetas (`docs/spec-compras-inventario.md`)
 
 - ✅ **Fase 1 (código):** migración `tipos_de_item` (solo agrega; todo queda Normal sin stock), Catálogo con tipo,
   unidad base, check de stock, stock mínimo, último costo, presentaciones de compra y filtro por tipo. El POS
   solo muestra Normal y Preparado. Clasificación aprobada (menú v3: platos → Preparado, bebidas → Normal con stock). Pendiente: backup de producción confirmado antes de desplegar.
-- Sigue: **Fase 2** (recetas de Preparado e Ingrediente con costo y margen).
+- ✅ **Fase 2:** recetas (pestaña "Receta y costo" del ítem): Preparado con condición Siempre / Solo para llevar /
+  Solo comer aquí, costo y margen para cada caso; Ingrediente con receta de referencia y rendimiento; lo que
+  descuenta cada modificador (con "copiar a todos"). Catálogo marca "Sin receta" en Preparados sin receta.
+- Sigue: **Fase 3** (proveedores, compras, crédito y abonos; pagos en efectivo restan del cierre).
 
 ## Hecho
 

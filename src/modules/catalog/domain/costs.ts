@@ -1,4 +1,5 @@
 import { appConfig } from "@/core/config/app";
+import { formatMoney } from "@/core/money";
 import { Decimal, type DecimalValue } from "@/core/quantity";
 
 /** Decimales (en Bs) que admite un costo unitario: 1 g de sal puede costar Bs 0,0045. */
@@ -24,4 +25,9 @@ export function formatUnitCost(cents: DecimalValue): string {
 /** Centavos (Decimal) → texto editable en Bs: 4,5 → "0,045". */
 export function formatUnitCostInput(cents: DecimalValue): string {
   return new Decimal(cents).div(100).toDecimalPlaces(UNIT_COST_DECIMALS).toString().replace(".", ",");
+}
+
+/** Costo total (centavos con decimales) → "Bs 8,25", redondeado al centavo. */
+export function formatCost(cents: DecimalValue): string {
+  return formatMoney(new Decimal(cents).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber());
 }

@@ -9,6 +9,7 @@ import { requirePermission } from "@/core/auth/server";
 import type { ProductInput } from "./schemas";
 import * as categories from "./services/categories";
 import * as products from "./services/products";
+import * as recipes from "./services/recipes";
 
 const DUPLICATE_CATEGORY = "Ya existe una categoría con ese nombre.";
 const DUPLICATE_PRODUCT = "Ya existe un producto con ese nombre en esa categoría.";
@@ -165,4 +166,69 @@ export async function removePresentationAction(id: string) {
   await requirePermission("catalog.manage");
   await products.removePresentation(id);
   refreshCatalog();
+}
+
+// --- Recetas ---
+
+const DUPLICATE_LINE = "Ese componente ya está en la receta.";
+
+export async function setRecipeLineAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  await requirePermission("catalog.manage");
+  return toActionResult(
+    async () => {
+      await recipes.setRecipeLine(text(fd, "ownerId"), {
+        componentId: text(fd, "componentId"),
+        quantity: text(fd, "quantity"),
+        condition: (text(fd, "condition") || "ALWAYS") as "ALWAYS",
+      });
+      refreshCatalog();
+      return "Receta guardada";
+    },
+    { duplicate: DUPLICATE_LINE },
+  );
+}
+
+export async function removeRecipeLineAction(id: string) {
+  await requirePermission("catalog.manage");
+  await recipes.removeRecipeLine(id);
+  refreshCatalog();
+}
+
+export async function setRecipeYieldAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  await requirePermission("catalog.manage");
+  return toActionResult(async () => {
+    await recipes.setRecipeYield(text(fd, "ownerId"), { recipeYield: text(fd, "recipeYield") });
+    refreshCatalog();
+    return "Rendimiento guardado";
+  });
+}
+
+export async function setModifierRecipeLineAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  await requirePermission("catalog.manage");
+  return toActionResult(
+    async () => {
+      await recipes.setModifierRecipeLine(text(fd, "ownerId"), {
+        componentId: text(fd, "componentId"),
+        quantity: text(fd, "quantity"),
+      });
+      refreshCatalog();
+      return "Guardado";
+    },
+    { duplicate: DUPLICATE_LINE },
+  );
+}
+
+export async function removeModifierRecipeLineAction(id: string) {
+  await requirePermission("catalog.manage");
+  await recipes.removeModifierRecipeLine(id);
+  refreshCatalog();
+}
+
+export async function copyModifierRecipeAction(modifierId: string): Promise<ActionResult> {
+  await requirePermission("catalog.manage");
+  return toActionResult(async () => {
+    const { updated } = await recipes.copyModifierRecipeToSameName(modifierId);
+    refreshCatalog();
+    return updated === 0 ? "No hay otros productos con ese modificador" : `Copiado a ${updated} productos`;
+  });
 }
