@@ -35,3 +35,4 @@ export { BASE_UNITS, compatibleUnits, toBaseQuantity, UNIT_LABEL, UNIT_SHORT, un
 export { formatUnitCost, formatUnitCostInput, parseUnitCost } from "./domain/costs";
 export { RECIPE_CONDITION_LABEL, type RecipeCondition } from "./domain/recipe-conditions";
 export { stockConsumption, type SoldItem } from "./domain/recipes";
+export { getPurchasableItem, listPurchasableItems, setLastCost, type PurchasableItem } from "./services/purchasable";

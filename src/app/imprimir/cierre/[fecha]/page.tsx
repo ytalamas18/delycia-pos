@@ -48,6 +48,15 @@ export default async function ImprimirCierrePage({ params }: PageProps<"/imprimi
           ))}
         </>
       )}
+      {s.supplierPayments && s.supplierPayments.totalCents > 0 && (
+        <>
+          <div className="mt-1 font-bold">Pagos a proveedores</div>
+          {s.supplierPayments.payments.map((p, i) => (
+            <L key={i} label={`Compra #${p.purchaseNumber}${p.method === "CASH" ? " (efectivo)" : ""}`} value={`-${formatMoney(p.amountCents)}`} />
+          ))}
+          <L label="Efectivo que salió" value={`-${formatMoney(s.supplierPayments.cashCents)}`} bold />
+        </>
+      )}
       <hr className="my-2 border-dashed border-black" />
       <L label="Local" value={formatMoney(s.byChannel.LOCAL.netCents)} />
       <L label="PEYA" value={formatMoney(s.byChannel.PEYA.netCents)} />

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { appConfig } from "@/core/config/app";
 import { formatMoney } from "@/core/money";
+import { SUPPLIER_METHOD_LABEL } from "@/modules/purchases";
 import type { PaymentMethod } from "@/generated/prisma/enums";
 
 import { businessDate } from "@/core/time";
@@ -140,6 +141,32 @@ export async function ClosingView({ date }: { date: string }) {
         </Card>
       </div>
 
+      {s.supplierPayments && s.supplierPayments.totalCents > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Pagos a proveedores</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            {s.supplierPayments.payments.map((p, i) => (
+              <Row
+                key={i}
+                label={`Compra #${p.purchaseNumber}${p.supplier ? ` · ${p.supplier}` : ""} · ${SUPPLIER_METHOD_LABEL[p.method]}`}
+                value={`− ${formatMoney(p.amountCents)}`}
+              />
+            ))}
+            <div className="border-t pt-2">
+              <Row label="En efectivo (sale de la caja)" value={`− ${formatMoney(s.supplierPayments.cashCents)}`} strong />
+              {s.supplierPayments.transferCents + s.supplierPayments.cardCents > 0 && (
+                <Row
+                  label="Por transferencia / tarjeta (no sale de la caja)"
+                  value={formatMoney(s.supplierPayments.transferCents + s.supplierPayments.cardCents)}
+                />
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Arqueo de caja</CardTitle>
@@ -154,6 +181,7 @@ export async function ClosingView({ date }: { date: string }) {
             date={date}
             openingCashCents={opening?.openingCashCents ?? 0}
             moneyIn={{ cash: s.moneyInByMethod.CASH, qr: s.moneyInByMethod.QR, card: s.moneyInByMethod.CARD }}
+            cashOutCents={s.supplierPayments?.cashCents ?? 0}
             saved={
               saved
                 ? {

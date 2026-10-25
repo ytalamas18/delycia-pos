@@ -9,7 +9,7 @@
 |---|---|
 | 1. Catálogo: tipos, unidades, presentaciones, stock mínimo + migración segura + propuesta de clasificación | ✅ Código listo (migración `tipos_de_item`). Clasificación aprobada y en `MENU_UPDATES` v3. Falta: backup de producción confirmado por Yasser antes de desplegar |
 | 2. Recetas (Preparado e Ingrediente) con costo y margen | ✅ Lista (migración `recetas`): receta con condición Siempre/Para llevar/Comer aquí, receta de referencia de Ingrediente con rendimiento, receta de modificadores (+ copiar a los del mismo nombre), costo y margen. `stockConsumption()` listo para la Fase 4 |
-| 3. Proveedores, compras, crédito y abonos | Pendiente |
+| 3. Proveedores, compras, crédito y abonos | ✅ Lista (migración `compras`, módulo `purchases`, rutas `/compras`) |
 | 4. Inventario: movimientos, descuento por ventas, ingreso a inventario, conteo físico y alertas | Pendiente |
 | 5. Carga rápida e importación desde Excel/CSV | Pendiente |
 | 6. Reportes de inventario y compras | Pendiente |

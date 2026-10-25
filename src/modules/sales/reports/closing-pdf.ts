@@ -181,13 +181,24 @@ export async function buildClosingPdf(data: ClosingPdfData): Promise<Uint8Array>
   }
   w.text("Cuenta por cobrar = lo que quedó fiado hoy: es venta, pero no dinero que entró.", { size: 8, color: GRAY });
 
+  // Pagos a proveedores (Compras)
+  const out = s.supplierPayments;
+  if (out && out.totalCents > 0) {
+    w.section("Pagos a proveedores");
+    const methodName = { CASH: "Efectivo", TRANSFER: "Transferencia/QR", CARD: "Tarjeta" } as const;
+    for (const p of out.payments) {
+      w.row([`Compra #${p.purchaseNumber}${p.supplier ? ` - ${p.supplier}` : ""} (${methodName[p.method]})`, `- ${formatMoney(p.amountCents)}`], two);
+    }
+    w.row(["En efectivo (sale de la caja)", `- ${formatMoney(out.cashCents)}`], two, { bold: true });
+  }
+
   // Arqueo
   w.section("Arqueo");
   if (data.closing) {
     const c = data.closing;
     const diffText = (d: number) => (d === 0 ? "Cuadra" : `${d < 0 ? "Falta" : "Sobra"} ${formatMoney(Math.abs(d))}`);
     w.row(["Medio", "Sistema", "Contado", "Diferencia"], four, { bold: true, size: 9 });
-    w.row(["Efectivo (incluye fondo)", formatMoney(c.expectedCashCents), formatMoney(c.countedCashCents), diffText(c.differenceCents)], four);
+    w.row(["Efectivo (fondo + entradas - pagos)", formatMoney(c.expectedCashCents), formatMoney(c.countedCashCents), diffText(c.differenceCents)], four);
     if (c.countedQrCents !== null) {
       w.row(["QR (banco)", formatMoney(c.expectedQrCents), formatMoney(c.countedQrCents), diffText(c.countedQrCents - c.expectedQrCents)], four);
     }

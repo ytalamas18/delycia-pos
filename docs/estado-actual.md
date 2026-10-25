@@ -11,7 +11,12 @@
 - ✅ **Fase 2:** recetas (pestaña "Receta y costo" del ítem): Preparado con condición Siempre / Solo para llevar /
   Solo comer aquí, costo y margen para cada caso; Ingrediente con receta de referencia y rendimiento; lo que
   descuenta cada modificador (con "copiar a todos"). Catálogo marca "Sin receta" en Preparados sin receta.
-- Sigue: **Fase 3** (proveedores, compras, crédito y abonos; pagos en efectivo restan del cierre).
+- ✅ **Fase 3:** módulo `purchases` (`/compras`, solo Admin): proveedores, compra con comprobante y líneas
+  (presentación o unidad compatible → unidad base, costo unitario, actualiza último costo), contado / crédito /
+  pago parcial con vencimiento, abonos (sin sobrepago, estado Pendiente/Parcial/Pagada, anular con motivo), anular
+  compra (exige anular antes los pagos; emite `purchase.cancelled`). Cierre de caja: "Pagos a proveedores"; el
+  efectivo resta del esperado (pantalla, PDF y 80 mm).
+- Sigue: **Fase 4** (inventario).
 
 ## Hecho
 

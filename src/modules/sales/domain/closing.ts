@@ -20,6 +20,17 @@ export type ClosingOrder = {
 
 export type ClosingCollection = { method: PaymentMethod; amountCents: Cents };
 
+/** Pagos a proveedores del día (módulo Compras). El efectivo sale de la caja y resta del esperado. */
+export type SupplierOutflows = {
+  cashCents: Cents;
+  transferCents: Cents;
+  cardCents: Cents;
+  totalCents: Cents;
+  payments: { purchaseNumber: number; supplier: string | null; method: "CASH" | "TRANSFER" | "CARD"; amountCents: Cents }[];
+};
+
+export const NO_OUTFLOWS: SupplierOutflows = { cashCents: 0, transferCents: 0, cardCents: 0, totalCents: 0, payments: [] };
+
 const METHODS: PaymentMethod[] = ["CASH", "QR", "CARD", "PEYA", "CREDIT"];
 const zeroByMethod = () => Object.fromEntries(METHODS.map((m) => [m, 0])) as Record<PaymentMethod, Cents>;
 
@@ -51,6 +62,8 @@ export type DailySummary = {
   products: ProductLine[];
   /** Productos agrupados por categoría (en el orden de la pantalla de venta), con subtotales. */
   productsByCategory: { category: string; quantity: number; amountCents: Cents; products: ProductLine[] }[];
+  /** Pagos a proveedores del día. Puede faltar en cierres guardados antes de que existiera Compras. */
+  supplierPayments?: SupplierOutflows;
 };
 
 export type ProductLine = { name: string; category: string; quantity: number; amountCents: Cents };
@@ -61,7 +74,11 @@ const NO_CATEGORY = "Sin categoría";
  * Resumen del día para el cierre de caja. Solo cuentan como venta las órdenes cobradas;
  * las anuladas y las que siguen por pagar se informan aparte.
  */
-export function summarizeDay(orders: ClosingOrder[], collections: ClosingCollection[]): DailySummary {
+export function summarizeDay(
+  orders: ClosingOrder[],
+  collections: ClosingCollection[],
+  supplierPayments: SupplierOutflows = NO_OUTFLOWS,
+): DailySummary {
   const paid = orders.filter((o) => o.status === "PAID" || o.status === "CLOSED");
   const open = orders.filter((o) => o.status === "OPEN");
 
@@ -136,12 +153,13 @@ export function summarizeDay(orders: ClosingOrder[], collections: ClosingCollect
     moneyInByMethod,
     products,
     productsByCategory,
+    supplierPayments,
   };
 }
 
-/** Efectivo que debería haber en caja y diferencia con lo contado. */
+/** Efectivo que debería haber en caja: fondo + lo que entró en efectivo − pagos a proveedores en efectivo. */
 export function cashCount(summary: DailySummary, openingCashCents: Cents, countedCashCents: Cents) {
-  const expectedCashCents = openingCashCents + summary.moneyInByMethod.CASH;
+  const expectedCashCents = openingCashCents + summary.moneyInByMethod.CASH - (summary.supplierPayments?.cashCents ?? 0);
   return { expectedCashCents, differenceCents: countedCashCents - expectedCashCents };
 }
 

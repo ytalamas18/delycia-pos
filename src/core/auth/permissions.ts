@@ -12,6 +12,10 @@ const permissions = {
   "catalog.manage": ["ADMIN"],
   "settings.manage": ["ADMIN"],
   "reports.view": ["ADMIN"],
+  "purchases.manage": ["ADMIN"],
+  "inventory.manage": ["ADMIN"],
+  /** Salida rápida de inventario (ej. envase para sobras): también Caja. */
+  "inventory.consume": ["ADMIN", "CASHIER"],
   "kitchen.view": ["ADMIN", "CASHIER", "KITCHEN"],
   "kitchen.operate": ["ADMIN", "KITCHEN"],
 } as const satisfies Record<string, readonly Role[]>;
@@ -27,6 +31,9 @@ export const routePermissions: { prefix: string; permission: Permission }[] = [
   { prefix: "/catalogo", permission: "catalog.manage" },
   { prefix: "/ajustes", permission: "settings.manage" },
   { prefix: "/reportes", permission: "reports.view" },
+  { prefix: "/compras", permission: "purchases.manage" },
+  { prefix: "/inventario/salida", permission: "inventory.consume" },
+  { prefix: "/inventario", permission: "inventory.manage" },
   { prefix: "/pos", permission: "sales.sell" },
   { prefix: "/ordenes", permission: "sales.sell" },
   { prefix: "/historial", permission: "sales.sell" },

@@ -501,3 +501,115 @@ model CashOpening {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
+
+// ============================================================================
+// COMPRAS
+// ============================================================================
+
+model Supplier {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  phone     String?
+  /// RUC / NIT / CI (opcional).
+  document  String?
+  note      String?
+  active    Boolean    @default(true)
+  purchases Purchase[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+enum PurchaseDocType {
+  /// Boleta / nota de venta
+  RECEIPT
+  INVOICE
+  NONE
+}
+
+/// Cómo se paga a un proveedor (distinto de los medios de cobro del POS).
+enum SupplierPaymentMethod {
+  CASH
+  TRANSFER
+  CARD
+}
+
+enum PurchaseStatus {
+  ACTIVE
+  CANCELLED
+}
+
+/**
+ * Compra de ítems. El gasto se registra por el TOTAL en `date` aunque no esté pagada;
+ * lo pagado son los `payments` (cada uno con su fecha: ahí sale el dinero).
+ */
+model Purchase {
+  id            String            @id @default(cuid())
+  number        Int               @unique @default(autoincrement())
+  /// Fecha de la compra (día de negocio "YYYY-MM-DD").
+  date          String
+  supplierId    String?
+  supplier      Supplier?         @relation(fields: [supplierId], references: [id])
+  docType       PurchaseDocType   @default(NONE)
+  docNumber     String?
+  totalCents    Int
+  /// Vencimiento opcional de lo que queda por pagar ("YYYY-MM-DD").
+  dueDate       String?
+  note          String?
+  status        PurchaseStatus    @default(ACTIVE)
+  cancelledAt   DateTime?
+  cancelReason  String?
+  cancelledById String?
+  createdById   String
+  lines         PurchaseLine[]
+  payments      SupplierPayment[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([date])
+  @@index([supplierId])
+  @@index([status])
+}
+
+/// Línea de compra. Guarda copia del ítem y de la presentación (cambiar el catálogo no altera compras).
+model PurchaseLine {
+  id               String   @id @default(cuid())
+  purchaseId       String
+  purchase         Purchase @relation(fields: [purchaseId], references: [id])
+  productId        String
+  productName      String
+  /// "Bolsa x12" o la unidad ("kg") en que se compró.
+  presentationName String
+  /// Cantidad comprada en esa presentación/unidad.
+  quantity         Decimal  @db.Decimal(12, 3)
+  /// Cantidad convertida a la unidad base del ítem.
+  baseQuantity     Decimal  @db.Decimal(12, 3)
+  totalCents       Int
+  /// Costo por unidad base (centavos con decimales) = total ÷ cantidad base.
+  unitCostCents    Decimal  @db.Decimal(14, 4)
+  /// Copia de "suma al inventario": si true, la compra sumó stock.
+  addsStock        Boolean
+  createdAt        DateTime @default(now())
+
+  @@index([purchaseId])
+  @@index([productId])
+}
+
+/// Pago (contado, parcial o abono) a una compra. Anular no borra: queda con motivo.
+model SupplierPayment {
+  id          String                @id @default(cuid())
+  purchaseId  String
+  purchase    Purchase              @relation(fields: [purchaseId], references: [id])
+  /// Día en que salió el dinero ("YYYY-MM-DD"): ahí cuenta en el cierre de caja si es efectivo.
+  date        String
+  amountCents Int
+  method      SupplierPaymentMethod
+  note        String?
+  voidedAt    DateTime?
+  voidReason  String?
+  voidedById  String?
+  createdById String
+  createdAt   DateTime              @default(now())
+
+  @@index([purchaseId])
+  @@index([date])
+}

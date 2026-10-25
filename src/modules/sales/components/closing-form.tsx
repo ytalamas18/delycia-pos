@@ -35,6 +35,7 @@ export function ClosingForm({
   date,
   openingCashCents,
   moneyIn,
+  cashOutCents = 0,
   saved,
 }: {
   date: string;
@@ -42,6 +43,8 @@ export function ClosingForm({
   openingCashCents: number;
   /** Lo que el sistema registró que entró hoy por cada medio (ventas + cobros de fiados). */
   moneyIn: { cash: number; qr: number; card: number };
+  /** Pagos a proveedores en efectivo del día: salieron de la caja. */
+  cashOutCents?: number;
   saved: Saved | null;
 }) {
   const initial = (v: number | null | undefined) => (v === null || v === undefined ? "" : formatMoneyInput(v));
@@ -51,7 +54,7 @@ export function ClosingForm({
   const [state, action, pending] = useActionState(saveClosingAction, initialActionResult);
 
   const rows = [
-    { key: "cash", label: "Efectivo", name: "counted", value: cash, set: setCash, expected: openingCashCents + moneyIn.cash, hint: "Contado en caja", required: true },
+    { key: "cash", label: "Efectivo", name: "counted", value: cash, set: setCash, expected: openingCashCents + moneyIn.cash - cashOutCents, hint: "Contado en caja", required: true },
     { key: "qr", label: "QR", name: "countedQr", value: qr, set: setQr, expected: moneyIn.qr, hint: "Según la app del banco" },
     { key: "card", label: "Tarjeta", name: "countedCard", value: card, set: setCard, expected: moneyIn.card, hint: "Según el datáfono" },
   ];
@@ -114,8 +117,9 @@ export function ClosingForm({
         </table>
       </div>
       <p className="text-sm text-muted-foreground">
-        El efectivo del sistema = fondo de apertura ({formatMoney(openingCashCents)}) + lo que entró hoy en efectivo. PEYA
-        y cuentas por cobrar no se cuentan en el arqueo.
+        El efectivo del sistema = fondo de apertura ({formatMoney(openingCashCents)}) + lo que entró hoy en efectivo
+        {cashOutCents > 0 && <> − pagos a proveedores en efectivo ({formatMoney(cashOutCents)})</>}. PEYA y cuentas por
+        cobrar no se cuentan en el arqueo.
       </p>
 
       <div className="space-y-2">

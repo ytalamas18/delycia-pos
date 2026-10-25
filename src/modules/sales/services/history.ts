@@ -4,6 +4,8 @@ import { businessDayRange } from "@/core/time";
 import type { Prisma } from "@/generated/prisma/client";
 import type { OrderStatus, PaymentMethod, SalesChannel, ServiceType } from "@/generated/prisma/enums";
 
+import { supplierPaymentsForDay } from "@/modules/purchases";
+
 import { arqueo, summarizeDay, type DailySummary } from "../domain/closing";
 
 export type HistoryFilters = {
@@ -102,11 +104,12 @@ export async function openCash(date: string, input: { openingCashCents: number; 
 /** Resumen del día + apertura + cierre guardado (si ya se hizo). */
 export async function getDailyClosing(date: string) {
   const { start, end } = businessDayRange(date);
-  const [orders, collections, saved, opening] = await Promise.all([
+  const [orders, collections, saved, opening, outflows] = await Promise.all([
     db.order.findMany({ where: { businessDate: date }, include: { items: true, payments: true } }),
     db.creditCollection.findMany({ where: { createdAt: { gte: start, lt: end } } }),
     db.cashClosing.findUnique({ where: { businessDate: date } }),
     getOpening(date),
+    supplierPaymentsForDay(date),
   ]);
   const closedBy = saved ? await db.user.findUnique({ where: { id: saved.closedById }, select: { name: true } }) : null;
 
@@ -122,7 +125,19 @@ export async function getDailyClosing(date: string) {
     items: o.items.map((i) => ({ ...i, category: categoryOf.get(i.productId) ?? null })),
   }));
 
-  return { summary: summarizeDay(withCategory, collections), saved, closedByName: closedBy?.name ?? null, opening };
+  const supplierPayments = {
+    cashCents: outflows.byMethod.CASH,
+    transferCents: outflows.byMethod.TRANSFER,
+    cardCents: outflows.byMethod.CARD,
+    totalCents: outflows.totalCents,
+    payments: outflows.payments,
+  };
+  return {
+    summary: summarizeDay(withCategory, collections, supplierPayments),
+    saved,
+    closedByName: closedBy?.name ?? null,
+    opening,
+  };
 }
 
 /** Guarda (o corrige) el cierre de caja del día con el arqueo de efectivo. */
