@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<title>Delycia POS — Novedades para el personal</title>
+<style>
+  @page { size: A4; margin: 16mm 16mm 14mm; }
+  body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 10.5pt; color: #1a1a1a; line-height: 1.4; }
+  h1 { font-size: 19pt; margin: 0 0 2px; }
+  .sub { color: #555; margin: 0 0 12px; }
+  h2 { font-size: 13pt; margin: 16px 0 6px; padding: 4px 8px; background: #f1ece4; border-left: 5px solid #b5651d; }
+  h3 { font-size: 11pt; margin: 10px 0 3px; }
+  ul { margin: 3px 0 6px; padding-left: 18px; } li { margin: 2px 0; }
+  .who { font-size: 9pt; font-weight: normal; color: #555; }
+  .tip { border: 1px solid #d9c9a8; background: #fbf7ef; padding: 6px 9px; border-radius: 4px; margin: 6px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 4px 0 8px; font-size: 9.5pt; }
+  td, th { border: 1px solid #ccc; padding: 4px 6px; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; }
+  .foot { margin-top: 14px; font-size: 8.5pt; color: #777; border-top: 1px solid #ddd; padding-top: 5px; }
+  b { color: #000; }
+  figure { margin: 6px 0 10px; break-inside: avoid; }
+  .shot { overflow: hidden; border: 1px solid #ccc; border-radius: 4px; }
+  .shot img { width: 100%; display: block; }
+  figcaption { font-size: 8.5pt; color: #666; margin-top: 2px; }
+  .row { display: flex; gap: 10px; align-items: flex-start; } .row figure { flex: 1; }
+  h2 { break-after: avoid; } h3 { break-after: avoid; }
+</style></head><body>
+
+<h1>Delycia POS — Novedades</h1>
+<p class="sub">Guía rápida de los cambios recientes · Octubre 2026 · Léela completa: son 5 minutos. Las capturas son de datos de prueba.</p>
+
+<h2>Para Caja <span class="who">(cajeros y Admin)</span></h2>
+
+<h3>1. Anular un ítem o una orden</h3>
+<ul>
+  <li>Siempre se pide un <b>motivo</b>. Desde Caja también se necesita el <b>PIN de un Admin</b> que autorice.</li>
+  <li>Un ítem solo se anula si la orden está <b>por pagar</b>. Una orden cobrada solo se anula <b>el mismo día</b>.</li>
+  <li>Cocina ve el aviso de anulación al instante.</li>
+</ul>
+
+<figure style="width:78%"><div class="shot" style="aspect-ratio:1920/1200"><img src="img/anular.png"></div><figcaption>Anular un ítem desde Historial → la orden: elige el motivo y pide al Admin que ponga su PIN.</figcaption></figure>
+<h3>2. Salida rápida <span class="who">(menú «Salida rápida»)</span></h3>
+<ul>
+  <li>Úsala para lo que sale del inventario <b>sin venderse</b>, por ejemplo un <b>envase para que el cliente se lleve lo que no terminó</b>.</li>
+  <li>Elige el ítem, pon la cantidad y toca un motivo: <i>Envase para sobras</i>, <i>Se rompió / dañó</i> o <i>Consumo del personal</i>. Luego toca <b>Registrar salida</b>.</li>
+  <li>Lo que se <b>vende</b> no se registra aquí: el sistema lo descuenta solo.</li>
+</ul>
+
+<figure style="width:78%"><div class="shot" style="aspect-ratio:1920/680"><img src="img/salida.png"></div><figcaption>Salida rápida: ítem, cantidad, motivo y «Registrar salida».</figcaption></figure>
+<h3>3. Cierre de caja: «Pagos a proveedores»</h3>
+<ul>
+  <li>Si un Admin pagó a un proveedor <b>en efectivo de la caja</b>, ese monto aparece en el cierre y se <b>resta del efectivo esperado</b>.</li>
+  <li>Efectivo esperado = fondo de apertura + efectivo que entró − pagos a proveedores en efectivo.</li>
+  <li>Los pagos por transferencia o tarjeta se muestran, pero <b>no</b> salen de la caja.</li>
+</ul>
+<figure style="width:62%"><div class="shot" style="aspect-ratio:1374/1086"><img src="img/cierre.png"></div><figcaption>Ejemplo con datos de prueba: los pagos en efectivo a proveedores se restan del efectivo esperado.</figcaption></figure>
+<div class="tip">Si sacas efectivo de la caja para pagar a un proveedor, <b>avisa al Admin</b> para que lo registre en Compras. Si no, el cierre te mostrará un faltante.</div>
+
+<h3>4. Tema claro / oscuro</h3>
+<ul><li>El botón de sol/luna cambia los colores <b>solo en ese equipo</b>. Por defecto, Caja está en claro y Cocina en oscuro.</li></ul>
+
+<h2>Para Cocina</h2>
+<ul>
+  <li>Cuando Caja anula algo, la comanda queda marcada como <b>ANULADO</b> y con aviso <b>hasta que toques «Entendido»</b>. Después pasa a «Recientes» con la hora y el motivo.</li>
+  <li>La forma de trabajar las comandas no cambió.</li>
+</ul>
+<figure style="width:70%"><div class="shot" style="aspect-ratio:1650/900"><img src="img/cocina-anulado.png"></div><figcaption>En cocina: «ANULADA — NO PREPARAR». Toca «Entendido» cuando lo hayas visto.</figcaption></figure>
+
+
+<h2 style="break-before: page">Para Admin</h2>
+<table>
+  <tr><th style="width:24%">Sección</th><th>Qué hace</th></tr>
+  <tr><td><b>Catálogo</b></td><td>Cada ítem tiene un <b>tipo</b>: Normal (ej. bebidas), Preparado (platos), Ingrediente o Insumo. En la pantalla de venta solo aparecen Normal y Preparado. Se definen la unidad, las presentaciones de compra (ej. caja de 24) y el <b>stock mínimo</b>.</td></tr>
+  <tr><td><b>Recetas</b></td><td>Los Preparados llevan receta, que puede depender de si es <b>para llevar</b> o de los modificadores. Con la receta se calculan el <b>costo y el margen</b> de cada plato.</td></tr>
+  <tr><td><b>Carga rápida</b></td><td>En Catálogo → Carga rápida se descarga la <b>plantilla Excel</b>, se llena y se sube. Se pueden cargar muchos ítems a la vez, con su stock inicial. Si una fila tiene un error, no se carga ninguna, para que no quede nada a medias.</td></tr>
+  <tr><td><b>Compras</b></td><td>Se registran los proveedores y las compras de <b>contado, a crédito o con pago parcial</b>. Las deudas se ven en «Por pagar». Para anular una compra hay que anular antes sus pagos.</td></tr>
+  <tr><td><b>Inventario</b></td><td>El stock se mueve solo: suma con las compras y resta con las ventas, que descuentan al enviar a cocina o al cobrar (lo que pase primero), y vuelve si se anula. Cada ítem tiene su <b>kárdex</b> (historial de movimientos). Desde aquí también se hace el <b>Ingreso a inventario</b> (lo que se produce en cocina) y el <b>Conteo físico</b>: la diferencia queda como merma o sobrante, con motivo.</td></tr>
+  <tr><td><b>Alerta de stock</b></td><td>Arriba, en amarillo, se avisa si hay ítems <b>en negativo</b> o <b>bajo el mínimo</b>.</td></tr>
+  <tr><td><b>Reportes</b></td><td>Hay reportes nuevos de <b>Stock</b>, <b>Stock bajo</b>, <b>Kárdex</b>, <b>Mermas</b>, <b>Compras</b> y <b>Cuentas por pagar</b>, todos exportables a PDF y Excel.</td></tr>
+</table>
+
+<h3>Capturas</h3>
+<div class="row"><figure style="width:100%"><div class="shot" style="aspect-ratio:1920/1390"><img src="img/compra-nueva.png"></div><figcaption>Compras → Nueva compra: ítems, total y forma de pago.</figcaption></figure><figure style="width:100%"><div class="shot" style="aspect-ratio:1920/950"><img src="img/inventario.png"></div><figcaption>Inventario → Stock, con pestañas de Ingreso, Conteo y Salida.</figcaption></figure></div>
+<div class="row"><figure style="width:100%"><div class="shot" style="aspect-ratio:1920/470"><img src="img/kardex.png"></div><figcaption>Kárdex de un ítem: cada movimiento y su saldo.</figcaption></figure><figure style="width:100%"><div class="shot" style="aspect-ratio:1920/1000"><img src="img/catalogo.png"></div><figcaption>Catálogo con filtros por tipo y agrupado por tipo o categoría.</figcaption></figure></div>
+<div class="row"><figure style="width:100%"><div class="shot" style="aspect-ratio:1920/1120"><img src="img/carga-rapida.png"></div><figcaption>Carga rápida: escribir aquí o importar la plantilla de Excel.</figcaption></figure><figure style="width:100%"><div class="shot" style="aspect-ratio:1920/1050"><img src="img/reportes.png"></div><figcaption>Reportes agrupados en Ventas, Inventario y Compras, exportables.</figcaption></figure></div>
+<div class="tip"><b>Regla de oro:</b> el stock solo es correcto si se registran todas las compras y se hace un conteo físico de vez en cuando. Si algo sale en negativo, falta registrar una compra o hay un error de receta.</div>
+
+<p class="foot">Delycia POS · Si algo no funciona como dice esta guía, avisa al Admin con una foto de la pantalla.</p>
+</body></html>
