@@ -65,6 +65,22 @@ export function registerInventorySubscribers() {
     await reverseSale(tx, payload.orderId);
   });
 
+  // --- Catálogo: inventario inicial de la carga rápida ---
+  eventBus.onTransaction("catalog.items_imported", async ({ payload, id }, tx) => {
+    await recordMovements(
+      tx,
+      payload.items.map((i) => ({
+        productId: i.productId,
+        type: "INITIAL" as const,
+        quantity: new Decimal(i.initialQuantity),
+        unitCostCents: i.unitCostCents ? new Decimal(i.unitCostCents) : null,
+        refType: "IMPORT",
+        refId: String(id),
+        note: "Carga rápida",
+      })),
+    );
+  });
+
   // --- Catálogo: no cambiar la unidad de un ítem que ya tiene movimientos ---
   registerProductGuard(async ({ productId, before, after }) => {
     if (before.baseUnit === after.baseUnit) return;

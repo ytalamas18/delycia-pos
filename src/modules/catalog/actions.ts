@@ -5,9 +5,14 @@ import { redirect } from "next/navigation";
 
 import { type ActionResult, toActionResult } from "@/core/actions/result";
 import { requirePermission } from "@/core/auth/server";
+import { DomainError } from "@/core/errors";
 
+import type { BulkRow } from "./domain/bulk";
 import type { ProductInput } from "./schemas";
+import * as bulk from "./services/bulk";
+import type { BulkError } from "./services/bulk";
 import * as categories from "./services/categories";
+import { readImportFile } from "./services/import-file";
 import * as products from "./services/products";
 import * as recipes from "./services/recipes";
 
@@ -231,4 +236,30 @@ export async function copyModifierRecipeAction(modifierId: string): Promise<Acti
     refreshCatalog();
     return updated === 0 ? "No hay otros productos con ese modificador" : `Copiado a ${updated} productos`;
   });
+}
+
+// --- Carga rápida ---
+
+export async function readImportFileAction(fd: FormData): Promise<{ ok: true; rows: BulkRow[] } | { ok: false; error: string }> {
+  await requirePermission("catalog.manage");
+  const file = fd.get("file");
+  if (!(file instanceof File)) return { ok: false, error: "Elige un archivo." };
+  try {
+    return { ok: true, rows: await readImportFile(file) };
+  } catch (error) {
+    return { ok: false, error: error instanceof DomainError ? error.message : "No se pudo leer el archivo." };
+  }
+}
+
+export async function bulkCreateItemsAction(rows: BulkRow[]): Promise<{ ok: boolean; message?: string; errors: BulkError[] }> {
+  await requirePermission("catalog.manage");
+  try {
+    const r = await bulk.bulkCreateItems(rows);
+    if (r.errors.length > 0) return { ok: false, message: "Corrige las filas marcadas: no se guardó nada.", errors: r.errors };
+    refreshCatalog();
+    revalidatePath("/inventario", "layout");
+    return { ok: true, message: `Se crearon ${r.created} ítems.`, errors: [] };
+  } catch (error) {
+    return { ok: false, message: error instanceof DomainError ? error.message : "Ocurrió un error inesperado.", errors: [] };
+  }
 }

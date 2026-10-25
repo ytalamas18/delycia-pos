@@ -22,7 +22,10 @@
   ingreso a inventario (costo de la receta o escrito); conteo físico (ajuste); salida rápida (Caja y Admin);
   aviso "Stock: N bajo mínimo / en negativo" en la cabecera (Admin); no se cambia la unidad de un ítem con
   movimientos (guarda en `core/hooks/product-guards`).
-- Sigue: **Fase 5** (carga rápida e importación Excel/CSV).
+- ✅ **Fase 5:** Catálogo → "Carga rápida": tabla editable + importar .xlsx/.csv (plantilla descargable con
+  ejemplos e instrucciones). Todo o nada con errores por fila; crea categorías que falten; el inventario inicial
+  entra al kárdex como "Inventario inicial" (evento `catalog.items_imported`).
+- Sigue: **Fase 6** (reportes de inventario y compras).
 
 ## Hecho
 

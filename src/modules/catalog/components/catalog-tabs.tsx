@@ -5,9 +5,10 @@ import { cn } from "@/lib/utils";
 const tabs = [
   { href: "/catalogo", label: "Productos" },
   { href: "/catalogo/categorias", label: "Categorías" },
-];
+  { href: "/catalogo/carga-rapida", label: "Carga rápida" },
+] as const;
 
-export function CatalogTabs({ active }: { active: "/catalogo" | "/catalogo/categorias" }) {
+export function CatalogTabs({ active }: { active: (typeof tabs)[number]["href"] }) {
   return (
     <div className="flex gap-2 border-b">
       {tabs.map((t) => (

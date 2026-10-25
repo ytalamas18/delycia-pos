@@ -1,4 +1,6 @@
 // API pública del módulo Catálogo. Otros módulos y la app solo importan desde aquí.
+import "./events";
+
 export { catalogModule } from "./module";
 
 // Para Ventas (pantalla POS)
@@ -45,3 +47,5 @@ export {
 } from "./services/purchasable";
 export { resolveConsumption, type ConsumptionLine, type SoldLine } from "./services/consumption";
 export { recipeEstimate, unitCosts } from "./services/recipes";
+export { BulkItemsEditor } from "./components/bulk-items-editor";
+export { buildImportTemplate } from "./services/import-file";
