@@ -9,13 +9,9 @@ export default async function ReportesPage({ searchParams }: PageProps<"/reporte
   const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
   return (
     <ReportsScreen
-      params={{
-        desde: one(params.desde),
-        hasta: one(params.hasta),
-        vista: one(params.vista),
-        cat: one(params.cat),
-        orden: one(params.orden),
-      }}
+      params={Object.fromEntries(
+        ["desde", "hasta", "vista", "cat", "orden", "estado", "cliente", "tipo", "item"].map((k) => [k, one(params[k])]),
+      )}
     />
   );
 }

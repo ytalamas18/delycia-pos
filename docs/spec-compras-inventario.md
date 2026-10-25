@@ -12,7 +12,7 @@
 | 3. Proveedores, compras, crédito y abonos | ✅ Lista (migración `compras`, módulo `purchases`, rutas `/compras`) |
 | 4. Inventario: movimientos, descuento por ventas, ingreso a inventario, conteo físico y alertas | ✅ Lista (migración `inventario`, módulo `inventory`, rutas `/inventario`) |
 | 5. Carga rápida e importación desde Excel/CSV | ✅ Lista (`/catalogo/carga-rapida`, plantilla `/api/plantilla-items`) |
-| 6. Reportes de inventario y compras | Pendiente |
+| 6. Reportes de inventario y compras | ✅ Lista (Reportes → Inventario: stock, stock bajo, kárdex, mermas; Compras: compras y cuentas por pagar; todos exportan PDF/Excel) |
 
 Forma de trabajo:
 - Una fase a la vez, con commit, y decir cómo probarla.

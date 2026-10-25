@@ -1,9 +1,16 @@
 import { fileBaseFor, formatPeriod, type ExportDocument } from "@/core/export";
 import { formatMoney as formatMoneyText } from "@/core/money";
 
+import { formatQuantity } from "@/core/quantity";
+import { businessDate } from "@/core/time";
+import { formatUnitCostInput, ITEM_TYPE_LABEL, UNIT_SHORT } from "@/modules/catalog";
+import { MOVEMENT_LABEL, STOCK_LEVEL_LABEL } from "@/modules/inventory";
+import { DOC_TYPE_LABEL, PAYMENT_STATUS_LABEL, SUPPLIER_METHOD_LABEL } from "@/modules/purchases";
+
 import { channelName } from "./domain/labels";
 import { parseCreditStatus } from "./domain/receivables";
 import { parseRange } from "./domain/range";
+import { getAdjustmentsReport, getKardexReport, getPayablesReport, getPurchasesReport, getStockReport } from "./services/stock-purchases";
 import { getMoneyIn, getProductsSold, getReceivables, getSalesByChannel, getVoids, listCategoriesForFilter } from "./services/reports";
 
 /** Parámetros de la URL: los mismos que usa la pantalla de Reportes. */
@@ -14,6 +21,8 @@ export type ReportParams = {
   orden?: string;
   estado?: string;
   cliente?: string;
+  tipo?: string;
+  item?: string;
   [key: string]: string | undefined;
 };
 
@@ -268,6 +277,245 @@ async function receivablesExport(params: ReportParams): Promise<ExportDocument> 
   };
 }
 
+// --- Inventario y compras ---
+
+const dec = (v: { toNumber(): number } | null | undefined) => (v ? v.toNumber() : null);
+/** Valor en centavos con decimales → centavos enteros (para columnas de dinero). */
+const cents = (v: { toNumber(): number } | null | undefined) => (v ? Math.round(v.toNumber()) : null);
+
+async function stockExport(params: ReportParams, onlyAlerts: boolean): Promise<ExportDocument> {
+  const r = await getStockReport({ type: params.tipo ?? null, categoryId: params.cat ?? null, onlyAlerts });
+  const today = businessDate();
+  return {
+    report: onlyAlerts ? "Stock bajo" : "Stock actual",
+    fileBase: fileBaseFor(onlyAlerts ? "stock-bajo" : "stock-actual", today),
+    period: `Al ${formatPeriod(today, today)}`,
+    filters: [`Tipo: ${params.tipo ? ITEM_TYPE_LABEL[params.tipo as keyof typeof ITEM_TYPE_LABEL] : "Todos"}`],
+    generatedAt: new Date(),
+    summary: [
+      { label: "Ítems", value: r.items.length, type: "int" },
+      { label: "Valor del inventario", value: cents(r.totalValueCents), type: "money" },
+    ],
+    tables: [
+      {
+        title: onlyAlerts ? "Stock bajo" : "Stock",
+        columns: [
+          { header: "Ítem", type: "text" },
+          { header: "Tipo", type: "text" },
+          { header: "Categoría", type: "text" },
+          { header: "Cantidad", type: "text" },
+          { header: "Unidad", type: "text" },
+          { header: "Mínimo", type: "text" },
+          { header: "Costo unit. (Bs)", type: "text" },
+          { header: "Valor", type: "money" },
+          { header: "Estado", type: "text" },
+        ],
+        rows: r.items.map((i) => [
+          i.name,
+          ITEM_TYPE_LABEL[i.type],
+          i.category.name,
+          formatQuantity(i.stock),
+          UNIT_SHORT[i.baseUnit],
+          i.minStock ? formatQuantity(i.minStock) : "",
+          i.lastCostCents ? formatUnitCostInput(i.lastCostCents) : "",
+          cents(i.valueCents),
+          i.level === "ok" ? "" : STOCK_LEVEL_LABEL[i.level],
+        ]),
+        totals: ["Total", null, null, null, null, null, null, cents(r.totalValueCents), null],
+        notes: ["Valor = cantidad × último costo (los negativos no suman al total)."],
+      },
+    ],
+  };
+}
+
+async function kardexExport(params: ReportParams): Promise<ExportDocument> {
+  const range = parseRange(params);
+  const r = await getKardexReport(params.item ?? null, range);
+  return {
+    report: `Kárdex${r.item ? ` - ${r.item.name}` : ""}`,
+    fileBase: fileBaseFor(r.item ? `kardex_${slug(r.item.name)}` : "kardex", range.from, range.to),
+    period: formatPeriod(range.from, range.to),
+    filters: [r.item ? `Unidad: ${UNIT_SHORT[r.item.baseUnit]}` : "Sin ítem elegido"],
+    generatedAt: new Date(),
+    summary: [{ label: "Saldo inicial", value: dec(r.opening), type: "int" }],
+    tables: [
+      {
+        title: "Movimientos",
+        columns: [
+          { header: "Fecha y hora", type: "datetime" },
+          { header: "Movimiento", type: "text" },
+          { header: "Nota", type: "text" },
+          { header: "Cantidad", type: "text" },
+          { header: "Saldo", type: "text" },
+        ],
+        rows: r.rows.map((m) => [m.at, MOVEMENT_LABEL[m.type], m.note ?? "", formatQuantity(m.quantity), formatQuantity(m.balance)]),
+      },
+    ],
+  };
+}
+
+async function adjustmentsExport(params: ReportParams): Promise<ExportDocument> {
+  const range = parseRange(params);
+  const r = await getAdjustmentsReport(range);
+  return {
+    report: "Mermas y ajustes",
+    fileBase: fileBaseFor("mermas", range.from, range.to),
+    period: formatPeriod(range.from, range.to),
+    filters: ["Diferencias de conteo físico"],
+    generatedAt: new Date(),
+    summary: [
+      { label: "Ajustes", value: r.rows.length, type: "int" },
+      { label: "Valor perdido", value: cents(r.lostCents), type: "money" },
+      { label: "Sobrantes", value: cents(r.surplusCents), type: "money" },
+    ],
+    tables: [
+      {
+        title: "Ajustes",
+        columns: [
+          { header: "Fecha", type: "date" },
+          { header: "Ítem", type: "text" },
+          { header: "Sistema", type: "text" },
+          { header: "Contado", type: "text" },
+          { header: "Diferencia", type: "text" },
+          { header: "Valor", type: "money" },
+          { header: "Motivo", type: "text" },
+        ],
+        rows: r.rows.map((a) => [
+          a.date,
+          a.productName,
+          formatQuantity(a.expected),
+          formatQuantity(a.counted),
+          formatQuantity(a.difference),
+          cents(a.valueCents),
+          a.reason ?? "",
+        ]),
+      },
+    ],
+  };
+}
+
+async function purchasesExport(params: ReportParams): Promise<ExportDocument> {
+  const range = parseRange(params);
+  const r = await getPurchasesReport(range);
+  return {
+    report: "Compras",
+    fileBase: fileBaseFor("compras", range.from, range.to),
+    period: formatPeriod(range.from, range.to),
+    filters: ["Compras vigentes (sin anuladas)"],
+    generatedAt: new Date(),
+    summary: [
+      { label: "Total comprado", value: r.totalCents, type: "money" },
+      { label: "Pagado", value: r.paidCents, type: "money" },
+      { label: "Por pagar", value: r.balanceCents, type: "money" },
+    ],
+    tables: [
+      {
+        title: "Compras",
+        columns: [
+          { header: "N°", type: "int" },
+          { header: "Fecha", type: "date" },
+          { header: "Proveedor", type: "text" },
+          { header: "Comprobante", type: "text" },
+          { header: "Total", type: "money" },
+          { header: "Pagado", type: "money" },
+          { header: "Saldo", type: "money" },
+          { header: "Estado", type: "text" },
+        ],
+        rows: r.purchases.map((p) => [
+          p.number,
+          p.date,
+          p.supplier?.name ?? "",
+          `${DOC_TYPE_LABEL[p.docType]} ${p.docNumber ?? ""}`.trim(),
+          p.totalCents,
+          p.paidCents,
+          p.balanceCents,
+          PAYMENT_STATUS_LABEL[p.paymentStatus],
+        ]),
+        totals: ["Total", null, null, null, r.totalCents, r.paidCents, r.balanceCents, null],
+      },
+      {
+        title: "Por proveedor",
+        columns: [
+          { header: "Proveedor", type: "text" },
+          { header: "Compras", type: "int" },
+          { header: "Total", type: "money" },
+          { header: "Saldo", type: "money" },
+        ],
+        rows: r.bySupplier.map((s) => [s.name, s.count, s.totalCents, s.balanceCents]),
+        totals: ["Total", r.purchases.length, r.totalCents, r.balanceCents],
+      },
+      {
+        title: "Por ítem",
+        columns: [
+          { header: "Ítem", type: "text" },
+          { header: "Cantidad (unidad base)", type: "text" },
+          { header: "Total", type: "money" },
+        ],
+        rows: r.byItem.map((i) => [i.name, formatQuantity(i.quantity), i.totalCents]),
+        totals: ["Total", null, r.totalCents],
+      },
+    ],
+  };
+}
+
+async function payablesExport(): Promise<ExportDocument> {
+  const r = await getPayablesReport();
+  const today = businessDate();
+  return {
+    report: "Cuentas por pagar",
+    fileBase: fileBaseFor("cuentas-por-pagar", today),
+    period: `Al ${formatPeriod(today, today)}`,
+    filters: ["Compras vigentes con saldo"],
+    generatedAt: new Date(),
+    summary: [
+      { label: "Total adeudado", value: r.totalCents, type: "money" },
+      { label: "Vencido", value: r.overdueCents, type: "money" },
+    ],
+    tables: [
+      {
+        title: "Por proveedor",
+        columns: [
+          { header: "Proveedor", type: "text" },
+          { header: "Compras", type: "int" },
+          { header: "Vencido", type: "money" },
+          { header: "Debe", type: "money" },
+        ],
+        rows: r.bySupplier.map((s) => [s.name, s.count, s.overdueCents, s.balanceCents]),
+        totals: ["Total", r.rows.length, r.overdueCents, r.totalCents],
+      },
+      {
+        title: "Compras con saldo",
+        columns: [
+          { header: "N°", type: "int" },
+          { header: "Fecha", type: "date" },
+          { header: "Proveedor", type: "text" },
+          { header: "Vence", type: "date" },
+          { header: "Total", type: "money" },
+          { header: "Abonado", type: "money" },
+          { header: "Saldo", type: "money" },
+          { header: "Estado", type: "text" },
+          { header: "Abonos", type: "text" },
+        ],
+        rows: r.rows.map((p) => [
+          p.number,
+          p.date,
+          p.supplier?.name ?? "",
+          p.dueDate ?? "",
+          p.totalCents,
+          p.paidCents,
+          p.balanceCents,
+          `${PAYMENT_STATUS_LABEL[p.paymentStatus]}${p.overdue ? " (vencida)" : ""}`,
+          p.payments
+            .filter((x) => !x.voidedAt)
+            .map((x) => `${x.date} ${SUPPLIER_METHOD_LABEL[x.method]} ${formatMoneyText(x.amountCents)}`)
+            .join(" | "),
+        ]),
+        totals: ["Total", null, null, null, null, null, r.totalCents, null, null],
+      },
+    ],
+  };
+}
+
 /** "Bebidas Frías" → "bebidas-frias" (para el nombre del archivo). */
 export function slug(text: string): string {
   return text
@@ -284,4 +532,10 @@ export const reportExports: Record<string, (params: ReportParams) => Promise<Exp
   "productos-vendidos": productsExport,
   anulaciones: voidsExport,
   "cuentas-por-cobrar": receivablesExport,
+  stock: (p) => stockExport(p, false),
+  "stock-bajo": (p) => stockExport(p, true),
+  kardex: kardexExport,
+  mermas: adjustmentsExport,
+  compras: purchasesExport,
+  "cuentas-por-pagar": () => payablesExport(),
 };

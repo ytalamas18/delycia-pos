@@ -1,7 +1,6 @@
-# Estado actual de la app — 19/10/2026
+# Estado actual de la app — 24/10/2026
 
-138 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: **Fases 1 y 2 de compras/inventario**
-(tipos de ítem, unidades, presentaciones, stock mínimo, último costo; recetas con costo y margen). Ver `docs/spec-compras-inventario.md`.
+161 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: **compras, inventario y recetas completos (fases 1 a 6)**. Ver `docs/spec-compras-inventario.md`.
 
 ## En curso: compras, inventario y recetas (`docs/spec-compras-inventario.md`)
 
@@ -25,7 +24,10 @@
 - ✅ **Fase 5:** Catálogo → "Carga rápida": tabla editable + importar .xlsx/.csv (plantilla descargable con
   ejemplos e instrucciones). Todo o nada con errores por fila; crea categorías que falten; el inventario inicial
   entra al kárdex como "Inventario inicial" (evento `catalog.items_imported`).
-- Sigue: **Fase 6** (reportes de inventario y compras).
+- ✅ **Fase 6:** Reportes agrupados (Ventas / Inventario / Compras): stock actual y stock bajo (filtros tipo y
+  categoría, valorizado), kárdex por ítem con saldo, mermas y ajustes (valor perdido), compras (por proveedor y
+  por ítem) y cuentas por pagar (vencidas resaltadas, abonos, por proveedor). Todos con PDF/Excel.
+- **Todas las fases de la spec están listas.** Falta desplegar en la EC2 (con backup antes) y probar con datos reales.
 
 ## Hecho
 
@@ -58,6 +60,11 @@ cocina: anulada queda a la vista hasta "Entendido" y luego pasa a Recientes con 
    en la EC2 de prueba (ver `docs/infra.md`).
 
 ## Bugs / limitaciones conocidas
+
+- Inventario: un ítem vendido sin receta no deja movimientos; si después se le carga receta antes de cobrar, descuenta
+  al cobrar. Los modificadores se buscan por nombre (la orden guarda solo el nombre).
+- Fiados en Reportes: antes no se aplicaban los filtros Estado/Cliente al abrir el link (la página no los pasaba);
+  corregido el 24/10.
 
 - Una orden cobrada solo se anula el mismo día; un fiado con abonos no se puede anular.
 - Reportes: un pago mixto cuenta en cada canal usado (el total del día cuenta la orden una vez); productos

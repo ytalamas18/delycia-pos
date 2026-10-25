@@ -1,10 +1,12 @@
 # Delycia POS — guía para continuar
 
 POS web de **Delycia** (restaurante, Santa Cruz de la Sierra, Bolivia). Ventas + cocina (KDS) en tiempo real,
-cobro, cuentas por cobrar, historial, apertura/cierre de caja. Dueño: Yasser (habla español; respuestas
+cobro, cuentas por cobrar, historial, apertura/cierre de caja, catálogo con tipos de ítem y recetas, compras con
+crédito y abonos, inventario (kárdex) y reportes. Dueño: Yasser (habla español; respuestas
 concisas; no inventar precios ni cifras: preguntar).
 
-Lee también: `AGENTS.md` (reglas de Next 16), `docs/estado-actual.md` (pendientes y bugs), `docs/infra.md` (AWS).
+Lee también: `AGENTS.md` (reglas de Next 16), `docs/estado-actual.md` (pendientes y bugs), `docs/infra.md` (AWS),
+`docs/spec-compras-inventario.md` (spec y decisiones de compras/inventario/recetas).
 
 ## Stack
 
@@ -27,23 +29,29 @@ Lee también: `AGENTS.md` (reglas de Next 16), `docs/estado-actual.md` (pendient
 
 ```
 src/
-├─ app/                  rutas (solo composición): (caja)/pos|ordenes|cuentas-por-cobrar|historial|cierre|reportes|catalogo|ajustes,
-│                        cocina/, login/, imprimir/{ticket,comanda,cierre}, api/{realtime,cocina/comandas,reportes/cierre,exportar/[reporte],health}
+├─ app/                  rutas (solo composición): (caja)/pos|ordenes|cuentas-por-cobrar|historial|cierre|reportes|catalogo|compras|inventario|ajustes,
+│                        cocina/, login/, imprimir/{ticket,comanda,cierre}, api/{realtime,cocina/comandas,reportes/cierre,exportar/[reporte],plantilla-items,health}
 ├─ config/               raíz de composición: modules.ts (módulos activos), bootstrap.ts (suscriptores + SSE)
 ├─ core/                 núcleo compartido (NO importa módulos): money, events (bus), db (cliente lazy + runInTransaction),
 │                        auth (permisos, sesión, PIN), settings, time (día de negocio La Paz), realtime (hub SSE), actions,
-│                        export (ExportDocument → Excel/PDF reutilizable)
+│                        export (ExportDocument → Excel/PDF reutilizable), quantity (Decimal para cantidades),
+│                        hooks/product-guards (validaciones de otros módulos antes de cambiar un ítem)
 ├─ modules/
-│  ├─ catalog/           categorías, productos, modificadores, "modificador a toda la categoría", getSellableCatalog()
+│  ├─ catalog/           ítems (tipo Normal/Preparado/Ingrediente/Insumo, unidad base, presentaciones, stock mínimo,
+│  │                     último costo), recetas (+ condición para llevar, de modificadores), costo y margen,
+│  │                     carga rápida (Excel/CSV), getSellableCatalog() (solo Normal y Preparado)
 │  ├─ sales/             órdenes, precios por canal (PEYA), cobro, fiado, historial, apertura/cierre, reportes PDF/CSV
 │  ├─ kitchen/           comandas (KDS), estados, mensajes caja→cocina, avisos de anulación
-│  └─ reports/           SOLO LECTURA: ventas por canal (+ dinero cobrado), productos, anulaciones, cuentas por cobrar
+│  ├─ purchases/         proveedores, compras (contado/crédito/parcial), abonos, cuentas por pagar
+│  ├─ inventory/         kárdex (StockMovement), descuento por ventas/compras por eventos, ingreso, conteo, salida rápida
+│  └─ reports/           SOLO LECTURA: ventas por canal (+ dinero cobrado), productos, anulaciones, cuentas por cobrar,
+│                        stock, stock bajo, kárdex, mermas, compras, cuentas por pagar
 ├─ components/ui|shell|print
 ├─ lib/                  use-live-events (SSE + vigilante), sound (Web Audio), theme (claro/oscuro), utils
 ├─ instrumentation.ts    llama bootstrap() al arrancar
 └─ proxy.ts              sesión + permisos por ruta
-prisma/  schema.prisma, migrations/ (13), seed.ts + seed-data.ts, data/menu-delycia.json
-tests/   core, catalog, sales, kitchen, reports, integration, support (db reset, catálogo fijo de tests)
+prisma/  schema.prisma, migrations/ (17), seed.ts + seed-data.ts, data/menu-delycia.json
+tests/   core, catalog, sales, kitchen, purchases, inventory, reports, integration, support (db reset, catálogo fijo de tests)
 ```
 
 ## Decisiones de arquitectura (no romper)
@@ -72,6 +80,17 @@ tests/   core, catalog, sales, kitchen, reports, integration, support (db reset,
   y `core/export` genera Excel (valores reales, hora La Paz) y PDF A4. Se descarga por
   `/api/exportar/<clave>?formato=xlsx|pdf&<mismos filtros que la pantalla>`; las claves y permisos están en
   `app/api/exportar/[reporte]/route.ts` (+ `reportExports` del módulo Reportes). Botones: `components/shell/export-buttons`.
+- **Ítems y cantidades:** el "ítem" es `Product` con `type`, `baseUnit`, `tracksStock`, `minStock`, `lastCostCents`.
+  Cantidades `Decimal(12,3)` (`core/quantity`); costo unitario `Decimal(14,4)` en centavos; totales `Int`.
+  Kg↔g y litro↔ml se convierten (`toBaseQuantity`); presentaciones con factor. Los componentes cliente NO deben
+  importar archivos que usen `Decimal` (traen el cliente Prisma): usar `unit-labels.ts`, `recipe-conditions.ts`, etc.
+- **Inventario por eventos:** stock = suma de `StockMovement` (nunca se edita). Inventario escucha
+  `purchase.registered/cancelled`, `order.sent_to_kitchen`/`order.paid` (descuenta con el primero, idempotente por
+  `orderItemId`; PEYA = para llevar), `order.item_voided`/`order.cancelled` (revierte) y `catalog.items_imported`
+  (inventario inicial). Ventas solo publica (sus eventos llevan `productId` e ítems). Stock negativo permitido.
+- **Compras:** el gasto es el total en la fecha de compra; el dinero sale en la fecha de cada pago. Pagos a
+  proveedores en efectivo restan del efectivo esperado del cierre ("Pagos a proveedores"; Ventas llama a
+  `supplierPaymentsForDay`). Anular compra exige anular antes sus pagos.
 - **Tema claro/oscuro** por dispositivo y por pantalla (`localStorage` `delycia.theme.pos|cocina`; POS claro,
   Cocina oscuro por defecto). `themeBootScript` en `app/layout.tsx` lo aplica antes de pintar; usar siempre
   variantes `dark:` en colores fijos (ej. `text-red-700 dark:text-red-400`). `/imprimir` siempre en claro.
@@ -94,7 +113,9 @@ tests/   core, catalog, sales, kitchen, reports, integration, support (db reset,
   guarda quién anuló y quién autorizó. **Caja necesita el PIN de un Admin**, Admin anula directo. Orden cobrada:
   solo el mismo día de negocio, pagos → `refundedAt`. Fiado con abonos: no se anula. Eventos `order.item_voided` /
   `order.cancelled` → Cocina marca ANULADO y deja la comanda con aviso (`voidAlertAt`) hasta "Entendido".
-- **Reportes**, **Ajustes** y **Catálogo**: solo Admin (`reports.view`, `settings.manage`, `catalog.manage`).
+- **Reportes**, **Ajustes**, **Catálogo**, **Compras** e **Inventario**: solo Admin (`reports.view`, `settings.manage`,
+  `catalog.manage`, `purchases.manage`, `inventory.manage`). **Salida rápida** (ej. envase para sobras): Admin y Caja
+  (`inventory.consume`).
 - Apertura de caja obligatoria antes de vender; **una por día, no editable**. Cierre: arqueo efectivo/QR/tarjeta.
 
 ## Correr en local

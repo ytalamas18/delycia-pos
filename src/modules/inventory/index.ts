@@ -2,7 +2,7 @@
 export { inventoryModule } from "./module";
 export { MOVEMENT_LABEL, STOCK_LEVEL_LABEL, type StockLevel } from "./domain/labels";
 export { stockLevel, withRunningBalance } from "./domain/stock";
-export { itemMovements, listStockItems, stockAlerts, stockByProduct, type StockItem } from "./services/stock";
+export { itemMovements, listAdjustments, listStockItems, stockAlerts, stockByProduct, type StockItem } from "./services/stock";
 export { InventoryNav } from "./components/inventory-nav";
 export { StockTable } from "./components/stock-table";
 export { Kardex } from "./components/kardex";

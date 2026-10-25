@@ -88,3 +88,23 @@ export async function itemMovements(productId: string, range: { from?: string; t
   ]);
   return { movements, opening: before?._sum.quantity ?? new Decimal(0) };
 }
+
+/** Diferencias de conteo (mermas y sobrantes) en un rango de fechas del conteo. */
+export async function listAdjustments(range: { from: string; to: string }) {
+  const lines = await db.stockCountLine.findMany({
+    where: { difference: { not: 0 }, count: { date: { gte: range.from, lte: range.to } } },
+    include: { count: { select: { date: true, note: true } } },
+    orderBy: [{ count: { date: "asc" } }, { productName: "asc" }],
+  });
+  return lines.map((l) => ({
+    date: l.count.date,
+    productId: l.productId,
+    productName: l.productName,
+    expected: l.expected,
+    counted: l.counted,
+    difference: l.difference,
+    unitCostCents: l.unitCostCents,
+    valueCents: l.unitCostCents ? l.difference.mul(l.unitCostCents) : null,
+    reason: l.reason ?? l.count.note,
+  }));
+}

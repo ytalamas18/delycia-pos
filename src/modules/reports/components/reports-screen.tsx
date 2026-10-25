@@ -16,6 +16,13 @@ import { Stat } from "./stat";
 import { parseCreditStatus } from "../domain/receivables";
 import { MoneyIn } from "./money-in";
 import { ReceivablesView } from "./receivables-view";
+import {
+  AdjustmentsReportView,
+  KardexReportView,
+  PayablesReportView,
+  PurchasesReportView,
+  StockReportView,
+} from "./stock-purchase-views";
 import { VoidsView } from "./voids-view";
 
 const VIEWS = [
@@ -23,10 +30,29 @@ const VIEWS = [
   { key: "productos", label: "Productos vendidos", report: "productos-vendidos", note: "solo órdenes cobradas; las anuladas van aparte y no suman" },
   { key: "anulaciones", label: "Anulaciones", report: "anulaciones", note: "por la hora en que se anuló" },
   { key: "fiados", label: "Cuentas por cobrar", report: "cuentas-por-cobrar", note: "fiados de órdenes del período (día de la orden)" },
-] as const;
+  { key: "stock", label: "Stock actual", report: "stock", note: "stock de hoy (las fechas no aplican)", group: "Inventario" },
+  { key: "stock-bajo", label: "Stock bajo", report: "stock-bajo", note: "bajo el mínimo o en negativo, hoy (las fechas no aplican)", group: "Inventario" },
+  { key: "kardex", label: "Kárdex", report: "kardex", note: "movimientos del ítem en el período", group: "Inventario" },
+  { key: "mermas", label: "Mermas y ajustes", report: "mermas", note: "diferencias de conteo físico en el período", group: "Inventario" },
+  { key: "compras", label: "Compras", report: "compras", note: "compras vigentes por fecha de compra", group: "Compras" },
+  { key: "por-pagar", label: "Cuentas por pagar", report: "cuentas-por-pagar", note: "saldo pendiente hoy (las fechas no aplican)", group: "Compras" },
+] as const satisfies readonly { key: string; label: string; report: string; note: string; group?: string }[];
+
+const GROUPS = ["Ventas", "Inventario", "Compras"] as const;
+const groupOf = (v: (typeof VIEWS)[number]) => ("group" in v ? v.group : "Ventas");
 type ViewKey = (typeof VIEWS)[number]["key"];
 
-type Params = { desde?: string; hasta?: string; vista?: string; cat?: string; orden?: string; estado?: string; cliente?: string };
+type Params = {
+  desde?: string;
+  hasta?: string;
+  vista?: string;
+  cat?: string;
+  orden?: string;
+  estado?: string;
+  cliente?: string;
+  tipo?: string;
+  item?: string;
+};
 
 const shortDate = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
 
@@ -40,24 +66,32 @@ export async function ReportsScreen({ params }: { params: Params }) {
   if (view === "productos" && params.orden) keep.orden = params.orden;
   if (view === "fiados" && params.estado) keep.estado = params.estado;
   if (view === "fiados" && params.cliente) keep.cliente = params.cliente;
+  if ((view === "stock" || view === "stock-bajo") && params.tipo) keep.tipo = params.tipo;
+  if ((view === "stock" || view === "stock-bajo") && params.cat) keep.cat = params.cat;
+  if (view === "kardex" && params.item) keep.item = params.item;
 
   return (
     <div className="max-w-6xl space-y-4">
       <h1 className="text-2xl font-bold">Reportes</h1>
-      <div className="flex flex-wrap gap-2" role="tablist">
-        {VIEWS.map((t) => (
-          <Link
-            key={t.key}
-            href={tabHref(t.key)}
-            role="tab"
-            aria-selected={view === t.key}
-            className={cn(
-              "flex h-11 items-center rounded-lg px-4 font-semibold",
-              view === t.key ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground",
-            )}
-          >
-            {t.label}
-          </Link>
+      <div className="space-y-2" role="tablist">
+        {GROUPS.map((g) => (
+          <div key={g} className="flex flex-wrap items-center gap-2">
+            <span className="w-24 text-sm font-medium text-muted-foreground">{g}</span>
+            {VIEWS.filter((t) => groupOf(t) === g).map((t) => (
+              <Link
+                key={t.key}
+                href={tabHref(t.key)}
+                role="tab"
+                aria-selected={view === t.key}
+                className={cn(
+                  "flex h-10 items-center rounded-lg px-4 font-semibold",
+                  view === t.key ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground",
+                )}
+              >
+                {t.label}
+              </Link>
+            ))}
+          </div>
         ))}
       </div>
       <RangeFilter range={range} keep={keep} />
@@ -75,6 +109,13 @@ export async function ReportsScreen({ params }: { params: Params }) {
       )}
       {view === "anulaciones" && <VoidsView range={range} />}
       {view === "fiados" && <ReceivablesView range={range} status={parseCreditStatus(params.estado)} customer={params.cliente ?? null} />}
+      {(view === "stock" || view === "stock-bajo") && (
+        <StockReportView type={params.tipo ?? null} categoryId={params.cat ?? null} onlyAlerts={view === "stock-bajo"} />
+      )}
+      {view === "kardex" && <KardexReportView productId={params.item ?? null} range={range} />}
+      {view === "mermas" && <AdjustmentsReportView range={range} />}
+      {view === "compras" && <PurchasesReportView range={range} />}
+      {view === "por-pagar" && <PayablesReportView />}
     </div>
   );
 }
