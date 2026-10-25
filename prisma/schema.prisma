@@ -613,3 +613,94 @@ model SupplierPayment {
   @@index([purchaseId])
   @@index([date])
 }
+
+// ============================================================================
+// INVENTARIO
+// ============================================================================
+
+enum StockMovementType {
+  /// Inventario inicial (puesta en marcha / carga rápida).
+  INITIAL
+  PURCHASE
+  PURCHASE_REVERSAL
+  /// Ingreso a inventario (producción de un Ingrediente).
+  PRODUCTION
+  SALE
+  SALE_REVERSAL
+  /// Diferencia de un conteo físico (merma o sobrante).
+  ADJUSTMENT
+  /// Salida rápida (ej. envase para sobras).
+  CONSUMPTION
+}
+
+/**
+ * Kárdex: TODO cambio de stock es un movimiento. El stock = suma de `quantity` (nunca se edita a mano).
+ * `refType`/`refId`/`refLineId` apuntan al documento de origen (orden, compra, producción, conteo...).
+ */
+model StockMovement {
+  id            String            @id @default(cuid())
+  productId     String
+  type          StockMovementType
+  /// + entra, − sale (en unidad base del ítem).
+  quantity      Decimal           @db.Decimal(12, 3)
+  /// Costo por unidad base al momento del movimiento (centavos con decimales).
+  unitCostCents Decimal?          @db.Decimal(14, 4)
+  businessDate  String
+  at            DateTime          @default(now())
+  userId        String?
+  refType       String
+  refId         String
+  refLineId     String?
+  note          String?
+  createdAt     DateTime          @default(now())
+
+  @@index([productId, at])
+  @@index([refType, refId])
+  @@index([refLineId])
+  @@index([businessDate])
+  @@index([type])
+}
+
+/// Ingreso a inventario de un Ingrediente producido en cocina.
+model ProductionEntry {
+  id            String   @id @default(cuid())
+  productId     String
+  productName   String
+  quantity      Decimal  @db.Decimal(12, 3)
+  unitCostCents Decimal? @db.Decimal(14, 4)
+  date          String
+  note          String?
+  userId        String
+  createdAt     DateTime @default(now())
+
+  @@index([date])
+}
+
+/// Conteo físico: lo contado vs. el stock teórico; la diferencia se registra como ajuste.
+model StockCount {
+  id        String           @id @default(cuid())
+  date      String
+  note      String?
+  userId    String
+  lines     StockCountLine[]
+  createdAt DateTime         @default(now())
+
+  @@index([date])
+}
+
+model StockCountLine {
+  id            String     @id @default(cuid())
+  countId       String
+  count         StockCount @relation(fields: [countId], references: [id])
+  productId     String
+  productName   String
+  expected      Decimal    @db.Decimal(12, 3)
+  counted       Decimal    @db.Decimal(12, 3)
+  /// counted − expected (negativo = merma, positivo = sobrante).
+  difference    Decimal    @db.Decimal(12, 3)
+  unitCostCents Decimal?   @db.Decimal(14, 4)
+  reason        String?
+
+  @@index([countId])
+  @@index([productId])
+}

@@ -100,6 +100,19 @@ export async function payOrder(orderId: string, input: PayOrderInput, userId: st
       number: order.number,
       totalCents: total,
       methods: result.payments.map((p) => p.method),
+      channel: order.channel,
+      items: order.items
+        .filter((i) => i.status === "ACTIVE")
+        .map((i) => ({
+          orderItemId: i.id,
+          productId: i.productId,
+          name: i.productName,
+          quantity: i.quantity,
+          modifiers: (i.modifiers as { name: string }[]).map((m) => m.name),
+          note: i.note,
+          serviceType: i.serviceType,
+          sendsToKitchen: i.sendsToKitchen,
+        })),
     });
     await reconcileClosure(tx, publish, orderId);
     return { number: order.number, totalCents: total, changeCents: result.changeCents };

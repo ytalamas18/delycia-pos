@@ -1,6 +1,7 @@
 import { createModuleRegistry } from "@/core/modules/registry";
 import type { ModuleDefinition } from "@/core/modules/types";
 import { catalogModule } from "@/modules/catalog";
+import { inventoryModule } from "@/modules/inventory";
 import { kitchenModule } from "@/modules/kitchen";
 import { purchasesModule } from "@/modules/purchases";
 import { reportsModule } from "@/modules/reports";
@@ -22,6 +23,7 @@ export const modules = createModuleRegistry([
   { definition: kitchenModule, enabled: true },
   { definition: reportsModule, enabled: true },
   { definition: purchasesModule, enabled: true },
+  { definition: inventoryModule, enabled: true },
   { definition: catalogModule, enabled: true },
   { definition: settingsModule, enabled: true },
 ]);

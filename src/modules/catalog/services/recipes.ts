@@ -214,3 +214,14 @@ export async function getRecipeView(productId: string) {
 }
 
 export type RecipeView = NonNullable<Awaited<ReturnType<typeof getRecipeView>>>;
+
+/** Costo por unidad de un Ingrediente según su receta de referencia (null si falta receta o rendimiento). */
+export async function recipeEstimate(productId: string): Promise<Decimal | null> {
+  const p = await db.product.findUnique({
+    where: { id: productId },
+    select: { recipeYield: true, recipeLines: { select: { quantity: true, component: { select: { lastCostCents: true } } } } },
+  });
+  if (!p) return null;
+  const lines = p.recipeLines.map((l) => ({ quantity: l.quantity, unitCostCents: l.component.lastCostCents }));
+  return ingredientUnitCost(lines, p.recipeYield).unitCostCents;
+}

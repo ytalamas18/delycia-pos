@@ -10,6 +10,7 @@ import { appConfig } from "@/core/config/app";
 import { can } from "@/core/auth/permissions";
 import { getSession } from "@/core/auth/server";
 import { getSetting } from "@/core/settings";
+import { StockAlertLink } from "@/modules/inventory";
 import { KitchenMessageButton, quickMessagesSetting } from "@/modules/kitchen";
 import { ReadyNotifier } from "@/modules/sales";
 
@@ -28,6 +29,7 @@ export default async function CajaLayout({ children }: LayoutProps<"/">) {
         <span className="text-xl font-bold text-primary">{appConfig.businessName}</span>
         <AppNav items={items} />
         <div className="ml-auto flex items-center gap-2">
+          {modules.isEnabled("inventory") && can(session.role, "inventory.manage") && <StockAlertLink />}
           {canMessageKitchen && <KitchenMessageButton quickMessages={quickMessages} />}
           <ThemeToggle section="pos" />
           <span className="text-sm text-muted-foreground">{session.name}</span>

@@ -133,6 +133,7 @@ async function lockOpenOrder(tx: Tx, orderId: string) {
 function toSnapshot(item: { id: string } & PricedLine): OrderItemSnapshot {
   return {
     orderItemId: item.id,
+    productId: item.productId,
     name: item.productName,
     quantity: item.quantity,
     modifiers: item.modifiers.map((m) => m.name),
@@ -287,6 +288,7 @@ export async function sendToKitchen(orderId: string) {
       label: orderLabel(order),
       items: pending.map((i) => ({
         orderItemId: i.id,
+        productId: i.productId,
         name: i.productName,
         quantity: i.quantity,
         modifiers: (i.modifiers as { name: string }[]).map((m) => m.name),

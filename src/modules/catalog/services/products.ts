@@ -1,5 +1,6 @@
 import { db } from "@/core/db/client";
 import { DomainError } from "@/core/errors";
+import { runProductGuards } from "@/core/hooks/product-guards";
 
 import {
   modifierInput,
@@ -53,6 +54,8 @@ export async function updateProduct(id: string, input: ProductInput) {
   const data = productInput.parse(input);
   await assertCategoryExists(data.categoryId);
   await assertRecipesStillValid(id, data.type, data.baseUnit);
+  const before = await db.product.findUniqueOrThrow({ where: { id }, select: { type: true, baseUnit: true, tracksStock: true } });
+  await runProductGuards({ productId: id, before, after: { type: data.type, baseUnit: data.baseUnit, tracksStock: data.tracksStock } });
   return db.product.update({ where: { id }, data });
 }
 

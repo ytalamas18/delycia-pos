@@ -32,7 +32,16 @@ export {
   type ItemType,
 } from "./domain/item-types";
 export { BASE_UNITS, compatibleUnits, toBaseQuantity, UNIT_LABEL, UNIT_SHORT, unitFactor, type BaseUnit } from "./domain/units";
-export { formatUnitCost, formatUnitCostInput, parseUnitCost } from "./domain/costs";
+export { formatCost, formatUnitCost, formatUnitCostInput, parseUnitCost } from "./domain/costs";
 export { RECIPE_CONDITION_LABEL, type RecipeCondition } from "./domain/recipe-conditions";
 export { stockConsumption, type SoldItem } from "./domain/recipes";
-export { getPurchasableItem, listPurchasableItems, setLastCost, type PurchasableItem } from "./services/purchasable";
+export {
+  getPurchasableItem,
+  listIngredients,
+  listPurchasableItems,
+  listTrackedItems,
+  setLastCost,
+  type PurchasableItem,
+} from "./services/purchasable";
+export { resolveConsumption, type ConsumptionLine, type SoldLine } from "./services/consumption";
+export { recipeEstimate, unitCosts } from "./services/recipes";

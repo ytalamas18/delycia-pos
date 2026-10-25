@@ -6,6 +6,8 @@ import type { SalesChannel, ServiceType } from "@/generated/prisma/enums";
  */
 export type OrderItemSnapshot = {
   orderItemId: string;
+  /** Producto del catálogo (Inventario lo usa para descontar stock según su receta). */
+  productId: string;
   name: string;
   quantity: number;
   modifiers: string[];
@@ -25,7 +27,15 @@ declare module "@/core/events/types" {
       customerName: string | null;
     };
     "order.item_added": { orderId: string; items: OrderItemSnapshot[] };
-    "order.paid": { orderId: string; number: number; totalCents: number; methods: string[] };
+    /** `items`: todos los ítems activos de la orden (Inventario descuenta los que aún no descontó). */
+    "order.paid": {
+      orderId: string;
+      number: number;
+      totalCents: number;
+      methods: string[];
+      channel: SalesChannel;
+      items: OrderItemSnapshot[];
+    };
     "order.closed": { orderId: string; number: number };
     /** Ítem anulado (con motivo). Si ya estaba en cocina, Cocina lo marca ANULADO en su comanda. */
     "order.item_voided": {

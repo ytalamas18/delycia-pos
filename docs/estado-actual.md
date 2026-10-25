@@ -16,7 +16,13 @@
   pago parcial con vencimiento, abonos (sin sobrepago, estado Pendiente/Parcial/Pagada, anular con motivo), anular
   compra (exige anular antes los pagos; emite `purchase.cancelled`). Cierre de caja: "Pagos a proveedores"; el
   efectivo resta del esperado (pantalla, PDF y 80 mm).
-- Sigue: **Fase 4** (inventario).
+- ✅ **Fase 4:** módulo `inventory`: kárdex (`StockMovement`, stock = suma), descuento por ventas con el primer
+  evento (`order.sent_to_kitchen` u `order.paid`, idempotente por `orderItemId`; PEYA = para llevar; receta +
+  modificadores; ignora lo sin stock) y reversa al anular ítem/orden; compras suman y su anulación revierte;
+  ingreso a inventario (costo de la receta o escrito); conteo físico (ajuste); salida rápida (Caja y Admin);
+  aviso "Stock: N bajo mínimo / en negativo" en la cabecera (Admin); no se cambia la unidad de un ítem con
+  movimientos (guarda en `core/hooks/product-guards`).
+- Sigue: **Fase 5** (carga rápida e importación Excel/CSV).
 
 ## Hecho
 
