@@ -62,6 +62,7 @@ resource "aws_cloudwatch_event_target" "ssm_failed" {
 
 data "aws_iam_policy_document" "alerts" {
   statement {
+    sid       = "EventBridge"
     actions   = ["sns:Publish"]
     resources = [aws_sns_topic.alerts.arn]
     principals {
@@ -75,6 +76,7 @@ data "aws_iam_policy_document" "alerts" {
     }
   }
   statement {
+    sid       = "CloudWatch"
     actions   = ["sns:Publish"]
     resources = [aws_sns_topic.alerts.arn]
     principals {
