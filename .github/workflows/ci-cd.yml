@@ -1,0 +1,116 @@
+# CI en cada push y PR: lint, typecheck y tests contra Postgres real.
+# CD solo en push a main con CI verde: construye las imágenes, las sube a ECR y despliega en la EC2 por SSM.
+# Variables del repo (Settings → Secrets and variables → Actions → Variables):
+#   AWS_DEPLOY_ROLE_ARN  rol de infra/terraform/github-oidc.tf (output github_deploy_role_arn)
+#   EC2_INSTANCE_ID      output instance_id
+#   BACKUPS_BUCKET       output backups_bucket
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }} # un deploy a medias nunca se cancela
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: delycia
+          POSTGRES_PASSWORD: delycia
+          POSTGRES_DB: delycia_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U delycia" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://delycia:delycia@localhost:5432/delycia_test?schema=public
+      TEST_DATABASE_URL: postgresql://delycia:delycia@localhost:5432/delycia_test?schema=public
+      SESSION_SECRET: ci-secret-solo-para-tests
+      TZ: America/La_Paz
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  deploy:
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # Sin "environment:": cambiaría el "sub" del token OIDC y el rol (que exige ref main) lo rechazaría.
+    permissions:
+      contents: read
+      id-token: write # OIDC: credenciales temporales de AWS, sin claves guardadas
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: sa-east-1
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Imagen app (runner)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runner
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/delycia-pos:app-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Imagen migrate (build, trae Prisma CLI)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: build
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/delycia-pos:migrate-${{ github.sha }}
+          cache-from: type=gha
+
+      - name: Desplegar en la EC2 (SSM Run Command)
+        env:
+          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          BUCKET: ${{ vars.BACKUPS_BUCKET }}
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          SHA: ${{ github.sha }}
+        run: |
+          CMD="set -e; cd /opt/delycia && git fetch --depth 1 origin $SHA && git reset --hard $SHA && bash infra/scripts/deploy.sh $SHA $REGISTRY $BUCKET"
+          ID=$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript \
+            --comment "deploy ${SHA:0:7}" --timeout-seconds 600 \
+            --parameters "$(jq -nc --arg c "$CMD" '{commands:[$c], executionTimeout:["1500"]}')" \
+            --query Command.CommandId --output text)
+          echo "Comando SSM: $ID"
+          while :; do
+            sleep 10
+            STATUS=$(aws ssm get-command-invocation --command-id "$ID" --instance-id "$INSTANCE_ID" --query Status --output text 2>/dev/null || echo Pending)
+            echo "  $STATUS"
+            case "$STATUS" in Pending|InProgress|Delayed) ;; *) break ;; esac
+          done
+          aws ssm get-command-invocation --command-id "$ID" --instance-id "$INSTANCE_ID" \
+            --query '[StandardOutputContent,StandardErrorContent]' --output text | tail -60
+          [ "$STATUS" = Success ]

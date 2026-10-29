@@ -97,4 +97,8 @@ Nada de esta etapa cobra. Se puede quitar la asignación en Identity Center, bor
 
 ## Bitácora
 
-_(se completa al terminar: fecha, cuenta verificada, problemas encontrados)_
+29/10/2026. Root con MFA y sin access keys (verificado con `aws iam get-account-summary`). Identity Center se
+activó con AWS Organizations; usuario `yasser` sin grupo + `AdministratorAccess`. Perfil `delycia` escrito a mano
+en `~/.aws/config`. Problema: `aws sso login` quedó esperando el retorno del navegador → se usó
+`--use-device-code`. Budget `delycia-mensual` US$30 (el gasto base real es ≈ US$31/mes). Terraform 1.17.1 en
+`~/.local/bin` (zip oficial + SHA256, sin apt). Detalle en `registro-terraform-ec2.md`.

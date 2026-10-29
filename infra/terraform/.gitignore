@@ -1,0 +1,10 @@
+# Estado y planes: guardan IDs y a veces secretos. Nunca al repo (es público).
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+# Valores propios de la cuenta (ID, correo). Ver los *.example.
+terraform.tfvars
+backend.hcl
+# Se commitea .terraform.lock.hcl (fija versiones de providers).

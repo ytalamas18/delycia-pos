@@ -18,13 +18,13 @@ recursos. Cambios en producción fuera del horario de atención (12:00-15:00).
 
 | # | Etapa | Qué aprendes | Estado |
 |---|---|---|---|
-| 0 | [Preparación](00-preparacion.md) | Cuenta AWS segura, IAM, CLI con perfil, Budgets, instalar Terraform | ⏳ |
-| 1 | Primer Terraform | `init` / `plan` / `apply` / `destroy`, estado remoto en S3, bucket de respaldos | — |
-| 2 | Importar la EC2 a Terraform | `terraform import`: traer la EC2, su Security Group y la Elastic IP actuales; luego agregar rol IAM con SSM y cerrar el puerto 22 | — |
-| 3 | Respaldos automáticos | `pg_dump` diario a S3 con retención de 30 días; probar una restauración | — |
-| 4 | CI | GitHub Actions: lint, typecheck y tests en cada push | — |
-| 5 | CD | OIDC (sin claves guardadas), imagen en ECR, deploy por SSM al hacer push a `main` | — |
-| 6 | Extras | Alarma CloudWatch con auto-recovery, HTTPS | — |
+| 0 | [Preparación](00-preparacion.md) | Cuenta AWS segura, IAM, CLI con perfil, Budgets, instalar Terraform | ✅ 29/10 |
+| 1 | Primer Terraform | `init` / `plan` / `apply` / `destroy`, estado remoto en S3, bucket de respaldos | ✅ estado · ⏳ respaldos |
+| 2 | Importar la EC2 a Terraform | `terraform import`: traer la EC2, su Security Group y la Elastic IP actuales; luego agregar rol IAM con SSM y cerrar el puerto 22 | ✅ import · ⏳ rol y 22 |
+| 3 | Respaldos automáticos | `pg_dump` diario a S3 con retención de 30 días; probar una restauración | ⏳ escrito |
+| 4 | CI | GitHub Actions: lint, typecheck y tests en cada push | ✅ escrito |
+| 5 | CD | OIDC (sin claves guardadas), imagen en ECR, deploy por SSM al hacer push a `main` | ⏳ escrito |
+| 6 | Extras | Alarma CloudWatch con auto-recovery, HTTPS | ⏳ alarmas · ❌ HTTPS |
 
 **Decidido por Yasser (27/10/2026):** se **importa la EC2 actual** (`t3.small`, x86, VPC por defecto) en vez de
 crear una nueva. Consecuencias:
@@ -34,6 +34,8 @@ crear una nueva. Consecuencias:
   arquitectura): se fijan con `lifecycle { ignore_changes = [...] }` y se revisa cada `plan` buscando
   `must be replaced`. Pasar a `t4g` (ARM) no es posible sin reemplazarla.
 - Antes de importar: respaldo `pg_dump` fuera de la EC2 y un snapshot del disco (EBS).
+
+Lo hecho por el agente, paso a paso y con comandos: **[registro-terraform-ec2.md](registro-terraform-ec2.md)**.
 
 ## Mapa general (a dónde llegamos)
 

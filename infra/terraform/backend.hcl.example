@@ -1,0 +1,2 @@
+# Copiar a backend.hcl (fuera de git) y usar: terraform init -backend-config=backend.hcl
+bucket = "delycia-tfstate-<ACCOUNT_ID>"
