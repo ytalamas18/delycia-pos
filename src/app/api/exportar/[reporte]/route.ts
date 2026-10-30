@@ -14,7 +14,7 @@ type Exporter = { module: string; permission: Permission; build: (params: Record
 const exporters: Record<string, Exporter> = {
   historial: {
     module: "sales",
-    permission: "sales.sell",
+    permission: "sales.history",
     build: (p) => {
       const date = /^\d{4}-\d{2}-\d{2}$/.test(p.fecha ?? "") ? p.fecha : businessDate();
       return buildHistoryExport(date, p);
@@ -36,7 +36,7 @@ export async function GET(request: Request, { params }: RouteContext<"/api/expor
   if (!exporter || !modules.isEnabled(exporter.module)) return Response.json({ error: "Reporte no encontrado" }, { status: 404 });
 
   const session = await getSession();
-  if (!session || !can(session.role, exporter.permission)) return Response.json({ error: "Sin permiso" }, { status: 403 });
+  if (!session || !can(session, exporter.permission)) return Response.json({ error: "Sin permiso" }, { status: 403 });
 
   const search = new URL(request.url).searchParams;
   const format = parseExportFormat(search.get("formato"));

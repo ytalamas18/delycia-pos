@@ -9,7 +9,7 @@ import { OpenOrders, PaidInProgress } from "@/modules/sales";
 
 export default async function OrdenesPage() {
   requireModule("sales");
-  await requirePermission("sales.sell");
+  await requirePermission("sales.pos");
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">

@@ -4,7 +4,7 @@ import { requirePermission } from "@/core/auth/server";
 import { Kardex } from "@/modules/inventory";
 
 export default async function KardexPage({ params }: PageProps<"/inventario/[id]">) {
-  await requirePermission("inventory.manage");
+  await requirePermission("inventory.view");
   const { id } = await params;
   return (
     <>

@@ -1,69 +1,80 @@
 "use client";
 
 import { Delete } from "lucide-react";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 import { loginAction, type LoginState } from "./actions";
 
-type LoginUser = { id: string; name: string; role: string };
-
 const PIN_LENGTH = 4;
+/** El último usuario que entró en este aparato (comodidad: no es un dato de seguridad). */
+const LAST_USER_KEY = "delycia.login.username";
 
-export function LoginForm({ users }: { users: LoginUser[] }) {
-  const [userId, setUserId] = useState<string | null>(null);
+export function LoginForm() {
+  const [username, setUsername] = useState("");
   const [pin, setPin] = useState("");
   const [state, formAction, pending] = useActionState<LoginState, FormData>(loginAction, {});
   const formRef = useRef<HTMLFormElement>(null);
+  const pinPadRef = useRef<HTMLDivElement>(null);
 
-  const selected = users.find((u) => u.id === userId);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LAST_USER_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- se lee del aparato al montar
+      if (saved) setUsername(saved);
+    } catch {}
+  }, []);
 
   function press(digit: string) {
     if (pending) return;
     const next = (pin + digit).slice(0, PIN_LENGTH);
     setPin(next);
     // Con el 4.º dígito se envía solo, como en un POS.
-    if (next.length === PIN_LENGTH) setTimeout(() => formRef.current?.requestSubmit(), 0);
-  }
-
-  if (!selected) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>¿Quién eres?</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3">
-          {users.map((u) => (
-            <Button key={u.id} size="lg" variant="outline" className="h-20 text-xl" onClick={() => setUserId(u.id)}>
-              {u.name}
-            </Button>
-          ))}
-        </CardContent>
-      </Card>
-    );
+    if (next.length === PIN_LENGTH && username.trim()) setTimeout(() => formRef.current?.requestSubmit(), 0);
   }
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>Hola, {selected.name}</CardTitle>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setUserId(null);
+      <CardHeader>
+        <CardTitle>Iniciar sesión</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <form
+          ref={formRef}
+          className="space-y-2"
+          action={(fd) => {
+            try {
+              localStorage.setItem(LAST_USER_KEY, username.trim().toLowerCase());
+            } catch {}
+            formAction(fd);
             setPin("");
           }}
         >
-          Cambiar
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <form ref={formRef} action={(fd) => { formAction(fd); setPin(""); }}>
-          <input type="hidden" name="userId" value={selected.id} />
+          <Label htmlFor="username">Usuario</Label>
+          <Input
+            id="username"
+            name="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            required
+            className="h-12 text-lg"
+            onKeyDown={(e) => {
+              // Enter en el usuario pasa al teclado del PIN en vez de enviar sin PIN.
+              if (e.key === "Enter" && pin.length < PIN_LENGTH) {
+                e.preventDefault();
+                pinPadRef.current?.querySelector("button")?.focus();
+              }
+            }}
+          />
           <input type="hidden" name="pin" value={pin} />
         </form>
 
@@ -79,7 +90,7 @@ export function LoginForm({ users }: { users: LoginUser[] }) {
           {pending ? "Verificando…" : state.error}
         </p>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div ref={pinPadRef} className="grid grid-cols-3 gap-3">
           {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
             <Button key={d} size="lg" variant="secondary" className="h-16 text-2xl" onClick={() => press(d)}>
               {d}

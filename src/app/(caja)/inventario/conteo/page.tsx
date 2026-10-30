@@ -3,7 +3,7 @@ import { businessDate } from "@/core/time";
 import { CountForm, countFormData, InventoryNav } from "@/modules/inventory";
 
 export default async function ConteoPage() {
-  await requirePermission("inventory.manage");
+  await requirePermission("inventory.count");
   const items = await countFormData();
   return (
     <>

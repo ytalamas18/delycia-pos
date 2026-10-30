@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { isWeakPin, randomPin } from "@/core/auth/pin";
-import { authenticate, changeUserPin, LOCK_MINUTES, MAX_PIN_ATTEMPTS } from "@/core/auth/service";
+import { authenticate, LOCK_MINUTES, MAX_PIN_ATTEMPTS } from "@/core/auth/service";
 import { db, disconnectDb } from "@/core/db/client";
 
 import { seed } from "../../prisma/seed-data";
@@ -9,20 +9,18 @@ import { resetDatabase } from "../support/db";
 
 const PINS = { Admin: "4817", Caja: "5930", Cocina: "6271" };
 
-describe("PIN y login", () => {
-  let adminId: string;
+describe("login con usuario y PIN", () => {
   let cajaId: string;
 
   beforeAll(async () => {
     await resetDatabase();
     const { users } = await seed(db, PINS);
-    expect(users.map((u) => [u.name, u.generated])).toEqual([
-      ["Admin", false],
-      ["Caja", false],
-      ["Cocina", false],
+    expect(users.map((u) => [u.username, u.generated])).toEqual([
+      ["admin", false],
+      ["caja", false],
+      ["cocina", false],
     ]);
-    adminId = (await db.user.findUniqueOrThrow({ where: { name: "Admin" } })).id;
-    cajaId = (await db.user.findUniqueOrThrow({ where: { name: "Caja" } })).id;
+    cajaId = (await db.user.findUniqueOrThrow({ where: { username: "caja" } })).id;
   });
   afterAll(disconnectDb);
 
@@ -44,36 +42,38 @@ describe("PIN y login", () => {
     expect((await seed(db, {})).users).toEqual([]);
     await resetDatabase();
     await seed(db, PINS);
-    adminId = (await db.user.findUniqueOrThrow({ where: { name: "Admin" } })).id;
-    cajaId = (await db.user.findUniqueOrThrow({ where: { name: "Caja" } })).id;
+    cajaId = (await db.user.findUniqueOrThrow({ where: { username: "caja" } })).id;
   }, 30_000);
 
-  it("bloquea tras varios fallos seguidos y desbloquea al pasar el tiempo", async () => {
+  it("entra con usuario (sin distinguir mayúsculas) y PIN, con el rol y sus permisos", async () => {
+    const r = await authenticate("  CAJA ", PINS.Caja);
+    expect(r).toMatchObject({ ok: true, user: { userId: cajaId, name: "Caja", roleName: "Caja", isAdmin: false } });
+    if (!r.ok) throw new Error();
+    expect(r.user.permissions).toContain("sales.pos");
+    expect(r.user.permissions).not.toContain("reports.view");
+  });
+
+  it("usuario inexistente, PIN incorrecto o usuario inactivo: mismo resultado", async () => {
+    expect(await authenticate("nadie", PINS.Caja)).toEqual({ ok: false, reason: "invalid" });
+    expect(await authenticate("caja", "0429")).toEqual({ ok: false, reason: "invalid" });
+    await db.user.update({ where: { id: cajaId }, data: { active: false } });
+    expect(await authenticate("caja", PINS.Caja)).toEqual({ ok: false, reason: "invalid" });
+    await db.user.update({ where: { id: cajaId }, data: { active: true, failedPinAttempts: 0 } });
+  });
+
+  it("bloquea por usuario tras varios fallos seguidos y desbloquea al pasar el tiempo", async () => {
     const t0 = new Date("2026-10-17T16:00:00Z");
     for (let i = 1; i < MAX_PIN_ATTEMPTS; i++) {
-      expect(await authenticate(cajaId, "0001", t0)).toEqual({
-        ok: false,
-        reason: "invalid",
-      });
+      expect(await authenticate("caja", "0001", t0)).toEqual({ ok: false, reason: "invalid" });
     }
-    expect(await authenticate(cajaId, "0001", t0)).toEqual({
-      ok: false,
-      reason: "locked",
-      minutesLeft: LOCK_MINUTES,
-    });
-    // Bloqueado: ni el PIN correcto entra.
+    expect(await authenticate("caja", "0001", t0)).toEqual({ ok: false, reason: "locked", minutesLeft: LOCK_MINUTES });
+    // Bloqueado: ni el PIN correcto entra. Los demás usuarios siguen entrando.
     const t1 = new Date(t0.getTime() + 5 * 60_000);
-    expect(await authenticate(cajaId, PINS.Caja, t1)).toEqual({
-      ok: false,
-      reason: "locked",
-      minutesLeft: LOCK_MINUTES - 5,
-    });
+    expect(await authenticate("caja", PINS.Caja, t1)).toEqual({ ok: false, reason: "locked", minutesLeft: LOCK_MINUTES - 5 });
+    expect((await authenticate("cocina", PINS.Cocina, t1)).ok).toBe(true);
     // Pasado el bloqueo entra y el contador vuelve a cero.
     const t2 = new Date(t0.getTime() + LOCK_MINUTES * 60_000 + 1);
-    expect(await authenticate(cajaId, PINS.Caja, t2)).toMatchObject({
-      ok: true,
-      user: { name: "Caja", role: "CASHIER" },
-    });
+    expect(await authenticate("caja", PINS.Caja, t2)).toMatchObject({ ok: true, user: { name: "Caja" } });
     expect(await db.user.findUniqueOrThrow({ where: { id: cajaId } })).toMatchObject({
       failedPinAttempts: 0,
       lockedUntil: null,
@@ -81,30 +81,9 @@ describe("PIN y login", () => {
   });
 
   it("un acierto reinicia el contador de fallos", async () => {
-    await authenticate(cajaId, "0001");
-    await authenticate(cajaId, "0001");
-    expect((await authenticate(cajaId, PINS.Caja)).ok).toBe(true);
+    await authenticate("caja", "0001");
+    await authenticate("caja", "0001");
+    expect((await authenticate("caja", PINS.Caja)).ok).toBe(true);
     expect((await db.user.findUniqueOrThrow({ where: { id: cajaId } })).failedPinAttempts).toBe(0);
-  });
-
-  it("el Admin cambia un PIN confirmando con el suyo; quita el bloqueo", async () => {
-    for (let i = 0; i < MAX_PIN_ATTEMPTS; i++) await authenticate(cajaId, "0001");
-    expect((await authenticate(cajaId, PINS.Caja)).ok).toBe(false);
-
-    const base = { adminId, adminPin: PINS.Admin, userId: cajaId };
-    await expect(
-      changeUserPin({
-        ...base,
-        adminPin: "9999",
-        newPin: "3816",
-        confirmPin: "3816",
-      }),
-    ).rejects.toThrow("Tu PIN de Admin no es correcto.");
-    await expect(changeUserPin({ ...base, newPin: "1234", confirmPin: "1234" })).rejects.toThrow("muy fácil");
-    await expect(changeUserPin({ ...base, newPin: "3816", confirmPin: "3817" })).rejects.toThrow("no coinciden");
-
-    expect(await changeUserPin({ ...base, newPin: "3816", confirmPin: "3816" })).toBe("Caja");
-    expect((await authenticate(cajaId, PINS.Caja)).ok).toBe(false);
-    expect((await authenticate(cajaId, "3816")).ok).toBe(true);
   });
 });

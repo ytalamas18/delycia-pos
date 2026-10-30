@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { InventoryNav, StockTable } from "@/modules/inventory";
 
 export default async function InventarioPage({ searchParams }: PageProps<"/inventario">) {
-  await requirePermission("inventory.manage");
+  await requirePermission("inventory.view");
   const { alertas } = await searchParams;
   const onlyAlerts = alertas === "1";
   const chip = (active: boolean) =>

@@ -19,8 +19,8 @@ export const dynamic = "force-dynamic";
 export default async function CajaLayout({ children }: LayoutProps<"/">) {
   const session = await getSession();
   if (!session) redirect("/login");
-  const items = modules.navFor(session.role);
-  const canMessageKitchen = modules.isEnabled("kitchen") && can(session.role, "sales.sell");
+  const items = modules.navFor(session);
+  const canMessageKitchen = modules.isEnabled("kitchen") && can(session, "sales.messageKitchen");
   const quickMessages = canMessageKitchen ? await getSetting(quickMessagesSetting) : [];
 
   return (
@@ -29,7 +29,7 @@ export default async function CajaLayout({ children }: LayoutProps<"/">) {
         <span className="text-xl font-bold text-primary">{appConfig.businessName}</span>
         <AppNav items={items} />
         <div className="ml-auto flex items-center gap-2">
-          {modules.isEnabled("inventory") && can(session.role, "inventory.manage") && <StockAlertLink />}
+          {modules.isEnabled("inventory") && can(session, "inventory.view") && <StockAlertLink />}
           {canMessageKitchen && <KitchenMessageButton quickMessages={quickMessages} />}
           <ThemeToggle section="pos" />
           <span className="text-sm text-muted-foreground">{session.name}</span>

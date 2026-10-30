@@ -6,7 +6,7 @@ import { formatUnitCost } from "@/modules/catalog";
 import { InventoryNav, listProductions, ProductionForm, productionFormData } from "@/modules/inventory";
 
 export default async function IngresoPage() {
-  await requirePermission("inventory.manage");
+  await requirePermission("inventory.receive");
   const [ingredients, recent] = await Promise.all([productionFormData(), listProductions()]);
   return (
     <>

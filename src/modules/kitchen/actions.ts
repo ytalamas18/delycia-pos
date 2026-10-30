@@ -56,7 +56,7 @@ export async function acknowledgeVoidAction(ticketId: string): Promise<ActionRes
 // --- Mensajes de caja a cocina ---
 
 export async function sendKitchenMessageAction(text: string): Promise<ActionResult> {
-  const session = await requirePermission("sales.sell");
+  const session = await requirePermission("sales.messageKitchen");
   return toActionResult(async () => {
     const m = await messages.sendKitchenMessage(text, { userId: session.userId, name: session.name });
     return `Enviado a cocina: ${m.text}`;

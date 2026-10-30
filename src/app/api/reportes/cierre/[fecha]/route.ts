@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: Request, { params }: RouteContext<"/api/reportes/cierre/[fecha]">) {
   const session = await getSession();
-  if (!session || !can(session.role, "cash.close")) return Response.json({ error: "Sin permiso" }, { status: 403 });
+  if (!session || !can(session, "cash.close")) return Response.json({ error: "Sin permiso" }, { status: 403 });
 
   const { fecha } = await params;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return Response.json({ error: "Fecha inválida" }, { status: 400 });

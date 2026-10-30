@@ -16,7 +16,7 @@ function refresh() {
 }
 
 export async function createProductionAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
-  const session = await requirePermission("inventory.manage");
+  const session = await requirePermission("inventory.receive");
   return toActionResult(async () => {
     const e = await ops.createProduction(
       { productId: text(fd, "productId"), quantity: text(fd, "quantity"), date: text(fd, "date"), unitCost: text(fd, "unitCost"), note: text(fd, "note") },
@@ -28,7 +28,7 @@ export async function createProductionAction(_prev: ActionResult, fd: FormData):
 }
 
 export async function createCountAction(input: CountInput): Promise<ActionResult> {
-  const session = await requirePermission("inventory.manage");
+  const session = await requirePermission("inventory.count");
   return toActionResult(async () => {
     const c = await ops.createCount(input, session.userId);
     refresh();

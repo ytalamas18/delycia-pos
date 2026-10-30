@@ -1,15 +1,30 @@
 import { jwtVerify, SignJWT } from "jose";
 
-import type { Role } from "./permissions";
+import type { Permission } from "./permissions";
 
 /**
- * Sesión en una cookie firmada (JWT HS256). No guarda nada sensible: solo quién es y su perfil.
+ * Sesión en una cookie firmada (JWT HS256). Solo guarda quién es y la versión de su sesión: el rol y los
+ * permisos se leen de la base en cada request (así desactivar, cambiar el rol o los permisos aplica al
+ * instante). Resetear el PIN sube `sessionVersion` y la cookie vieja deja de valer.
  * Este archivo no usa APIs de Next, así sirve en el proxy, en el servidor y en tests.
  */
 export const SESSION_COOKIE = "delycia_session";
 export const SESSION_HOURS = 14; // cubre un turno largo
 
-export type SessionUser = { userId: string; name: string; role: Role };
+/** Lo que va en la cookie. */
+export type SessionClaims = { userId: string; sessionVersion: number };
+
+/** El usuario de la sesión, cargado de la base (ver loadSessionUser). */
+export type SessionUser = {
+  userId: string;
+  name: string;
+  username: string;
+  roleId: string;
+  roleName: string;
+  /** Rol Admin de sistema. */
+  isAdmin: boolean;
+  permissions: Permission[];
+};
 
 /**
  * ¿La cookie de sesión lleva el flag Secure? Solo si la app se sirve por HTTPS (si no, el navegador
@@ -30,21 +45,22 @@ function secretKey() {
   return new TextEncoder().encode(secret);
 }
 
-export async function createSessionToken(user: SessionUser): Promise<string> {
-  return new SignJWT({ name: user.name, role: user.role })
+export async function createSessionToken(claims: SessionClaims): Promise<string> {
+  return new SignJWT({ sv: claims.sessionVersion })
     .setProtectedHeader({ alg: "HS256" })
-    .setSubject(user.userId)
+    .setSubject(claims.userId)
     .setIssuedAt()
     .setExpirationTime(`${SESSION_HOURS}h`)
     .sign(secretKey());
 }
 
-export async function readSessionToken(token: string | undefined): Promise<SessionUser | null> {
+export async function readSessionToken(token: string | undefined): Promise<SessionClaims | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secretKey(), { algorithms: ["HS256"] });
-    if (!payload.sub || typeof payload.name !== "string" || typeof payload.role !== "string") return null;
-    return { userId: payload.sub, name: payload.name, role: payload.role as Role };
+    // Las cookies de antes de los roles no traen `sv`: no valen y piden entrar de nuevo.
+    if (!payload.sub || typeof payload.sv !== "number") return null;
+    return { userId: payload.sub, sessionVersion: payload.sv };
   } catch {
     return null;
   }

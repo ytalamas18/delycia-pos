@@ -1,22 +1,26 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
-import { can, homeFor, type Permission } from "./permissions";
+import { canAny, homeFor, type Permission } from "./permissions";
+import { loadSessionUser } from "./service";
 import { cookieSecure, readSessionToken, SESSION_COOKIE, SESSION_HOURS, type SessionUser } from "./session";
 
-export async function getSession(): Promise<SessionUser | null> {
+/** Usuario de la sesión con los permisos actuales de su rol (una consulta por request). */
+export const getSession = cache(async (): Promise<SessionUser | null> => {
   const store = await cookies();
-  return readSessionToken(store.get(SESSION_COOKIE)?.value);
-}
+  const claims = await readSessionToken(store.get(SESSION_COOKIE)?.value);
+  return claims ? loadSessionUser(claims) : null;
+});
 
 /**
- * Para páginas y Server Actions: exige sesión y permiso.
+ * Para páginas y Server Actions: exige sesión y permiso (con una lista, basta uno de ellos).
  * El proxy ya filtra por ruta; esto es la segunda barrera (las actions se pueden llamar directo).
  */
-export async function requirePermission(permission: Permission): Promise<SessionUser> {
+export async function requirePermission(permission: Permission | readonly Permission[]): Promise<SessionUser> {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (!can(session.role, permission)) redirect(homeFor(session.role));
+  if (!canAny(session, typeof permission === "string" ? [permission] : permission)) redirect(homeFor(session));
   return session;
 }
 

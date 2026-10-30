@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 /** Plantilla .xlsx para la carga rápida de ítems. */
 export async function GET() {
   const session = await getSession();
-  if (!session || !can(session.role, "catalog.manage")) return Response.json({ error: "Sin permiso" }, { status: 403 });
+  if (!session || !can(session, "catalog.manage")) return Response.json({ error: "Sin permiso" }, { status: 403 });
   const body = await buildImportTemplate();
   return new Response(new Uint8Array(body), {
     headers: {

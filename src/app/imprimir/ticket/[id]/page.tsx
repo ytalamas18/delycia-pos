@@ -12,7 +12,7 @@ const dateTime = new Intl.DateTimeFormat("es-BO", { dateStyle: "short", timeStyl
 
 /** Ticket del cliente (80 mm). No es factura. */
 export default async function ImprimirTicketPage({ params }: PageProps<"/imprimir/ticket/[id]">) {
-  await requirePermission("sales.sell");
+  await requirePermission(["sales.pos", "sales.history"]);
   const { id } = await params;
   const order = await getOrder(id);
   if (!order) notFound();

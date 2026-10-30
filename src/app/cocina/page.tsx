@@ -8,5 +8,5 @@ export default async function CocinaPage() {
   const session = await requirePermission("kitchen.view");
   const snapshot = await getKdsSnapshot();
   // Caja puede mirar la pantalla de cocina, pero solo cocina (y admin) cambian estados.
-  return <KdsBoard initial={snapshot} canOperate={can(session.role, "kitchen.operate")} />;
+  return <KdsBoard initial={snapshot} canOperate={can(session, "kitchen.operate")} />;
 }

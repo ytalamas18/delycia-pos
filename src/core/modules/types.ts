@@ -1,7 +1,3 @@
-import type { Role } from "../auth/permissions";
-
-export type { Role };
-
 /** Enlace del menú. Quién lo ve se decide por el permiso de su ruta (core/auth/permissions). */
 export type NavItem = {
   label: string;

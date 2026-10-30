@@ -7,7 +7,7 @@ const one = (v: string | string[] | undefined) => (typeof v === "string" && v ? 
 
 export default async function HistorialPage({ searchParams }: PageProps<"/historial">) {
   requireModule("sales");
-  await requirePermission("sales.sell");
+  await requirePermission("sales.history");
   const sp = await searchParams;
   const fecha = one(sp.fecha);
   const date = fecha && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? fecha : businessDate();

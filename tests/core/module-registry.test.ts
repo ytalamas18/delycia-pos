@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { createModuleRegistry } from "@/core/modules/registry";
+import { effectivePermissions } from "@/core/auth/permissions";
 import type { ModuleDefinition } from "@/core/modules/types";
+
+const ADMIN = { permissions: effectivePermissions({ systemKey: "ADMIN", permissions: [] }) };
+const CASHIER = { permissions: effectivePermissions({ systemKey: null, permissions: ["sales.pos", "kitchen.view"] }) };
+const KITCHEN = { permissions: effectivePermissions({ systemKey: null, permissions: ["kitchen.view"] }) };
 
 const sales: ModuleDefinition = {
   id: "sales",
@@ -27,7 +32,7 @@ describe("registro de módulos", () => {
     ]);
     expect(registry.isEnabled("sales")).toBe(true);
     expect(registry.isEnabled("kitchen")).toBe(false);
-    expect(registry.navFor("ADMIN").map((i) => i.href)).toEqual(["/pos"]);
+    expect(registry.navFor(ADMIN).map((i) => i.href)).toEqual(["/pos"]);
   });
 
   it("el menú respeta los mismos permisos que las rutas", () => {
@@ -36,8 +41,8 @@ describe("registro de módulos", () => {
       { definition: kitchen, enabled: true },
       { definition: catalog, enabled: true },
     ]);
-    expect(registry.navFor("ADMIN").map((i) => i.href)).toEqual(["/pos", "/cocina", "/catalogo"]);
-    expect(registry.navFor("CASHIER").map((i) => i.href)).toEqual(["/pos", "/cocina"]);
-    expect(registry.navFor("KITCHEN").map((i) => i.href)).toEqual(["/cocina"]);
+    expect(registry.navFor(ADMIN).map((i) => i.href)).toEqual(["/pos", "/cocina", "/catalogo"]);
+    expect(registry.navFor(CASHIER).map((i) => i.href)).toEqual(["/pos", "/cocina"]);
+    expect(registry.navFor(KITCHEN).map((i) => i.href)).toEqual(["/cocina"]);
   });
 });
