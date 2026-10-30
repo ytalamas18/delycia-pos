@@ -243,7 +243,7 @@ respaldos en S3 < US$0,01. SSM, OIDC, EventBridge, SNS por correo y GitHub Actio
 
 1. `restore-test.sh` en la EC2 después de ese apply.
 2. Revisar que el respaldo automático de las 23:00 llegue a S3.
-3. Cerrar el 22: borrar `aws_vpc_security_group_ingress_rule.ssh` (y su `import`) y aplicar. Desde ahí se
+3. Cerrar el 22 (`ssh.tfplan`, 30/10): regla e import borrados; falta `apply`. Desde ahí se
    entra con **Session Manager** (consola → EC2 → Connect → Session Manager, o
    `aws ssm start-session --target <id> --profile delycia`).
 4. Borrar el snapshot previo cuando haya una semana de respaldos.

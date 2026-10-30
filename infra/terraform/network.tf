@@ -14,13 +14,8 @@ resource "aws_vpc_security_group_ingress_rule" "http" {
   cidr_ipv4         = "0.0.0.0/0"
 }
 
-resource "aws_vpc_security_group_ingress_rule" "ssh" {
-  security_group_id = aws_security_group.pos.id
-  ip_protocol       = "tcp"
-  from_port         = 22
-  to_port           = 22
-  cidr_ipv4         = "0.0.0.0/0"
-}
+# Sin SSH (22 cerrado el 30/10/2026): se entra con Session Manager
+#   aws ssm start-session --target <instance_id> --profile delycia
 
 resource "aws_vpc_security_group_egress_rule" "all" {
   security_group_id = aws_security_group.pos.id

@@ -13,10 +13,6 @@ import {
   id = "sgr-010384324c67ecccc"
 }
 import {
-  to = aws_vpc_security_group_ingress_rule.ssh
-  id = "sgr-003aa6f7b6587ff6d"
-}
-import {
   to = aws_vpc_security_group_egress_rule.all
   id = "sgr-0252e0a325b84c8ce"
 }
