@@ -21,11 +21,16 @@ resource "aws_iam_role_policy_attachment" "ssm" {
 }
 
 data "aws_iam_policy_document" "pos" {
-  # Subir respaldos (no puede borrarlos ni leer otros buckets).
+  # Subir y bajar respaldos (restaurar / restore-test.sh). No puede borrarlos ni tocar otros buckets.
   statement {
     sid       = "Respaldos"
-    actions   = ["s3:PutObject"]
+    actions   = ["s3:PutObject", "s3:GetObject"]
     resources = ["${aws_s3_bucket.backups.arn}/*"]
+  }
+  statement {
+    sid       = "RespaldosListar"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.backups.arn]
   }
   # Bajar las imágenes de la app que construye GitHub Actions.
   statement {
