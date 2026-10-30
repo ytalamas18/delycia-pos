@@ -59,6 +59,14 @@ jobs:
       contents: read
       id-token: write # OIDC: credenciales temporales de AWS, sin claves guardadas
     steps:
+      - name: Variables del repo
+        env:
+          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          BUCKET: ${{ vars.BACKUPS_BUCKET }}
+        run: |
+          [ -n "$INSTANCE_ID" ] || { echo "::error::Falta la variable EC2_INSTANCE_ID (Settings → Secrets and variables → Actions → Variables)"; exit 1; }
+          [ -n "$BUCKET" ] || { echo "::error::Falta la variable BACKUPS_BUCKET (Settings → Secrets and variables → Actions → Variables)"; exit 1; }
+
       - uses: actions/checkout@v4
 
       - uses: aws-actions/configure-aws-credentials@v4
