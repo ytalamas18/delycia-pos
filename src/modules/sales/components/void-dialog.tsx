@@ -15,31 +15,33 @@ import type { VoidInput } from "../actions";
 const QUICK_REASONS = ["Error al cargar", "Cliente se arrepintió", "Cliente se fue", "Se cobró mal"];
 
 /**
- * Pide el motivo (obligatorio) y, si quien anula no es Admin, el PIN de un Admin.
+ * Pide el motivo (obligatorio) y, si el rol de quien anula no puede autorizar, el usuario y PIN de alguien
+ * que sí (ej. un Admin o un encargado).
  * `onConfirm` llama a la acción del servidor; si sale bien, se cierra.
  */
 export function VoidDialog({
   title,
   description,
-  needsAdminPin,
+  needsAuthorization,
   onConfirm,
   onClose,
 }: {
   title: string;
   description: string;
-  needsAdminPin: boolean;
+  needsAuthorization: boolean;
   onConfirm: (input: VoidInput) => Promise<ActionResult>;
   onClose: () => void;
 }) {
   const [reason, setReason] = useState("");
-  const [adminPin, setAdminPin] = useState("");
+  const [authUsername, setAuthUsername] = useState("");
+  const [authPin, setAuthPin] = useState("");
   const [state, setState] = useState<ActionResult | null>(null);
   const [pending, startTransition] = useTransition();
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     startTransition(async () => {
-      const result = await onConfirm({ reason, adminPin: needsAdminPin ? adminPin : undefined });
+      const result = await onConfirm(needsAuthorization ? { reason, authUsername, authPin } : { reason });
       if (result.ok) onClose();
       else setState(result);
     });
@@ -70,20 +72,37 @@ export function VoidDialog({
             />
             {state && <FieldError state={state} name="reason" />}
           </div>
-          {needsAdminPin && (
-            <div className="space-y-2">
-              <Label htmlFor="void-pin">PIN de Admin</Label>
-              <Input
-                id="void-pin"
-                type="password"
-                inputMode="numeric"
-                autoComplete="off"
-                maxLength={4}
-                value={adminPin}
-                onChange={(e) => setAdminPin(e.target.value.replace(/\D/g, ""))}
-              />
-              {state && <FieldError state={state} name="adminPin" />}
-            </div>
+          {needsAuthorization && (
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">Autoriza (usuario y PIN de un encargado)</legend>
+              <div className="grid grid-cols-[1fr_7rem] gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="void-user">Usuario</Label>
+                  <Input
+                    id="void-user"
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    value={authUsername}
+                    onChange={(e) => setAuthUsername(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="void-pin">PIN</Label>
+                  <Input
+                    id="void-pin"
+                    type="password"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={4}
+                    value={authPin}
+                    onChange={(e) => setAuthPin(e.target.value.replace(/\D/g, ""))}
+                  />
+                </div>
+              </div>
+              {state && <FieldError state={state} name="authUsername" />}
+              {state && <FieldError state={state} name="authPin" />}
+            </fieldset>
           )}
           {/* El error general solo si no se mostró ya junto a un campo. */}
           {state && !state.ok && !state.fieldErrors && <FormStatus state={state} />}
@@ -95,7 +114,7 @@ export function VoidDialog({
               type="submit"
               variant="destructive"
               size="lg"
-              disabled={pending || reason.trim().length < 3 || (needsAdminPin && adminPin.length !== 4)}
+              disabled={pending || reason.trim().length < 3 || (needsAuthorization && (!authUsername.trim() || authPin.length !== 4))}
             >
               <Ban /> {pending ? "Anulando…" : "Anular"}
             </Button>

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { requireModule } from "@/components/shell/require-module";
+import { can } from "@/core/auth/permissions";
 import { requirePermission } from "@/core/auth/server";
 import { getSetting } from "@/core/settings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import {
   getOpening,
   getOrder,
   OpeningForm,
+  salesAbilities,
   peyaMarkupSetting,
   PosScreen,
   type PosOrder,
@@ -18,9 +20,12 @@ import {
 
 export default async function PosPage({ searchParams }: PageProps<"/pos">) {
   requireModule("sales");
-  const session = await requirePermission("sales.sell");
+  const session = await requirePermission("sales.pos");
   // Antes de la primera venta del día hay que abrir la caja con el efectivo inicial.
   if (!(await getOpening(businessDate()))) {
+    if (!can(session, "cash.close")) {
+      return <p className="text-lg">La caja de hoy todavía no está abierta. Pide a quien la abre que lo haga para empezar a vender.</p>;
+    }
     return (
       <div className="flex flex-1 items-start justify-center pt-10">
         <Card className="w-full max-w-md">
@@ -99,9 +104,9 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
       products={products}
       peyaMarkupPercent={peya}
       order={posOrder}
-      openCheckout={cobrar === "1"}
+      openCheckout={cobrar === "1" && can(session, "sales.charge")}
       paid={paid}
-      isAdmin={session.role === "ADMIN"}
+      abilities={salesAbilities(session)}
     />
   );
 }

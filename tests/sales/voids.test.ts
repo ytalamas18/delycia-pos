@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
-import { authorizeWithAdminPin } from "@/core/auth/service";
+import { hashPin } from "@/core/auth/pin";
+import { authorizeAction } from "@/core/auth/service";
 import { db, disconnectDb } from "@/core/db/client";
 import { eventBus } from "@/core/db/transaction";
 import { businessDate } from "@/core/time";
@@ -31,8 +32,8 @@ const line = (productId: string, extra: Record<string, unknown> = {}) => ({
 async function fixtures() {
   await seed(db, { Admin: ADMIN_PIN, Caja: "5937", Cocina: "6048" }, { menu: false });
   await seedTestCatalog(db);
-  const caja = await db.user.findUniqueOrThrow({ where: { name: "Caja" } });
-  const admin = await db.user.findUniqueOrThrow({ where: { name: "Admin" } });
+  const caja = await db.user.findUniqueOrThrow({ where: { username: "caja" } });
+  const admin = await db.user.findUniqueOrThrow({ where: { username: "admin" } });
   const plato = await db.product.findFirstOrThrow({ where: { name: "Majadito (ejemplo)" } }); // 38 Bs
   const salchi = await db.product.findFirstOrThrow({ where: { name: "Salchipapa de pollo (ejemplo)" } }); // 30 Bs
   const gaseosa = await db.product.findFirstOrThrow({ where: { name: "Gaseosa 500 ml (ejemplo)" } }); // 10 Bs
@@ -218,12 +219,44 @@ describe("anular la orden completa", () => {
   });
 });
 
-describe("PIN de Admin para anular desde Caja", () => {
-  it("acepta el PIN del Admin y rechaza otro (con bloqueo por intentos)", async () => {
-    const { admin } = await fixtures();
-    await expect(authorizeWithAdminPin(ADMIN_PIN)).resolves.toMatchObject({ userId: admin.id, role: "ADMIN" });
-    await expect(authorizeWithAdminPin("5937")).rejects.toThrow(/incorrecto/); // PIN de Caja: no sirve
-    for (let i = 0; i < 3; i++) await expect(authorizeWithAdminPin("0000")).rejects.toThrow(/incorrecto/);
-    await expect(authorizeWithAdminPin("0001")).rejects.toThrow(/bloqueado/);
+describe("autorización de anulaciones con usuario y PIN", () => {
+  it("autoriza quien tenga el permiso, aunque no sea Admin; rechaza a quien no lo tiene", async () => {
+    const { caja, admin, plato } = await fixtures();
+    const supervisorRole = await db.role.create({
+      data: { name: "Supervisor", nameKey: "supervisor", permissions: ["sales.pos", "sales.void", "sales.void.authorize"] },
+    });
+    const sup = await db.user.create({
+      data: { name: "Sofía Supervisora", username: "sofia", roleId: supervisorRole.id, pinHash: await hashPin("7392") },
+    });
+
+    await expect(authorizeAction({ username: "admin", pin: ADMIN_PIN }, "sales.void.authorize")).resolves.toMatchObject({
+      userId: admin.id,
+      isAdmin: true,
+    });
+    const by = await authorizeAction({ username: "Sofia", pin: "7392" }, "sales.void.authorize");
+    expect(by).toMatchObject({ userId: sup.id, isAdmin: false, roleName: "Supervisor" });
+
+    // Caja tiene PIN correcto pero su rol no autoriza anulaciones.
+    await expect(authorizeAction({ username: "caja", pin: "5937" }, "sales.void.authorize")).rejects.toThrow(/no tiene permiso/);
+
+    // Anulación registrada con quién anuló (Caja) y quién autorizó (la supervisora).
+    const order = await orders.createOrder(dineIn, [line(plato.id)], caja.id);
+    await voids.cancelOrder(order.id, "Cliente se fue", { userId: caja.id, authorizedById: by.userId });
+    expect(await db.order.findUniqueOrThrow({ where: { id: order.id } })).toMatchObject({
+      status: "CANCELLED",
+      cancelledById: caja.id,
+      cancelAuthorizedById: sup.id,
+    });
+  });
+
+  it("mensaje genérico ante usuario o PIN incorrectos, con bloqueo por intentos", async () => {
+    await fixtures();
+    await expect(authorizeAction({ username: "nadie", pin: ADMIN_PIN }, "sales.void.authorize")).rejects.toThrow(/Usuario o PIN incorrecto/);
+    for (let i = 0; i < 4; i++) {
+      await expect(authorizeAction({ username: "admin", pin: "0429" }, "sales.void.authorize")).rejects.toThrow(/Usuario o PIN incorrecto/);
+    }
+    // Quinto fallo: queda bloqueado y ni el PIN correcto sirve (el mensaje sigue siendo el mismo).
+    await expect(authorizeAction({ username: "admin", pin: "0429" }, "sales.void.authorize")).rejects.toThrow(/Usuario o PIN incorrecto/);
+    await expect(authorizeAction({ username: "admin", pin: ADMIN_PIN }, "sales.void.authorize")).rejects.toThrow(/Usuario o PIN incorrecto/);
   });
 });

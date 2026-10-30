@@ -13,12 +13,12 @@ export function CancelOrderButton({
   orderId,
   number,
   wasPaid,
-  needsAdminPin,
+  needsAuthorization,
 }: {
   orderId: string;
   number: number;
   wasPaid: boolean;
-  needsAdminPin: boolean;
+  needsAuthorization: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -34,7 +34,7 @@ export function CancelOrderButton({
               ? "Ya está cobrada: el pago queda como DEVUELTO (devuelve el dinero al cliente) y no suma en la caja."
               : "La orden queda como Anulada (no se borra) y lo que esté en cocina se marca ANULADO."
           }
-          needsAdminPin={needsAdminPin}
+          needsAuthorization={needsAuthorization}
           onClose={() => setOpen(false)}
           onConfirm={(input) => cancelOrderAction(orderId, input)}
         />
@@ -48,12 +48,12 @@ export function VoidItemButton({
   orderId,
   itemId,
   label,
-  needsAdminPin,
+  needsAuthorization,
 }: {
   orderId: string;
   itemId: string;
   label: string;
-  needsAdminPin: boolean;
+  needsAuthorization: boolean;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -65,7 +65,7 @@ export function VoidItemButton({
         <VoidDialog
           title={`Anular ${label}`}
           description="Deja de sumar en la cuenta. Si ya está en cocina, se marca ANULADO allí."
-          needsAdminPin={needsAdminPin}
+          needsAuthorization={needsAuthorization}
           onClose={() => setOpen(false)}
           onConfirm={(input) => voidItemAction(orderId, itemId, input)}
         />

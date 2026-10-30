@@ -5,7 +5,7 @@ import { OrderDetail } from "@/modules/sales";
 
 export default async function OrdenDetallePage({ params }: PageProps<"/historial/[id]">) {
   requireModule("sales");
-  const session = await requirePermission("sales.sell");
+  await requirePermission("sales.history");
   const { id } = await params;
-  return <OrderDetail id={id} isAdmin={session.role === "ADMIN"} today={businessDate()} />;
+  return <OrderDetail id={id} today={businessDate()} />;
 }

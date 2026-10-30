@@ -6,7 +6,8 @@ import { z } from "zod";
 
 import { type ActionResult, toActionResult } from "@/core/actions/result";
 import { requirePermission } from "@/core/auth/server";
-import { authorizeWithAdminPin } from "@/core/auth/service";
+import { can } from "@/core/auth/permissions";
+import { authorizeAction } from "@/core/auth/service";
 import type { SessionUser } from "@/core/auth/session";
 import { DomainError } from "@/core/errors";
 import { parseMoney } from "@/core/money";
@@ -58,7 +59,7 @@ export async function createOrderAction(
   lines: DraftLineInput[],
   options: { send: boolean } = { send: false },
 ): Promise<ActionResult & { orderId?: string; number?: number }> {
-  const session = await requirePermission("sales.sell");
+  const session = await requirePermission("sales.pos");
   const out: { order?: { id: string; number: number } } = {};
   const result = await toActionResult(async () => {
     out.order = await orders.createOrder(header, lines, session.userId);
@@ -75,7 +76,7 @@ export async function saveOrderChangesAction(
   lines: DraftLineInput[],
   options: { send: boolean } = { send: false },
 ): Promise<ActionResult> {
-  await requirePermission("sales.sell");
+  await requirePermission("sales.pos");
   return toActionResult(async () => {
     await orders.updateOrderInfo(orderId, info);
     if (lines.length > 0) await orders.addItems(orderId, lines);
@@ -86,7 +87,7 @@ export async function saveOrderChangesAction(
 }
 
 export async function sendToKitchenAction(orderId: string): Promise<ActionResult> {
-  await requirePermission("sales.sell");
+  await requirePermission("sales.pos");
   return toActionResult(async () => {
     const { sentCount } = await orders.sendToKitchen(orderId);
     refreshSales();
@@ -95,7 +96,7 @@ export async function sendToKitchenAction(orderId: string): Promise<ActionResult
 }
 
 export async function updateItemAction(orderId: string, itemId: string, input: ItemUpdateInput): Promise<ActionResult> {
-  await requirePermission("sales.sell");
+  await requirePermission("sales.pos");
   return toActionResult(async () => {
     await orders.updateItem(orderId, itemId, input);
     refreshSales();
@@ -103,7 +104,7 @@ export async function updateItemAction(orderId: string, itemId: string, input: I
 }
 
 export async function removeItemAction(orderId: string, itemId: string): Promise<ActionResult> {
-  await requirePermission("sales.sell");
+  await requirePermission("sales.pos");
   return toActionResult(async () => {
     await orders.removeItem(orderId, itemId);
     refreshSales();
@@ -111,15 +112,16 @@ export async function removeItemAction(orderId: string, itemId: string): Promise
 }
 
 // ---------------------------------------------------------------------------
-// Anulaciones: un Admin anula directo; Caja necesita el PIN de un Admin.
+// Anulaciones: quien tiene "Autorizar anulaciones" anula directo; el resto necesita el usuario y PIN de
+// alguien con ese permiso.
 // ---------------------------------------------------------------------------
 
-export type VoidInput = { reason: string; adminPin?: string };
+export type VoidInput = { reason: string; authUsername?: string; authPin?: string };
 
-async function voidActor(session: SessionUser, adminPin?: string): Promise<voids.VoidActor> {
-  if (session.role === "ADMIN") return { userId: session.userId, authorizedById: session.userId };
-  const admin = await authorizeWithAdminPin(adminPin ?? "");
-  return { userId: session.userId, authorizedById: admin.userId };
+async function voidActor(session: SessionUser, input: VoidInput): Promise<voids.VoidActor> {
+  if (can(session, "sales.void.authorize")) return { userId: session.userId, authorizedById: session.userId };
+  const by = await authorizeAction({ username: input.authUsername ?? "", pin: input.authPin ?? "" }, "sales.void.authorize");
+  return { userId: session.userId, authorizedById: by.userId };
 }
 
 function refreshAfterVoid(orderId: string) {
@@ -131,9 +133,9 @@ function refreshAfterVoid(orderId: string) {
 }
 
 export async function voidItemAction(orderId: string, itemId: string, input: VoidInput): Promise<ActionResult> {
-  const session = await requirePermission("sales.sell");
+  const session = await requirePermission(["sales.void", "sales.void.authorize"]);
   return toActionResult(async () => {
-    const actor = await voidActor(session, input.adminPin);
+    const actor = await voidActor(session, input);
     await voids.voidItem(orderId, itemId, input.reason, actor);
     refreshAfterVoid(orderId);
     return "Ítem anulado";
@@ -141,9 +143,9 @@ export async function voidItemAction(orderId: string, itemId: string, input: Voi
 }
 
 export async function cancelOrderAction(orderId: string, input: VoidInput): Promise<ActionResult> {
-  const session = await requirePermission("sales.sell");
+  const session = await requirePermission(["sales.void", "sales.void.authorize"]);
   return toActionResult(async () => {
-    const actor = await voidActor(session, input.adminPin);
+    const actor = await voidActor(session, input);
     const r = await voids.cancelOrder(orderId, input.reason, actor);
     refreshAfterVoid(orderId);
     return `Orden #${r.number} anulada${r.wasPaid ? " (pago devuelto)" : ""}`;
@@ -159,8 +161,11 @@ export async function payOrderAction(
   orderId: string,
   input: { discount: DiscountInput; entries: PaymentEntry[]; customerName?: string | null },
 ): Promise<ActionResult> {
-  const session = await requirePermission("sales.sell");
+  const session = await requirePermission("sales.charge");
   const result = await toActionResult(async () => {
+    if (input.discount && input.discount.value > 0 && !can(session, "sales.discount")) {
+      throw new DomainError("Tu rol no permite dar descuentos.");
+    }
     await checkout.payOrder(orderId, input, session.userId);
     refreshSales();
     revalidatePath("/cuentas-por-cobrar");
@@ -170,7 +175,7 @@ export async function payOrderAction(
 }
 
 export async function collectCreditAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
-  const session = await requirePermission("sales.sell");
+  const session = await requirePermission("sales.credit");
   return toActionResult(async () => {
     const amount = String(fd.get("amount") ?? "");
     const r = await checkout.collectCredit(

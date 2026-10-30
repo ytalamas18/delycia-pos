@@ -23,6 +23,7 @@ import {
   updateItemAction,
   voidItemAction,
 } from "../actions";
+import type { SalesAbilities } from "../domain/abilities";
 import { addDraftLine, type DraftLine } from "../domain/lines";
 import { unitPriceFor } from "../domain/pricing";
 import { CheckoutDialog } from "./checkout-dialog";
@@ -49,7 +50,7 @@ export function PosScreen({
   order,
   openCheckout = false,
   paid = null,
-  isAdmin = false,
+  abilities,
 }: {
   categories: PosCategory[];
   products: PosProduct[];
@@ -59,8 +60,8 @@ export function PosScreen({
   openCheckout?: boolean;
   /** Orden recién cobrada: muestra el vuelto encima de una orden nueva. */
   paid?: PaidSummary | null;
-  /** Admin anula sin PIN; Caja necesita el PIN de un Admin. */
-  isAdmin?: boolean;
+  /** Qué botones ve según su rol (cobrar, descuento, anular). */
+  abilities: SalesAbilities;
 }) {
   const router = useRouter();
   const [header, setHeader] = useState<Header>(
@@ -192,15 +193,17 @@ export function PosScreen({
           {order && (
             <div className="flex items-center gap-2">
               <Badge variant="secondary">Por pagar</Badge>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive"
-                onClick={() => setEditing({ kind: "void-order" })}
-                disabled={pending}
-              >
-                <Ban className="size-4" /> Anular orden
-              </Button>
+              {abilities.void && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive"
+                  onClick={() => setEditing({ kind: "void-order" })}
+                  disabled={pending}
+                >
+                  <Ban className="size-4" /> Anular orden
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -256,7 +259,11 @@ export function PosScreen({
               takeaway={showTakeawayBadge(item.serviceType)}
               totalCents={item.unitPriceCents * item.quantity}
               locked={item.sentToKitchen}
-              onClick={() => setEditing(item.sentToKitchen ? { kind: "void-item", item } : { kind: "saved", item })}
+              onClick={() => {
+                // Lo que ya está en cocina solo se anula (si el rol lo permite).
+                if (!item.sentToKitchen) setEditing({ kind: "saved", item });
+                else if (abilities.void) setEditing({ kind: "void-item", item });
+              }}
             />
           ))}
           {drafts.map((line, index) => {
@@ -295,21 +302,23 @@ export function PosScreen({
               )}
             </div>
           )}
-          <div className="grid grid-cols-[auto_1fr_1fr] gap-2">
+          <div className={cn("grid gap-2", abilities.charge ? "grid-cols-[auto_1fr_1fr]" : "grid-cols-[auto_1fr]")}>
             <Button variant="outline" size="lg" onClick={resetToNewOrder} disabled={pending}>
               Nueva
             </Button>
             <Button variant="secondary" size="lg" onClick={() => save(false)} disabled={pending || !canSave}>
               Guardar
             </Button>
-            <Button
-              size="lg"
-              className="bg-green-600 text-white hover:bg-green-700"
-              onClick={charge}
-              disabled={pending || total === 0}
-            >
-              <Banknote /> Cobrar
-            </Button>
+            {abilities.charge && (
+              <Button
+                size="lg"
+                className="bg-green-600 text-white hover:bg-green-700"
+                onClick={charge}
+                disabled={pending || total === 0}
+              >
+                <Banknote /> Cobrar
+              </Button>
+            )}
           </div>
           <Button
             size="lg"
@@ -323,8 +332,9 @@ export function PosScreen({
         </div>
       </aside>
 
-      {checkoutOpen && order && (
+      {checkoutOpen && order && abilities.charge && (
         <CheckoutDialog
+          canDiscount={abilities.discount}
           order={{
             id: order.id,
             number: order.number,
@@ -381,7 +391,7 @@ export function PosScreen({
         <VoidDialog
           title={`Anular ${editing.item.quantity}× ${editing.item.productName}`}
           description="Ya está en cocina: se marcará ANULADO en la pantalla de cocina y deja de sumar en la cuenta."
-          needsAdminPin={!isAdmin}
+          needsAuthorization={abilities.voidNeedsAuthorization}
           onClose={() => setEditing(null)}
           onConfirm={async (input) => {
             const result = await voidItemAction(order.id, editing.item.id, input);
@@ -394,7 +404,7 @@ export function PosScreen({
         <VoidDialog
           title={`Anular la orden #${order.number}`}
           description="La orden queda como Anulada (no se borra) y lo que esté en cocina se marca ANULADO."
-          needsAdminPin={!isAdmin}
+          needsAuthorization={abilities.voidNeedsAuthorization}
           onClose={() => setEditing(null)}
           onConfirm={async (input) => {
             const result = await cancelOrderAction(order.id, input);

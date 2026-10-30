@@ -11,6 +11,7 @@ export {
   orderLabel,
 } from "./domain/labels";
 export { peyaMarkupSetting } from "./settings";
+export { salesAbilities, type SalesAbilities } from "./domain/abilities";
 export type { OrderItemSnapshot } from "./events";
 
 // Servicios de lectura para las páginas

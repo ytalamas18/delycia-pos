@@ -5,10 +5,13 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { can } from "@/core/auth/permissions";
+import { getSession } from "@/core/auth/server";
 import { appConfig } from "@/core/config/app";
 import { formatMoney } from "@/core/money";
 import { listTicketsForOrder, ticketStatusLabel } from "@/modules/kitchen";
 
+import { salesAbilities } from "../domain/abilities";
 import { orderLabel, orderStatusLabel, paymentMethodLabel, serviceTypeLabel } from "../domain/labels";
 import { getOrderDetail } from "../services/history";
 import { CancelOrderButton, VoidItemButton } from "./void-buttons";
@@ -17,13 +20,15 @@ const time = new Intl.DateTimeFormat("es-BO", { hour: "2-digit", minute: "2-digi
 const minutesBetween = (a: Date | null, b: Date | null) =>
   a && b ? `${Math.round((b.getTime() - a.getTime()) / 60_000)} min` : "—";
 
-export async function OrderDetail({ id, isAdmin = false, today }: { id: string; isAdmin?: boolean; today: string }) {
-  const order = await getOrderDetail(id);
-  if (!order) notFound();
+export async function OrderDetail({ id, today }: { id: string; today: string }) {
+  const [order, session] = await Promise.all([getOrderDetail(id), getSession()]);
+  if (!order || !session) notFound();
+  const abilities = salesAbilities(session);
   const tickets = await listTicketsForOrder(order.id);
   const wasPaid = order.status === "PAID" || order.status === "CLOSED";
   // Misma regla que el servicio: cobrada solo el mismo día; fiado con abonos, nunca.
   const canCancel =
+    abilities.void &&
     order.status !== "CANCELLED" &&
     (!wasPaid || order.businessDate === today) &&
     !order.payments.some((p) => p.method === "CREDIT" && p.collections.length > 0);
@@ -56,11 +61,16 @@ export async function OrderDetail({ id, isAdmin = false, today }: { id: string; 
             {orderStatusLabel[order.status]}
           </Badge>
           {canCancel && (
-            <CancelOrderButton orderId={order.id} number={order.number} wasPaid={wasPaid} needsAdminPin={!isAdmin} />
+            <CancelOrderButton
+              orderId={order.id}
+              number={order.number}
+              wasPaid={wasPaid}
+              needsAuthorization={abilities.voidNeedsAuthorization}
+            />
           )}
-          {order.status === "OPEN" && (
+          {order.status === "OPEN" && can(session, "sales.pos") && (
             <Button asChild>
-              <Link href={`/pos?orden=${order.id}`}>Abrir para cobrar</Link>
+              <Link href={`/pos?orden=${order.id}`}>{abilities.charge ? "Abrir para cobrar" : "Abrir orden"}</Link>
             </Button>
           )}
           <Button asChild variant="outline">
@@ -104,12 +114,12 @@ export async function OrderDetail({ id, isAdmin = false, today }: { id: string; 
                     </div>
                   )}
                 </div>
-                {order.status === "OPEN" && i.status === "ACTIVE" && (
+                {abilities.void && order.status === "OPEN" && i.status === "ACTIVE" && (
                   <VoidItemButton
                     orderId={order.id}
                     itemId={i.id}
                     label={`${i.quantity}× ${i.productName}`}
-                    needsAdminPin={!isAdmin}
+                    needsAuthorization={abilities.voidNeedsAuthorization}
                   />
                 )}
                 <span className={i.status === "VOIDED" ? "tabular-nums line-through opacity-60" : "tabular-nums"}>

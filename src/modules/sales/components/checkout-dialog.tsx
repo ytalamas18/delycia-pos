@@ -31,10 +31,13 @@ type Line = { method: PaymentMethod; text: string };
 
 export function CheckoutDialog({
   order,
+  canDiscount,
   onClose,
   onPaid,
 }: {
   order: { id: string; number: number; subtotalCents: number; channel: SalesChannel; customerName: string | null };
+  /** El rol permite dar descuento (si no, no se muestra el campo). */
+  canDiscount: boolean;
   onClose: () => void;
   onPaid: () => void;
 }) {
@@ -95,32 +98,34 @@ export function CheckoutDialog({
           <Row label="Total a cobrar" value={formatMoney(total)} strong />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="discount">Descuento (opcional)</Label>
-          <div className="flex gap-2">
-            <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
-              {(["AMOUNT", "PERCENT"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  aria-pressed={discountType === t}
-                  onClick={() => setDiscountType(t)}
-                  className={cn("h-10 w-14 rounded-md font-semibold", discountType === t && "bg-background shadow-sm")}
-                >
-                  {t === "AMOUNT" ? "Bs" : "%"}
-                </button>
-              ))}
+        {canDiscount && (
+          <div className="space-y-2">
+            <Label htmlFor="discount">Descuento (opcional)</Label>
+            <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+                {(["AMOUNT", "PERCENT"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-pressed={discountType === t}
+                    onClick={() => setDiscountType(t)}
+                    className={cn("h-10 w-14 rounded-md font-semibold", discountType === t && "bg-background shadow-sm")}
+                  >
+                    {t === "AMOUNT" ? "Bs" : "%"}
+                  </button>
+                ))}
+              </div>
+              <Input
+                id="discount"
+                inputMode="decimal"
+                value={discountText}
+                placeholder="0"
+                onChange={(e) => setDiscountText(e.target.value)}
+                className="w-32"
+              />
             </div>
-            <Input
-              id="discount"
-              inputMode="decimal"
-              value={discountText}
-              placeholder="0"
-              onChange={(e) => setDiscountText(e.target.value)}
-              className="w-32"
-            />
           </div>
-        </div>
+        )}
 
         <div className="space-y-2">
           <Label>
