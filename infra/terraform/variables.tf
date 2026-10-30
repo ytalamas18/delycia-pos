@@ -9,9 +9,11 @@ variable "alert_email" {
 }
 
 variable "github_repo" {
-  description = "Repositorio que puede desplegar con OIDC (dueño/nombre)."
+  description = "Repositorio que puede desplegar con OIDC, con IDs inmutables (dueño@id/nombre@id)."
   type        = string
-  default     = "ytalamas18/delycia-pos"
+  # GitHub firma el "sub" con los IDs numéricos (públicos, api.github.com/repos/<dueño>/<repo>): si alguien
+  # crea otra cuenta o repo con el mismo nombre, no coincide.
+  default = "ytalamas18@196281236/delycia-pos@1422801668"
 }
 
 variable "backup_retention_days" {
