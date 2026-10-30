@@ -12,7 +12,7 @@ import { seedTestCatalog } from "../support/test-catalog";
 async function fixtures() {
   await seed(db);
   await seedTestCatalog(db);
-  const user = await db.user.findUniqueOrThrow({ where: { name: "Caja" } });
+  const user = await db.user.findUniqueOrThrow({ where: { username: "caja" } });
   const plato = await db.product.findFirstOrThrow({ where: { name: "Majadito (ejemplo)" }, include: { modifiers: true } });
   const gaseosa = await db.product.findFirstOrThrow({ where: { name: "Gaseosa 500 ml (ejemplo)" } });
   const extraHuevo = plato.modifiers.find((m) => m.name === "Extra huevo")!;

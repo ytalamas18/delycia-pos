@@ -23,7 +23,7 @@ const takeaway = { channel: "LOCAL" as const, serviceType: "TAKEAWAY" as const, 
 async function fixtures() {
   await seed(db, { Admin: "4826", Caja: "5937", Cocina: "6048" }, { menu: false });
   await seedTestCatalog(db);
-  const caja = await db.user.findUniqueOrThrow({ where: { name: "Caja" } });
+  const caja = await db.user.findUniqueOrThrow({ where: { username: "caja" } });
   const plato = await db.product.findFirstOrThrow({ where: { name: "Majadito (ejemplo)" } }); // 38 Bs, Platos
   const gaseosa = await db.product.findFirstOrThrow({ where: { name: "Gaseosa 500 ml (ejemplo)" } }); // 10 Bs, Bebidas
   return { caja, plato, gaseosa, actor: { userId: caja.id, authorizedById: caja.id } };
@@ -147,7 +147,7 @@ describe("reportes contra la base", () => {
 
   it("anulaciones: órdenes e ítems por hora de anulación (La Paz), motivo agrupado y sin doble conteo", async () => {
     const { caja, plato, gaseosa } = await fixtures();
-    const admin = await db.user.findUniqueOrThrow({ where: { name: "Admin" } });
+    const admin = await db.user.findUniqueOrThrow({ where: { username: "admin" } });
     const actor = { userId: caja.id, authorizedById: admin.id };
 
     // 17/10 15:00: orden por pagar en cocina; se anula la gaseosa (no va a cocina) y después la orden entera.

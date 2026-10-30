@@ -23,8 +23,8 @@ const line = (productId: string, extra: Record<string, unknown> = {}) => ({
 async function fixtures() {
   await seed(db);
   await seedTestCatalog(db);
-  const user = await db.user.findUniqueOrThrow({ where: { name: "Cocina" } });
-  const caja = await db.user.findUniqueOrThrow({ where: { name: "Caja" } });
+  const user = await db.user.findUniqueOrThrow({ where: { username: "cocina" } });
+  const caja = await db.user.findUniqueOrThrow({ where: { username: "caja" } });
   const plato = await db.product.findFirstOrThrow({ where: { name: "Majadito (ejemplo)" }, include: { modifiers: true } });
   const salchi = await db.product.findFirstOrThrow({ where: { name: "Salchipapa de pollo (ejemplo)" } });
   const gaseosa = await db.product.findFirstOrThrow({ where: { name: "Gaseosa 500 ml (ejemplo)" } });

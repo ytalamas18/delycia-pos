@@ -11,6 +11,7 @@ import * as suppliers from "@/modules/purchases/services/suppliers";
 import * as history from "@/modules/sales/services/history";
 
 import { resetDatabase } from "../support/db";
+import { createTestUser } from "../support/users";
 
 async function setup() {
   const cat = await categories.createCategory({ name: "Insumos" });
@@ -20,7 +21,7 @@ async function setup() {
   const gas = await products.createProduct({ ...base, name: "Servilletas", type: "SUPPLY" }); // sin stock
   const bolsa = await products.addPresentation(pan.id, { name: "Bolsa x12", factor: "12" });
   const prov = await suppliers.createSupplier({ name: "Panadería Sol", phone: "70000000" });
-  const user = await db.user.create({ data: { name: "Admin", role: "ADMIN", pinHash: "x" } });
+  const user = await createTestUser(db);
   return { pan, carne, gas, bolsa, prov, user };
 }
 

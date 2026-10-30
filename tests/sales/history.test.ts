@@ -31,7 +31,7 @@ describe("historial y cierre de caja", () => {
   it("filtra el historial del día y arma el cierre con arqueo", async () => {
     await seed(db);
   await seedTestCatalog(db);
-    const caja = await db.user.findUniqueOrThrow({ where: { name: "Caja" } });
+    const caja = await db.user.findUniqueOrThrow({ where: { username: "caja" } });
     const plato = await db.product.findFirstOrThrow({ where: { name: "Majadito (ejemplo)" } });
     const gaseosa = await db.product.findFirstOrThrow({ where: { name: "Gaseosa 500 ml (ejemplo)" } });
     const today = businessDate();

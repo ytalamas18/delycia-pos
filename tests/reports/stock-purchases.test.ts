@@ -12,6 +12,7 @@ import * as purchases from "@/modules/purchases/services/purchases";
 import { getAdjustmentsReport, getKardexReport, getPayablesReport, getPurchasesReport, getStockReport } from "@/modules/reports/services/stock-purchases";
 
 import { resetDatabase } from "../support/db";
+import { createTestUser } from "../support/users";
 
 const today = businessDate();
 
@@ -26,7 +27,7 @@ afterAll(async () => {
 });
 
 async function setup() {
-  const user = await db.user.create({ data: { name: "Admin", role: "ADMIN", pinHash: "x" } });
+  const user = await createTestUser(db);
   const cat = await db.category.create({ data: { name: "Insumos" } });
   const base = { categoryId: cat.id, sendsToKitchen: false, active: true, type: "SUPPLY" as const, tracksStock: true };
   const pan = await products.createProduct({ ...base, name: "Pan", minStock: "30" });

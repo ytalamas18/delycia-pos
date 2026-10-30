@@ -17,8 +17,8 @@ seed(db)
     for (const u of r.users) {
       console.log(
         u.generated
-          ? `Usuario ${u.name} creado. PIN inicial: ${u.pin} (cámbialo en Ajustes)`
-          : `Usuario ${u.name} creado con el PIN de ${u.name.toUpperCase()}_PIN.`,
+          ? `Usuario ${u.username} creado. PIN inicial: ${u.pin} (cámbialo en Usuarios)`
+          : `Usuario ${u.username} creado con el PIN de ${u.name.toUpperCase()}_PIN.`,
       );
     }
   })

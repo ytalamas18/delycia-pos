@@ -17,7 +17,7 @@ describe("seed y ajustes", () => {
   afterAll(disconnectDb);
 
   it("carga usuarios con PIN hasheado", async () => {
-    const caja = await db.user.findUniqueOrThrow({ where: { name: "Caja" } });
+    const caja = await db.user.findUniqueOrThrow({ where: { username: "caja" } });
     expect(caja.pinHash).not.toBe("4827");
     expect(await verifyPin("4827", caja.pinHash)).toBe(true);
     expect(await db.user.count()).toBe(3);

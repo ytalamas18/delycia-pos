@@ -1,12 +1,14 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import { SYSTEM_ROLES, type SystemRoleKey } from "../src/core/auth/permissions";
 import { hashPin, randomPin } from "../src/core/auth/pin";
 import type { PrismaClient } from "../src/generated/prisma/client";
 
 /**
  * Datos iniciales. Se ejecuta en cada `docker compose up`, así que todo es idempotente:
- * - Usuarios y ajustes: solo se crean si no existen.
+ * - Roles de sistema, usuarios y ajustes: solo se crean si no existen (los roles ya los crea la migración;
+ *   aquí se repiten para bases vaciadas, como la de tests).
  * - Menú real de Delycia: se carga UNA sola vez (marca "seed.menuVersion"); después se
  *   administra desde Catálogo y reiniciar no pisa los cambios.
  * - Borra los productos de ejemplo de las primeras versiones ("(ejemplo)").
@@ -58,24 +60,47 @@ function pinsFromEnv(): SeedPins {
   return { Admin: process.env.ADMIN_PIN, Caja: process.env.CAJA_PIN, Cocina: process.env.COCINA_PIN };
 }
 
+/** Ids fijos de los roles de sistema (los mismos que usa la migración usuarios_y_roles). */
+const SYSTEM_ROLE_IDS: Record<SystemRoleKey, string> = { ADMIN: "role_admin", CASHIER: "role_cashier", KITCHEN: "role_kitchen" };
+
+/** Crea los roles de sistema que falten. No toca los existentes (sus permisos se editan en la app). */
+export async function seedRoles(db: PrismaClient) {
+  for (const [key, role] of Object.entries(SYSTEM_ROLES) as [SystemRoleKey, (typeof SYSTEM_ROLES)[SystemRoleKey]][]) {
+    await db.role.upsert({
+      where: { systemKey: key },
+      create: {
+        id: SYSTEM_ROLE_IDS[key],
+        name: role.name,
+        nameKey: role.name.toLowerCase(),
+        systemKey: key,
+        permissions: role.permissions === "all" ? [] : [...role.permissions],
+      },
+      update: {},
+    });
+  }
+}
+
 /**
- * Crea los 3 usuarios si no existen. El PIN sale de `pins` (o del entorno); si falta, se genera uno
- * aleatorio y se devuelve para mostrarlo UNA vez en la consola del seed. Después se cambian en Ajustes.
+ * Crea los 3 usuarios iniciales si no existen (usuario admin/caja/cocina, cada uno con su rol de sistema).
+ * El PIN sale de `pins` (o del entorno); si falta, se genera uno aleatorio y se devuelve para mostrarlo UNA
+ * vez en la consola del seed. Después se cambian en Usuarios.
  */
 export async function seedUsersAndSettings(db: PrismaClient, pins: SeedPins = pinsFromEnv()) {
+  await seedRoles(db);
   const users = [
     { name: "Admin", role: "ADMIN" as const },
     { name: "Caja", role: "CASHIER" as const },
     { name: "Cocina", role: "KITCHEN" as const },
   ];
-  const created: { name: string; pin: string; generated: boolean }[] = [];
+  const created: { name: string; username: string; pin: string; generated: boolean }[] = [];
   for (const u of users) {
-    const exists = await db.user.findUnique({ where: { name: u.name } });
+    const username = u.name.toLowerCase();
+    const exists = await db.user.findUnique({ where: { username } });
     if (exists) continue;
     const given = pins[u.name as keyof SeedPins];
     const pin = given || randomPin();
-    await db.user.create({ data: { name: u.name, role: u.role, pinHash: await hashPin(pin) } });
-    created.push({ name: u.name, pin, generated: !given });
+    await db.user.create({ data: { name: u.name, username, roleId: SYSTEM_ROLE_IDS[u.role], pinHash: await hashPin(pin) } });
+    created.push({ name: u.name, username, pin, generated: !given });
   }
   await db.setting.upsert({
     where: { key: "sales.peyaMarkupPercent" },

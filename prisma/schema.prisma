@@ -19,24 +19,57 @@ datasource db {
 // TRANSVERSAL (core)
 // ============================================================================
 
-enum Role {
+/// Perfil fijo de la primera versión (antes de los roles). Ya no se usa: se conserva para poder volver
+/// a la versión anterior sin perder datos y se borra en una migración futura.
+enum LegacyRole {
   ADMIN
   CASHIER
   KITCHEN
+
+  @@map("Role")
+}
+
+/// Rol: nombre + lista de permisos (claves del catálogo de core/auth/permissions.ts).
+/// Los roles de sistema (systemKey) se crean en la migración; el Admin tiene siempre todos los permisos
+/// (se calculan en código, `permissions` se ignora). Los roles no se borran: se desactivan.
+model Role {
+  id          String   @id @default(cuid())
+  name        String
+  /// Nombre normalizado (minúsculas, sin espacios extra): impide "Mesero" y "mesero".
+  nameKey     String   @unique
+  /// ADMIN | CASHIER | KITCHEN para los roles creados por el sistema; null para los creados en la app.
+  systemKey   String?  @unique
+  permissions String[]
+  active      Boolean  @default(true)
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // La tabla "Role" no puede existir: Postgres ya tiene el tipo enum "Role" (LegacyRole).
+  @@map("AccessRole")
 }
 
 model User {
-  id                String    @id @default(cuid())
-  name              String    @unique
+  id                String      @id @default(cuid())
+  /// Nombre completo (el que se muestra en historial, cierres, etc.).
+  name              String
+  /// Nombre de usuario para entrar, guardado en minúsculas (único sin distinguir mayúsculas).
+  username          String      @unique
   pinHash           String
-  role              Role
-  active            Boolean   @default(true)
+  roleId            String
+  role              Role        @relation(fields: [roleId], references: [id])
+  legacyRole        LegacyRole? @map("role")
+  active            Boolean     @default(true)
+  /// Sube al resetear el PIN: invalida las sesiones abiertas (la cookie guarda la versión).
+  sessionVersion    Int         @default(0)
   /// Intentos de PIN fallidos seguidos; al llegar al límite se bloquea un rato (lockedUntil).
-  failedPinAttempts Int       @default(0)
+  failedPinAttempts Int         @default(0)
   lockedUntil       DateTime?
-  orders            Order[]   @relation("OrderCreatedBy")
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  orders            Order[]     @relation("OrderCreatedBy")
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([roleId])
 }
 
 /// Outbox de eventos de dominio. El id secuencial es el Last-Event-ID del SSE.

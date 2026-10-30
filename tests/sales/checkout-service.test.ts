@@ -25,7 +25,7 @@ const line = (productId: string, extra: Record<string, unknown> = {}) => ({
 async function fixtures() {
   await seed(db);
   await seedTestCatalog(db);
-  const caja = await db.user.findUniqueOrThrow({ where: { name: "Caja" } });
+  const caja = await db.user.findUniqueOrThrow({ where: { username: "caja" } });
   const plato = await db.product.findFirstOrThrow({ where: { name: "Majadito (ejemplo)" } });
   const gaseosa = await db.product.findFirstOrThrow({ where: { name: "Gaseosa 500 ml (ejemplo)" } });
   return { caja, plato, gaseosa };

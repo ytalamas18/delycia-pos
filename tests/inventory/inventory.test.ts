@@ -18,6 +18,7 @@ import * as orders from "@/modules/sales/services/orders";
 import * as voids from "@/modules/sales/services/voids";
 
 import { resetDatabase } from "../support/db";
+import { createTestUser } from "../support/users";
 
 const today = businessDate();
 const line = (productId: string, extra: Record<string, unknown> = {}) => ({
@@ -43,7 +44,7 @@ afterAll(async () => {
 });
 
 async function setup() {
-  const user = await db.user.create({ data: { name: "Admin", role: "ADMIN", pinHash: "x" } });
+  const user = await createTestUser(db);
   const cat = await db.category.create({ data: { name: "Varios" } });
   const base = { categoryId: cat.id, active: true };
   const burger = await products.createProduct({ ...base, name: "Hamburguesa", type: "PREPARED", priceCents: "40", sendsToKitchen: true });
