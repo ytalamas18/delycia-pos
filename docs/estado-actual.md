@@ -1,6 +1,26 @@
-# Estado actual de la app — 24/10/2026
+# Estado actual de la app — 30/10/2026
 
-161 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: **compras, inventario y recetas completos (fases 1 a 6)**. Ver `docs/spec-compras-inventario.md`.
+178 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: **usuarios y roles** (ver abajo). Antes:
+compras, inventario y recetas completos (fases 1 a 6, `docs/spec-compras-inventario.md`).
+
+## Usuarios y roles (30/10/2026) — listo en código, falta desplegar
+
+- Admin/Caja/Cocina pasan a ser **roles**; los usuarios son personas con nombre completo, usuario (único, sin
+  mayúsculas), PIN y un rol. Pantallas `/usuarios` (crear, editar, cambiar rol, resetear PIN, desactivar) y
+  `/usuarios/roles` (crear, renombrar, desactivar, permisos con casillas agrupados por pantalla). Permiso
+  `users.manage` (solo Admin por defecto). El cambio de PIN salió de Ajustes.
+- Permisos en `core/auth/permissions.ts` (catálogo). `sales.sell` se dividió en POS, cobrar, descuento, anular,
+  autorizar anulaciones, historial, cuentas por cobrar y mensajes a cocina; `inventory.manage` en ver, ingreso y
+  conteo. Los roles de sistema quedan con lo mismo que podían hacer antes.
+- Login con usuario + PIN, error genérico, bloqueo por usuario. Anular desde Caja pide **usuario y PIN** de quien
+  autoriza (cualquier rol con "Autorizar anulaciones").
+- La sesión se valida contra la base en cada request: desactivar, cambiar rol/permisos o resetear el PIN aplica al
+  instante (corrige "cambiar un PIN no cierra las sesiones").
+- Migración `usuarios_y_roles` solo agrega: los 3 usuarios quedan `admin`/`caja`/`cocina` con su mismo PIN e id
+  (historial intacto). Probado: base creada con el código anterior → migración → login con los PIN de siempre.
+- **Al desplegar:** todos tienen que volver a entrar una vez (las cookies viejas no traen la versión de sesión) y
+  ahora escriben su usuario. Hacer respaldo antes.
+- Pendiente para después: borrar la columna vieja `User.role` (enum `LegacyRole`) cuando producción esté estable.
 
 ## En curso: compras, inventario y recetas (`docs/spec-compras-inventario.md`)
 
@@ -31,13 +51,13 @@
 
 ## Hecho
 
-Catálogo (CRUD, modificadores, modificador a toda una categoría) · login PIN con 3 perfiles · pantalla de venta
+Catálogo (CRUD, modificadores, modificador a toda una categoría) · login con usuario + PIN, roles y permisos · pantalla de venta
 (canal Local/PEYA, comer aquí/para llevar por ítem, mesa y cliente) · envío a cocina solo de ítems nuevos y
 adicionales · KDS en tiempo real (alarma ~6 s, deshacer, imprimir comanda 80 mm, "lista" = entregada) ·
 mensajes caja→cocina con "visto" · cobro (descuento, vuelto, pago mixto, ticket 80 mm) · cuentas por cobrar
 con abonos · historial con filtros y detalle · apertura de caja (no editable) · cierre con arqueo
 efectivo/QR/tarjeta, PDF, CSV y 80 mm · menú real (55 productos) con actualizaciones versionadas ·
-**anulaciones** de ítem u orden (motivo obligatorio, PIN de Admin desde Caja, aviso en cocina hasta "Entendido",
+**anulaciones** de ítem u orden (motivo obligatorio, usuario y PIN de quien autoriza, aviso en cocina hasta "Entendido",
 pagos devueltos, aparte en historial y cierre) · **tema claro/oscuro** por dispositivo (POS claro, Cocina oscuro) ·
 **Reportes** (solo Admin): ventas por canal = medio de pago (por día, totales, barras) y productos vendidos
 (filtro por categoría, orden por cantidad o monto), **Anulaciones** (detalle, por motivo) y **Cuentas por
@@ -49,8 +69,8 @@ cocina: anulada queda a la vista hasta "Entendido" y luego pasa a Recientes con 
 
 1. ✅ Anulaciones. Pendiente de decidir: anular una orden cobrada de un día anterior (hoy se bloquea porque esa
    caja ya cerró; haría falta registrar la devolución en la caja del día en que se hace).
-2. ✅ Seguridad de login: PIN fuera del repo, cambio en Ajustes, bloqueo tras 5 fallos. Sin HTTPS por decisión.
-   Limitación: cambiar un PIN no cierra las sesiones abiertas (la cookie dura hasta 14 h).
+2. ✅ Seguridad de login: PIN fuera del repo, usuario + PIN, reseteo en Usuarios (cierra las sesiones abiertas),
+   bloqueo tras 5 fallos. Sin HTTPS por decisión.
 3. **Respaldo** automático de la base.
 4. Precios de **Extra cheddar** y **Extra mozzarella** (Yasser los carga con "+ Modificador a todos").
 5. Renombrar "Hamburguesa Onion Doble/Triple" → lo hace Yasser desde Catálogo.

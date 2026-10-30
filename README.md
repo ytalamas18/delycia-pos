@@ -209,30 +209,35 @@ categoría de un toque (ej. Extra cheddar a todas las hamburguesas).
 - En cocina aparece arriba, grande y en azul, con un sonido distinto al de las comandas, hasta que
   alguien toca **"Visto ✔"**. Caja recibe la confirmación: *"Cocina vio: MÁS PAPA"*.
 
-### Usuarios y PIN
+### Usuarios, roles y PIN
 
-El seed crea **Admin**, **Caja** y **Cocina**. Ningún PIN está en el repositorio:
+El seed crea los usuarios **admin**, **caja** y **cocina**, con los roles Admin, Caja y Cocina. Ningún PIN está en
+el repositorio:
 
 - Si defines `ADMIN_PIN`, `CAJA_PIN` y `COCINA_PIN` (en `.env`), se usan esos.
 - Si no, el seed genera PIN aleatorios y los muestra **una sola vez** en su salida
   (`npm run db:seed` o `docker compose logs migrate`).
 
-Después, el Admin los cambia en **Ajustes → PIN de usuarios** (confirmando con su propio PIN). No se aceptan PIN
-fáciles (1111, 1234, años). Tras 5 intentos fallidos seguidos el usuario queda bloqueado 15 minutos; cambiarle
-el PIN lo desbloquea.
+Para entrar se escribe el **usuario** y el **PIN**. Si algo falla, el mensaje no dice si el usuario existe. Tras
+5 intentos fallidos seguidos el usuario queda bloqueado 15 minutos.
 
-### Qué puede hacer cada perfil
+En **Usuarios** (Admin) se crean personas reales con su rol, se cambia el rol, se resetea el PIN (confirmando con
+el PIN propio; no se aceptan PIN fáciles como 1111, 1234 o años) y se desactivan. Nunca se borran, porque las
+ventas guardan quién las hizo. En **Usuarios → Roles y permisos** se crean roles (ej. "Mesero" solo con el POS) y
+se marcan sus permisos, agrupados por pantalla. Los cambios aplican al instante, incluso con la sesión abierta.
+
+### Qué puede hacer cada rol (por defecto)
 
 | Sección | Admin | Caja | Cocina |
 |---|:-:|:-:|:-:|
-| Vender, cobrar, cuentas por cobrar, historial, cierre de caja | ✅ | ✅ | — |
+| Vender, cobrar, descuento, cuentas por cobrar, historial, cierre de caja | ✅ | ✅ | — |
+| Anular ítems u órdenes | ✅ | con usuario y PIN de quien autoriza | — |
 | Pantalla de cocina | ✅ | ✅ (ver) | ✅ |
-| Catálogo (precios, productos) | ✅ | — | — |
-| Ajustes (% PEYA, tiempos de cocina) | ✅ | — | — |
+| Salida rápida de inventario | ✅ | ✅ | — |
+| Catálogo, compras, inventario, reportes, ajustes, usuarios | ✅ | — | — |
 
-Los permisos están en un solo lugar (`src/core/auth/permissions.ts`): de ahí salen tanto el menú
-como el bloqueo de rutas (`src/proxy.ts`) y de acciones del servidor. Para crear perfiles nuevos
-en el futuro, ese mapa pasa a la base de datos sin tocar el resto.
+Los permisos están en un solo catálogo (`src/core/auth/permissions.ts`). De ahí salen el editor de roles, el
+menú, el bloqueo de rutas (`src/proxy.ts`) y el de las acciones del servidor.
 
 ### PEYA
 
