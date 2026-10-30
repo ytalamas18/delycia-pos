@@ -14,11 +14,11 @@ y `infra/terraform/backend.hcl` (ignorados por git; hay `*.example` de cada uno)
 | 0 | Root con MFA y sin access keys; Identity Center (usuario `yasser`, `AdministratorAccess`); perfil CLI `delycia`; Budget US$30/mes; Terraform 1.17.1 | ✅ |
 | 1 | Bucket de estado remoto `delycia-tfstate-<cuenta>` (versionado, cifrado, privado, bloqueo nativo S3) | ✅ |
 | 2 | EC2, Security Group (3 reglas), Elastic IP y su asociación **importados** → `plan` = "No changes" | ✅ |
-| 2b | Rol IAM con SSM, protección contra borrado, disco que sobrevive a la instancia | ⏳ escrito, falta `apply` |
-| 3 | Bucket de respaldos (30 días), respaldo diario por SSM State Manager, prueba de restauración | ⏳ escrito, falta `apply` |
-| 4 | GitHub Actions: lint, typecheck y tests con Postgres en cada push/PR | ✅ escrito (corre al hacer push) |
-| 5 | OIDC + ECR + deploy por SSM en push a `main` | ⏳ escrito, falta `apply` + variables en GitHub |
-| 6 | Alarmas: recuperación automática (host), reinicio (instancia), correo si falla un respaldo/deploy | ⏳ escrito, falta `apply` |
+| 2b | Rol IAM con SSM, protección contra borrado, disco que sobrevive a la instancia | ✅ 29/10 (EC2 Online en SSM) |
+| 3 | Bucket de respaldos (30 días), respaldo diario por SSM State Manager, prueba de restauración | ✅ 30/10 (restauración probada) |
+| 4 | GitHub Actions: lint, typecheck y tests con Postgres en cada push/PR | ✅ 30/10 |
+| 5 | OIDC + ECR + deploy por SSM en push a `main` | ✅ 30/10 (primer deploy `c4b41fd`) |
+| 6 | Alarmas: recuperación automática (host), reinicio (instancia), correo si falla un respaldo/deploy | ✅ 29/10 (correo confirmado) |
 | — | Cerrar el puerto 22 | ⏳ después de comprobar SSM |
 | — | HTTPS | ❌ no se hizo: cambia la URL de caja y cocina, decisión de Yasser (ver al final) |
 
@@ -184,14 +184,16 @@ GitHub Actions ──OIDC──▶ rol delycia-github-deploy
                                └─ infra/scripts/deploy.sh: respaldo → pull → re-tag → compose up → /api/health
 ```
 - **Sin claves en GitHub:** el rol confía en `token.actions.githubusercontent.com` solo para
-  `repo:ytalamas18/delycia-pos:ref:refs/heads/main`. Un fork, una rama o un PR no pueden desplegar.
+  `repo:ytalamas18@196281236/delycia-pos@1422801668:ref:refs/heads/main` (el repo usa el *sub* inmutable de
+  GitHub, con los IDs numéricos; ver "Puesta en marcha"). Un fork, una rama o un PR no pueden desplegar.
   Por eso el job no usa `environment:` (cambiaría el `sub` del token).
 - Permisos del rol: push a ese repositorio de ECR y `ssm:SendCommand` solo sobre esa instancia.
 - `deploy.sh` re-etiqueta las imágenes como `delycia-pos-app:latest` / `delycia-pos-build:latest`, los
   nombres que ya usa `docker-compose.prod.yml`: el compose no cambió y los comandos de siempre sirven.
 - La EC2 ya **no compila** (antes: 10-15 min de CPU al 100 % en el servidor). `sudo /usr/local/sbin/delycia-setup`
   sigue como plan B (construye local desde `main`).
-- El job `deploy` se salta solo mientras no exista la variable `AWS_DEPLOY_ROLE_ARN`.
+- El job `deploy` se salta solo mientras no exista la variable `AWS_DEPLOY_ROLE_ARN`, y falla de entrada
+  (paso "Variables del repo") si falta `EC2_INSTANCE_ID` o `BACKUPS_BUCKET`.
 - Volver atrás: re-ejecutar el workflow de un commit anterior (Actions → la corrida → *Re-run*), o en la EC2
   `bash infra/scripts/deploy.sh <sha-anterior> <registro> <bucket>` (ECR guarda las 10 últimas imágenes).
 
@@ -204,28 +206,47 @@ GitHub Actions ──OIDC──▶ rol delycia-github-deploy
   aceptarlo** o no llega nada.
 - Costo: 2 alarmas estándar ≈ US$0,20/mes; SNS por correo y EventBridge, gratis a este volumen.
 
+## Puesta en marcha (29-30/10/2026)
+
+Lo que pasó al aplicar, en orden:
+
+1. `terraform apply todo.tfplan` falló solo en la política del tema SNS: "Every policy statement must have a
+   unique ID" → se agregó `sid` a cada regla (`28e07ef`) y se aplicó aparte (`sns.tfplan`).
+2. La EC2 apareció **Online** en SSM sin reiniciar el agente. `terraform plan` → sin diferencias.
+3. El respaldo automático de las 23:00 del 29/10 **falló** (los scripts aún no estaban en la EC2) y llegó el
+   correo de alerta: la alarma de SSM quedó probada.
+4. `git push` falló: la llave SSH de la laptop (`~/.ssh/id_ed25519_personal`, alias `github-personal`) no estaba
+   en la cuenta `ytalamas18`. Se agregó en GitHub → Settings → SSH keys.
+5. Primer deploy: **falló el login OIDC** ("Not authorized to perform sts:AssumeRoleWithWebIdentity"). CloudTrail
+   mostró que el token traía `sub = repo:ytalamas18@196281236/delycia-pos@1422801668:ref:refs/heads/main`: el
+   repo tiene el *sub* inmutable activado (`gh api repos/<repo>/actions/oidc/customization/sub` →
+   `use_immutable_subject: true`). Se cambió `github_repo` en `variables.tf` (`e64f5fe`). Los IDs son públicos
+   (`api.github.com/repos/ytalamas18/delycia-pos`) y protegen si alguien recrea una cuenta o repo con el mismo nombre.
+6. Segundo deploy: imágenes en ECR OK, pero `BACKUPS_BUCKET` llegó vacía (variable mal creada) → `deploy.sh`
+   paró antes de tocar nada. Se agregó el paso "Variables del repo" al workflow (`c4b41fd`).
+7. **Tercer deploy OK** (`c4b41fd`, 30/10 00:44 La Paz): respaldo previo (188 KB) → pull → migraciones →
+   app healthy. Producción: 17/17 migraciones, 187 órdenes intactas, menú v3. Caddy y `.env` sin cambios.
+8. `restore-test.sh` en la EC2 falló: el rol solo podía `PutObject`. Se agregó `GetObject` + `ListBucket`
+   (sigue sin poder borrar) → `3fc6d48`. El respaldo se restauró en un Postgres temporal en la laptop:
+   187 órdenes, 64 productos, 3 usuarios, 13 migraciones (es de antes de migrar), última venta 29/10.
+
+Costo agregado (precios AWS sa-east-1): snapshot temporal ≈ US$0,70/mes, 2 alarmas ≈ US$0,27, ECR ≈ US$0,10-0,30,
+respaldos en S3 < US$0,01. SSM, OIDC, EventBridge, SNS por correo y GitHub Actions (repo público): gratis.
+
 ## Pendiente
 
 ### Lo que hace Yasser
 
-1. **Aplicar** (el modo automático de Claude Code bloquea `terraform apply` en la cuenta):
-   ```bash
-   cd ~/delycia-pos/infra/terraform && terraform apply
-   ```
-   Revisar que diga `21 to add, 6 to change, 0 to destroy` y que **no** aparezca `must be replaced`.
-2. Aceptar el correo de suscripción de SNS.
-3. GitHub → repo → Settings → Secrets and variables → Actions → **Variables** → crear (valores de
-   `terraform output`): `AWS_DEPLOY_ROLE_ARN`, `EC2_INSTANCE_ID`, `BACKUPS_BUCKET`.
+1. `terraform apply s3read.tfplan` (permiso de lectura de respaldos para la EC2).
 
-### Lo que hace el agente después del apply
+### Lo que hace el agente
 
-1. Comprobar que la EC2 aparece en SSM (`aws ssm describe-instance-information`).
-2. Push → CI → primer deploy por CD (lleva a producción compras, inventario y recetas, con respaldo previo).
-3. Respaldo manual + `restore-test.sh`.
-4. Cerrar el 22: borrar `aws_vpc_security_group_ingress_rule.ssh` (y su `import`) y aplicar. Desde ahí se
+1. `restore-test.sh` en la EC2 después de ese apply.
+2. Revisar que el respaldo automático de las 23:00 llegue a S3.
+3. Cerrar el 22: borrar `aws_vpc_security_group_ingress_rule.ssh` (y su `import`) y aplicar. Desde ahí se
    entra con **Session Manager** (consola → EC2 → Connect → Session Manager, o
    `aws ssm start-session --target <id> --profile delycia`).
-5. Borrar el snapshot previo cuando haya una semana de respaldos.
+4. Borrar el snapshot previo cuando haya una semana de respaldos.
 
 ### Decisiones abiertas
 
