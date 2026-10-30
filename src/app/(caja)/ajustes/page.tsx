@@ -1,7 +1,6 @@
 import { requireModule } from "@/components/shell/require-module";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requirePermission } from "@/core/auth/server";
-import { listLoginUsers } from "@/core/auth/service";
 import { getSetting } from "@/core/settings";
 import { getSellableCatalog } from "@/modules/catalog";
 import {
@@ -12,17 +11,14 @@ import {
 } from "@/modules/kitchen";
 import { PeyaMarkupForm, peyaMarkupSetting } from "@/modules/sales";
 
-import { PinForm } from "./pin-form";
-
 export default async function AjustesPage() {
   requireModule("settings");
   await requirePermission("settings.manage");
-  const [peya, kds, catalog, quickMessages, users] = await Promise.all([
+  const [peya, kds, catalog, quickMessages] = await Promise.all([
     getSetting(peyaMarkupSetting),
     getSetting(kdsThresholdsSetting),
     getSellableCatalog(),
     getSetting(quickMessagesSetting),
-    listLoginUsers(),
   ]);
   // Vista previa con algunos productos reales del catálogo.
   const samples = catalog.flatMap((c) => c.products).slice(0, 6);
@@ -57,15 +53,6 @@ export default async function AjustesPage() {
         </CardHeader>
         <CardContent>
           <QuickMessagesForm messages={quickMessages} />
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>PIN de usuarios</CardTitle>
-          <CardDescription>Cambia el PIN de entrada de Admin, Caja o Cocina.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <PinForm users={users} />
         </CardContent>
       </Card>
     </div>
