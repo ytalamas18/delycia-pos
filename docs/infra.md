@@ -1,5 +1,8 @@
 # Infraestructura — Delycia POS
 
+> **Desactualizado en partes:** desde el 29-30/10 la EC2 está en Terraform, con respaldo diario a S3, CI/CD y el
+> puerto 22 cerrado. Lo vigente: `docs/manual-infra/registro-terraform-ec2.md` y `docs/infra-agente.md`.
+
 Estado al 19/10/2026. **EC2 de prueba en marcha** (creada a mano con User Data, ver `docs/deploy-manual.md`):
 Amazon Linux 2023, t3.small, sa-east-1, Elastic IP, Security Group HTTP 80 + SSH 22, sin dominio ni HTTPS.
 Última versión desplegada: `9bdbd2e` (19/10/2026, "SETUP OK"). La IP no se anota aquí (repo público).

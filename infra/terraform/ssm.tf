@@ -17,3 +17,22 @@ resource "aws_ssm_association" "backup" {
     executionTimeout = "1800"
   }
 }
+
+# Export diario de CSVs para el agente (repo delycia-cerebro). Si falla, avisa por correo (alarms.tf).
+resource "aws_ssm_association" "export_cerebro" {
+  name             = "AWS-RunShellScript"
+  association_name = "delycia-export-cerebro"
+  # 20:00 UTC = 16:00 en La Paz (después del cierre de las 15:00).
+  schedule_expression         = "cron(0 20 * * ? *)"
+  apply_only_at_cron_interval = true
+
+  targets {
+    key    = "InstanceIds"
+    values = [aws_instance.pos.id]
+  }
+
+  parameters = {
+    commands         = "bash /opt/delycia/infra/scripts/export-cerebro.sh"
+    executionTimeout = "600"
+  }
+}
