@@ -55,3 +55,57 @@ aws ec2 describe-security-groups --group-names launch-wizard-1 --profile delycia
 # 4) Desde tu PC (PowerShell): debe decir TcpTestSucceeded : False
 Test-NetConnection <IP-elastica> -Port 5432
 ```
+
+## 4. Export diario → `delycia-cerebro/datos/`
+
+- Consultas: `infra/db/export/*.sql` (una por CSV, `COPY ... TO STDOUT`). Script: `infra/scripts/export-cerebro.sh`.
+- Programado por **SSM State Manager** (`ssm.tf`, `delycia-export-cerebro`): `cron(0 20 * * ? *)` = **16:00 La Paz**.
+  Si falla, llega correo (misma regla de `alarms.tf` que el respaldo). Sin cron en el servidor ni servicios nuevos.
+- Cada corrida reescribe los CSVs con todo el historial (recoge anulaciones y abonos tardíos), escribe
+  `datos/ultimo_export.txt` y hace commit + push. Solo toca `datos/`; si hubo cambios en `memoria/` se rebasa.
+- Probado en local contra un repo de prueba: CSVs correctos, sin cambios → no hace commit, no pisa `memoria/`.
+
+| CSV | Columnas | Notas |
+|---|---|---|
+| `ventas_por_dia` | fecha, tickets, platos, items, total_bs, descuentos_bs, efectivo/qr/tarjeta/peya/fiado_bs, ordenes_anuladas, anulado_bs | Solo PAGADA/CERRADA; platos = tipo Preparado |
+| `ventas_por_plato` | fecha, plato, categoria, tipo, canal, cantidad, precio_promedio_bs, total_bs | Antes del descuento de la orden |
+| `gastos` | fecha, nro_compra, proveedor, concepto, categoria, tipo, cantidad, unidad, monto_bs, nota | tipo = `gasto_operativo` (categoría "Gastos operativos") o `insumo` |
+| `pagos_deuda` | fecha, nro_compra, fecha_compra, proveedor, tipo, monto_bs, medio, nota | tipo = `contado` (mismo día) o `abono` |
+| `cuentas_por_pagar` | proveedor, nro_compra, fecha_compra, total_bs, pagado_bs, saldo_bs, vencimiento, nota | Foto del día |
+| `cuentas_por_cobrar` | cliente, fecha, nro_orden, monto_bs, cobrado_bs, saldo_bs | Fiados pendientes |
+| `cierres_caja` | fecha, fondo, efectivo esperado/contado, diferencia, QR y tarjeta esperado/contado, notas | |
+
+Por qué git y no S3: el agente lee GitHub directamente; con S3 haría falta darle credenciales de AWS. El deploy key
+solo sirve para `delycia-cerebro` (si se filtra, no toca el POS ni AWS) y el historial de git guarda cada export.
+
+### Puesta en marcha (una vez, en la EC2 como root)
+
+1. Llave para el repo (sin contraseña, solo la lee root):
+   ```bash
+   ssh-keygen -t ed25519 -N "" -C "delycia-export" -f /etc/delycia/cerebro_deploy_key
+   cat /etc/delycia/cerebro_deploy_key.pub
+   ```
+2. GitHub → `delycia-cerebro` → Settings → **Deploy keys** → Add: pegar la `.pub`, marcar **Allow write access**.
+3. Clonar:
+   ```bash
+   GIT_SSH_COMMAND="ssh -i /etc/delycia/cerebro_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
+     git clone git@github.com:ytalamas18/delycia-cerebro.git /opt/delycia-cerebro
+   ```
+4. Probar a mano: `bash /opt/delycia/infra/scripts/export-cerebro.sh` → `Export OK: ... (7 CSVs)`.
+5. Desde tu PC: `terraform plan` (debe crear solo `aws_ssm_association.export_cerebro`) y `terraform apply`.
+
+## 5. Gastos operativos y deudas en el POS (mientras no haya módulo propio)
+
+Se registran como **compras** de ítems de una categoría especial. El export los separa del food cost.
+
+1. **Catálogo → categoría `Gastos operativos`** (nombre exacto: el export la busca por nombre).
+2. Ítems ahí, tipo **Insumo**, unidad **unidad**, **sin** "suma al inventario": Alquiler, Luz, Agua, Gas,
+   Sueldo, Sistema (Siesam)... Así no generan stock.
+3. **Proveedor** = a quién se le paga (dueño del local, Samuel, Yaque, Siesam...).
+4. Compra con cantidad 1 y el monto. Si se debe: **crédito**; cada pago después es un **abono** → `pagos_deuda`.
+5. **Deudas anteriores al sistema** (carne, papas, cerveza...): compra a crédito con la **fecha real** de la deuda
+   y nota "deuda anterior", para no inflar el gasto de hoy.
+6. **El préstamo de Yasser (5.000 Bs) NO va en el POS**: no es gasto ni venta. Se lleva en `memoria/deudas.md`.
+7. **Ojo con el cierre de caja:** un pago a proveedor en **Efectivo** se resta del efectivo esperado del día. Si el
+   dinero no salió del cajón (ej. lo pagaste con el préstamo o de tu bolsillo), regístralo como **Transferencia**
+   con nota ("pagado con préstamo Yasser"); si no, el arqueo dará un sobrante falso.
