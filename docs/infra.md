@@ -13,7 +13,7 @@ HTTPS cambiando `SITE_ADDRESS`), `infra/user-data.sh`, `.env.production.example`
 1. Respaldo: `cd /opt/delycia && sudo docker compose -f docker-compose.prod.yml exec -T db pg_dump -U delycia delycia | sudo tee ~/respaldo-$(date +%F-%H%M).sql > /dev/null`
 2. `sudo /usr/local/sbin/delycia-setup` (trae `main`, conserva `.env` y la base, aplica migraciones; 10-15 min).
 3. Verificar: `cat /var/lib/delycia-setup.status` = OK, `sudo git -C /opt/delycia log -1 --oneline`.
-Fuera del horario de atención (12:00-15:00). Volver atrás: `sudo git -C /opt/delycia reset --hard <commit>` +
+Fuera del horario de atención (18:00-23:30; antes 12:00-15:00). Volver atrás: `sudo git -C /opt/delycia reset --hard <commit>` +
 `docker compose -f docker-compose.prod.yml up -d --build` (no correr `delycia-setup`, que vuelve a `main`).
 
 ## 1. Qué está configurado y funcionando (local)

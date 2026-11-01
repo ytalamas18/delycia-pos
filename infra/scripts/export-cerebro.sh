@@ -1,6 +1,6 @@
 #!/bin/bash
 # Export diario de CSVs para el agente de gestión → carpeta datos/ del repo privado delycia-cerebro.
-# Lo corre el timer systemd delycia-export.timer a las 16:00 La Paz (lo instala setup-agente.sh). A mano:
+# Lo corre el timer systemd delycia-export.timer a la 01:00 La Paz, tras el cierre de las 23:30 (lo instala setup-agente.sh). A mano:
 #   bash infra/scripts/export-cerebro.sh
 # Lee la base con delycia_reader (solo lectura) y empuja con un deploy key que solo sirve para ese repo.
 # Cada corrida reescribe los CSVs con TODO el historial (así recoge anulaciones y abonos tardíos).

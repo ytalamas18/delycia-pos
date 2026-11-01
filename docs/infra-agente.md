@@ -59,7 +59,7 @@ Test-NetConnection <IP-elastica> -Port 5432
 ## 4. Export diario → `delycia-cerebro/datos/`
 
 - Consultas: `infra/db/export/*.sql` (una por CSV, `COPY ... TO STDOUT`). Script: `infra/scripts/export-cerebro.sh`.
-- Programado por un **timer de systemd** en la EC2 (`delycia-export.timer`, 16:00 America/La_Paz, `Persistent=true`).
+- Programado por un **timer de systemd** en la EC2 (`delycia-export.timer`, 01:00 America/La_Paz, después del cierre de las 23:30; `Persistent=true`).
   Sin Terraform ni servicios nuevos. Si falla no llega correo: el agente avisa si `ultimo_export.txt` tiene más de 1 día.
   Ver estado: `systemctl list-timers delycia-export.timer` · log: `journalctl -u delycia-export --since today`.
 - Cada corrida reescribe los CSVs con todo el historial (recoge anulaciones y abonos tardíos), escribe

@@ -2,7 +2,7 @@
 # Puesta en marcha del export para el agente (idempotente: se puede correr las veces que haga falta).
 # Lo lanza el workflow "Setup agente" (GitHub Actions → SSM) o, a mano en la EC2: sudo bash infra/scripts/setup-agente.sh
 #   1) usuario de solo lectura delycia_reader     2) deploy key para delycia-cerebro
-#   3) clon de delycia-cerebro (si el deploy key ya está en GitHub)   4) timer diario 16:00 La Paz   5) primer export
+#   3) clon de delycia-cerebro (si el deploy key ya está en GitHub)   4) timer diario 01:00 La Paz   5) primer export
 set -Eeuo pipefail
 export HOME="${HOME:-/root}"
 
@@ -40,7 +40,7 @@ if [ ! -d "$CEREBRO_DIR/.git" ]; then
   fi
 fi
 
-echo "==> 4) Timer diario 16:00 La Paz"
+echo "==> 4) Timer diario 01:00 La Paz"
 cat > /etc/systemd/system/delycia-export.service <<'EOF'
 [Unit]
 Description=Export diario de CSVs para delycia-cerebro
@@ -54,11 +54,11 @@ ExecStart=/bin/bash /opt/delycia/infra/scripts/export-cerebro.sh
 EOF
 cat > /etc/systemd/system/delycia-export.timer <<'EOF'
 [Unit]
-Description=Export diario 16:00 (America/La_Paz)
+Description=Export diario 01:00 (America/La_Paz)
 
 [Timer]
-OnCalendar=*-*-* 16:00:00 America/La_Paz
-# Si la EC2 estaba apagada a las 16:00, corre al volver.
+OnCalendar=*-*-* 01:00:00 America/La_Paz
+# Si la EC2 estaba apagada a la 01:00, corre al volver.
 Persistent=true
 
 [Install]
