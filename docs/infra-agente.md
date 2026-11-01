@@ -59,8 +59,9 @@ Test-NetConnection <IP-elastica> -Port 5432
 ## 4. Export diario → `delycia-cerebro/datos/`
 
 - Consultas: `infra/db/export/*.sql` (una por CSV, `COPY ... TO STDOUT`). Script: `infra/scripts/export-cerebro.sh`.
-- Programado por **SSM State Manager** (`ssm.tf`, `delycia-export-cerebro`): `cron(0 20 * * ? *)` = **16:00 La Paz**.
-  Si falla, llega correo (misma regla de `alarms.tf` que el respaldo). Sin cron en el servidor ni servicios nuevos.
+- Programado por un **timer de systemd** en la EC2 (`delycia-export.timer`, 16:00 America/La_Paz, `Persistent=true`).
+  Sin Terraform ni servicios nuevos. Si falla no llega correo: el agente avisa si `ultimo_export.txt` tiene más de 1 día.
+  Ver estado: `systemctl list-timers delycia-export.timer` · log: `journalctl -u delycia-export --since today`.
 - Cada corrida reescribe los CSVs con todo el historial (recoge anulaciones y abonos tardíos), escribe
   `datos/ultimo_export.txt` y hace commit + push. Solo toca `datos/`; si hubo cambios en `memoria/` se rebasa.
 - Probado en local contra un repo de prueba: CSVs correctos, sin cambios → no hace commit, no pisa `memoria/`.
@@ -78,21 +79,14 @@ Test-NetConnection <IP-elastica> -Port 5432
 Por qué git y no S3: el agente lee GitHub directamente; con S3 haría falta darle credenciales de AWS. El deploy key
 solo sirve para `delycia-cerebro` (si se filtra, no toca el POS ni AWS) y el historial de git guarda cada export.
 
-### Puesta en marcha (una vez, en la EC2 como root)
+### Puesta en marcha (una vez)
 
-1. Llave para el repo (sin contraseña, solo la lee root):
-   ```bash
-   ssh-keygen -t ed25519 -N "" -C "delycia-export" -f /etc/delycia/cerebro_deploy_key
-   cat /etc/delycia/cerebro_deploy_key.pub
-   ```
-2. GitHub → `delycia-cerebro` → Settings → **Deploy keys** → Add: pegar la `.pub`, marcar **Allow write access**.
-3. Clonar:
-   ```bash
-   GIT_SSH_COMMAND="ssh -i /etc/delycia/cerebro_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
-     git clone git@github.com:ytalamas18/delycia-cerebro.git /opt/delycia-cerebro
-   ```
-4. Probar a mano: `bash /opt/delycia/infra/scripts/export-cerebro.sh` → `Export OK: ... (7 CSVs)`.
-5. Desde tu PC: `terraform plan` (debe crear solo `aws_ssm_association.export_cerebro`) y `terraform apply`.
+Todo lo hace `infra/scripts/setup-agente.sh` (idempotente), lanzado desde GitHub: **Actions → Setup agente → Run
+workflow** (rama `main`; usa el rol OIDC del deploy y SSM, sin claves). Crea `delycia_reader` (§1), el deploy key, el
+clon en `/opt/delycia-cerebro`, el timer y corre el primer export.
+
+Único paso manual: la primera corrida imprime la llave pública → GitHub → `delycia-cerebro` → Settings →
+**Deploy keys** → Add, marcar **Allow write access**. Luego correr el workflow otra vez.
 
 ## 5. Gastos operativos y deudas en el POS (mientras no haya módulo propio)
 
