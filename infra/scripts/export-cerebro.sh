@@ -1,18 +1,19 @@
 #!/bin/bash
 # Export diario de CSVs para el agente de gestión → carpeta datos/ del repo privado delycia-cerebro.
-# Lo corre SSM State Manager a las 16:00 La Paz (infra/terraform/ssm.tf). Se puede correr a mano:
+# Lo corre el timer systemd delycia-export.timer a las 16:00 La Paz (lo instala setup-agente.sh). A mano:
 #   bash infra/scripts/export-cerebro.sh
 # Lee la base con delycia_reader (solo lectura) y empuja con un deploy key que solo sirve para ese repo.
 # Cada corrida reescribe los CSVs con TODO el historial (así recoge anulaciones y abonos tardíos).
 # Puesta en marcha: docs/infra-agente.md.
 set -Eeuo pipefail
+export HOME="${HOME:-/root}"
 
 APP_DIR=/opt/delycia
 CEREBRO_DIR=/opt/delycia-cerebro
 PASS_FILE=/etc/delycia/reader.pass
 KEY_FILE=/etc/delycia/cerebro_deploy_key
 COMPOSE="docker compose -f $APP_DIR/docker-compose.prod.yml --project-directory $APP_DIR"
-export GIT_SSH_COMMAND="ssh -i $KEY_FILE -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+export GIT_SSH_COMMAND="ssh -i $KEY_FILE -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/etc/delycia/known_hosts"
 
 [ -d "$CEREBRO_DIR/.git" ] || { echo "Falta el clon en $CEREBRO_DIR (ver docs/infra-agente.md)"; exit 1; }
 [ -r "$PASS_FILE" ] || { echo "Falta $PASS_FILE (ver docs/infra-agente.md)"; exit 1; }
