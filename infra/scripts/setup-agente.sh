@@ -66,7 +66,7 @@ WantedBy=timers.target
 EOF
 systemctl daemon-reload
 systemctl enable --now delycia-export.timer
-systemctl list-timers delycia-export.timer --no-pager | head -2
+systemctl list-timers delycia-export.timer --no-pager || true
 
 echo "==> 5) Primer export"
 bash "$APP_DIR/infra/scripts/export-cerebro.sh"
