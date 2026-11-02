@@ -14,7 +14,7 @@ día de negocio en `America/La_Paz`.
 |---|---|---|
 | 1 | Envío automático a cocina | ✅ Listo |
 | 2 | Retiros de efectivo de caja | ✅ Listo |
-| 3 | N° de comprobante y cuenta de origen en pagos a proveedores | Pendiente |
+| 3 | N° de comprobante y cuenta de origen en pagos a proveedores | ✅ Listo |
 | 4 | Reporte "Pagos a proveedores" | Pendiente |
 | 5 | Libro de caja y bancos | Pendiente (prioridad) |
 
@@ -131,3 +131,6 @@ Actualizar `CLAUDE.md` y `docs/estado-actual.md` con lo nuevo y marcar el estado
 - Módulo nuevo `treasury` ("Caja y bancos"): retiros, traspasos y saldos iniciales. Ventas lo consulta para el
   cierre (como hace con Compras). El libro se arma en `reports` (solo lectura, SQL) para no crear dependencias
   circulares entre Ventas, Compras y Caja y bancos.
+- Pagos a proveedores: el cierre de caja resta lo que salió de la **cuenta Efectivo** (no el método). Así, un
+  pago en efectivo registrado con cuenta Banco (ej. plata sacada del cajero) no descuadra la caja. Los pagos
+  anteriores quedan con la cuenta que corresponde a su método (migración `pagos_cuenta_y_referencia`).

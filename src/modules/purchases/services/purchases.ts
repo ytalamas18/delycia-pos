@@ -5,10 +5,11 @@ import { parseMoney } from "@/core/money";
 import { Decimal } from "@/core/quantity";
 import { businessDate } from "@/core/time";
 import type { Prisma } from "@/generated/prisma/client";
-import type { SupplierPaymentMethod } from "@/generated/prisma/enums";
+import type { MoneyAccount, SupplierPaymentMethod } from "@/generated/prisma/enums";
 import { getPurchasableItem, setLastCost, toBaseQuantity, UNIT_LABEL, compatibleUnits, type BaseUnit } from "@/modules/catalog";
 
 import { isOverdue, purchaseBalance } from "../domain/balance";
+import { DEFAULT_ACCOUNT_FOR_METHOD } from "../domain/labels";
 import { purchaseInput, reasonInput, supplierPaymentInput, type PurchaseInput, type SupplierPaymentInput } from "../schemas";
 
 const purchaseInclude = {
@@ -145,7 +146,19 @@ export async function createPurchase(input: PurchaseInput, userId: string) {
         totalCents,
         createdById: userId,
         lines: { create: lines },
-        payments: paidNow > 0 ? { create: { date: data.date, amountCents: paidNow, method: data.paymentMethod, createdById: userId } } : undefined,
+        payments:
+          paidNow > 0
+            ? {
+                create: {
+                  date: data.date,
+                  amountCents: paidNow,
+                  method: data.paymentMethod,
+                  account: data.paymentAccount ?? DEFAULT_ACCOUNT_FOR_METHOD[data.paymentMethod],
+                  reference: data.paymentReference,
+                  createdById: userId,
+                },
+              }
+            : undefined,
       },
       include: { lines: true },
     });
@@ -208,7 +221,9 @@ export async function addSupplierPayment(purchaseId: string, input: SupplierPaym
     if (data.amountCents > balanceCents) {
       throw new DomainError("El abono supera el saldo pendiente.", { amountCents: "Mayor al saldo" });
     }
-    const payment = await tx.supplierPayment.create({ data: { purchaseId, ...data, createdById: userId } });
+    const payment = await tx.supplierPayment.create({
+      data: { purchaseId, ...data, account: data.account ?? DEFAULT_ACCOUNT_FOR_METHOD[data.method], createdById: userId },
+    });
     await publish("supplier_payment.changed", { purchaseId, paymentId: payment.id, voided: false });
     return payment;
   });
@@ -231,7 +246,8 @@ export async function voidSupplierPayment(paymentId: string, reason: string, use
 }
 
 /**
- * Pagos a proveedores de un día, por método (lo usa el cierre de caja: el efectivo resta del esperado).
+ * Pagos a proveedores de un día, por método y por cuenta de origen (lo usa el cierre de caja: lo que salió
+ * de la cuenta Efectivo resta del esperado).
  * Incluye el detalle para mostrar "Pagos a proveedores" en el cierre.
  */
 export async function supplierPaymentsForDay(date: string) {
@@ -241,14 +257,21 @@ export async function supplierPaymentsForDay(date: string) {
     orderBy: { createdAt: "asc" },
   });
   const byMethod: Record<SupplierPaymentMethod, number> = { CASH: 0, TRANSFER: 0, CARD: 0 };
-  for (const r of rows) byMethod[r.method] += r.amountCents;
+  const byAccount: Record<MoneyAccount, number> = { CASH: 0, BANK: 0, ATC_PEYA: 0 };
+  for (const r of rows) {
+    byMethod[r.method] += r.amountCents;
+    byAccount[r.account] += r.amountCents;
+  }
   return {
     byMethod,
+    byAccount,
     totalCents: rows.reduce((s, r) => s + r.amountCents, 0),
     payments: rows.map((r) => ({
       purchaseNumber: r.purchase.number,
       supplier: r.purchase.supplier?.name ?? null,
       method: r.method,
+      account: r.account,
+      reference: r.reference,
       amountCents: r.amountCents,
     })),
   };

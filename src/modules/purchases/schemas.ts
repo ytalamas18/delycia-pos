@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { parseMoney } from "@/core/money";
 import { parseQuantity } from "@/core/quantity";
-import { PurchaseDocType, SupplierPaymentMethod } from "@/generated/prisma/enums";
+import { MoneyAccount, PurchaseDocType, SupplierPaymentMethod } from "@/generated/prisma/enums";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const date = (label: string) => z.string().trim().regex(ISO_DATE, `Fecha de ${label} inválida`);
@@ -59,6 +59,11 @@ export const purchaseLineInput = z.object({
   totalCents: money("el total de la línea"),
 });
 
+const optionalAccount = z
+  .union([z.enum(MoneyAccount), z.literal("")])
+  .optional()
+  .transform((v) => v || null);
+
 export const purchaseInput = z
   .object({
     date: date("la compra"),
@@ -74,6 +79,9 @@ export const purchaseInput = z
       .refine((v) => v === null || ISO_DATE.test(v), "Vencimiento inválido"),
     paymentMode: z.enum(["CASH_FULL", "CREDIT", "PARTIAL"]),
     paymentMethod: z.enum(SupplierPaymentMethod).default("CASH"),
+    /** Cuenta de origen del pago de contado / parcial. Vacío = la que corresponde al método. */
+    paymentAccount: optionalAccount,
+    paymentReference: optionalText(60),
     /** Solo pago parcial. */
     paidNow: z.string().trim().optional(),
     lines: z.array(purchaseLineInput).min(1, "Agrega al menos un ítem"),
@@ -88,6 +96,9 @@ export const supplierPaymentInput = z.object({
   date: date("pago"),
   amountCents: money("el monto"),
   method: z.enum(SupplierPaymentMethod),
+  /** Vacío = la que corresponde al método (efectivo → Efectivo, transferencia → Banco, tarjeta → ATC/PeYa). */
+  account: optionalAccount,
+  reference: optionalText(60),
   note: optionalText(200),
 });
 

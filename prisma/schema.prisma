@@ -566,6 +566,16 @@ enum SupplierPaymentMethod {
   CARD
 }
 
+/// Cuenta de dinero del negocio (libro de caja y bancos). Tarjeta y PeYa caen en ATC / PeYa.
+enum MoneyAccount {
+  /// Efectivo (caja)
+  CASH
+  /// Banco (QR / transferencias)
+  BANK
+  /// ATC (datáfono) y PeYa: depositan al banco después, ya descontada la comisión.
+  ATC_PEYA
+}
+
 enum PurchaseStatus {
   ACTIVE
   CANCELLED
@@ -636,6 +646,10 @@ model SupplierPayment {
   date        String
   amountCents Int
   method      SupplierPaymentMethod
+  /// De qué cuenta salió el dinero. Si es Efectivo, resta del efectivo esperado del cierre de caja.
+  account     MoneyAccount          @default(CASH)
+  /// N° de comprobante / referencia del pago (n° de transferencia o QR, recibo del proveedor). Opcional.
+  reference   String?
   note        String?
   voidedAt    DateTime?
   voidReason  String?
@@ -645,6 +659,7 @@ model SupplierPayment {
 
   @@index([purchaseId])
   @@index([date])
+  @@index([account])
 }
 
 // ============================================================================

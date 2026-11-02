@@ -128,7 +128,8 @@ export async function getDailyClosing(date: string) {
   }));
 
   const supplierPayments = {
-    cashCents: outflows.byMethod.CASH,
+    // Lo que salió de la cuenta Efectivo (caja), sea cual sea el método.
+    cashCents: outflows.byAccount.CASH,
     transferCents: outflows.byMethod.TRANSFER,
     cardCents: outflows.byMethod.CARD,
     totalCents: outflows.totalCents,

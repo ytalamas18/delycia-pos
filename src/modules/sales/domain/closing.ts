@@ -20,13 +20,24 @@ export type ClosingOrder = {
 
 export type ClosingCollection = { method: PaymentMethod; amountCents: Cents };
 
-/** Pagos a proveedores del día (módulo Compras). El efectivo sale de la caja y resta del esperado. */
+/**
+ * Pagos a proveedores del día (módulo Compras). `cashCents` = lo que salió de la cuenta Efectivo (caja):
+ * resta del esperado. `transferCents`/`cardCents` = por método (informativo).
+ */
 export type SupplierOutflows = {
   cashCents: Cents;
   transferCents: Cents;
   cardCents: Cents;
   totalCents: Cents;
-  payments: { purchaseNumber: number; supplier: string | null; method: "CASH" | "TRANSFER" | "CARD"; amountCents: Cents }[];
+  payments: {
+    purchaseNumber: number;
+    supplier: string | null;
+    method: "CASH" | "TRANSFER" | "CARD";
+    /** Cuenta de origen (falta en cierres guardados antes de que existiera). */
+    account?: "CASH" | "BANK" | "ATC_PEYA";
+    reference?: string | null;
+    amountCents: Cents;
+  }[];
 };
 
 export const NO_OUTFLOWS: SupplierOutflows = { cashCents: 0, transferCents: 0, cardCents: 0, totalCents: 0, payments: [] };

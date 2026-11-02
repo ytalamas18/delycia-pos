@@ -187,10 +187,12 @@ export async function buildClosingPdf(data: ClosingPdfData): Promise<Uint8Array>
   if (out && out.totalCents > 0) {
     w.section("Pagos a proveedores");
     const methodName = { CASH: "Efectivo", TRANSFER: "Transferencia/QR", CARD: "Tarjeta" } as const;
+    const accountName = { CASH: "caja", BANK: "banco", ATC_PEYA: "ATC/PeYa" } as const;
     for (const p of out.payments) {
-      w.row([`Compra #${p.purchaseNumber}${p.supplier ? ` - ${p.supplier}` : ""} (${methodName[p.method]})`, `- ${formatMoney(p.amountCents)}`], two);
+      const ref = p.reference ? ` N° ${p.reference}` : "";
+      w.row([`Compra #${p.purchaseNumber}${p.supplier ? ` - ${p.supplier}` : ""} (${methodName[p.method]}${p.account ? `, ${accountName[p.account]}` : ""}${ref})`, `- ${formatMoney(p.amountCents)}`], two);
     }
-    w.row(["En efectivo (sale de la caja)", `- ${formatMoney(out.cashCents)}`], two, { bold: true });
+    w.row(["De la cuenta Efectivo (sale de la caja)", `- ${formatMoney(out.cashCents)}`], two, { bold: true });
   }
 
   // Retiros de efectivo (Caja y bancos)

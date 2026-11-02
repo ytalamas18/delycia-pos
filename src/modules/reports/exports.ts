@@ -1,5 +1,6 @@
 import { fileBaseFor, formatPeriod, type ExportDocument } from "@/core/export";
 import { formatMoney as formatMoneyText } from "@/core/money";
+import { MONEY_ACCOUNT_LABEL } from "@/core/money/accounts";
 
 import { formatQuantity } from "@/core/quantity";
 import { businessDate } from "@/core/time";
@@ -507,7 +508,7 @@ async function payablesExport(): Promise<ExportDocument> {
           `${PAYMENT_STATUS_LABEL[p.paymentStatus]}${p.overdue ? " (vencida)" : ""}`,
           p.payments
             .filter((x) => !x.voidedAt)
-            .map((x) => `${x.date} ${SUPPLIER_METHOD_LABEL[x.method]} ${formatMoneyText(x.amountCents)}`)
+            .map((x) => `${x.date} ${SUPPLIER_METHOD_LABEL[x.method]} (${MONEY_ACCOUNT_LABEL[x.account]}${x.reference ? ` N° ${x.reference}` : ""}) ${formatMoneyText(x.amountCents)}`)
             .join(" | "),
         ]),
         totals: ["Total", null, null, null, null, null, r.totalCents, null, null],

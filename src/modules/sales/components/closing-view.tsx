@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { appConfig } from "@/core/config/app";
 import { formatMoney } from "@/core/money";
+import { MONEY_ACCOUNT_LABEL } from "@/core/money/accounts";
 import { SUPPLIER_METHOD_LABEL } from "@/modules/purchases";
 import type { PaymentMethod } from "@/generated/prisma/enums";
 
@@ -152,16 +153,18 @@ export async function ClosingView({ date }: { date: string }) {
             {s.supplierPayments.payments.map((p, i) => (
               <Row
                 key={i}
-                label={`Compra #${p.purchaseNumber}${p.supplier ? ` · ${p.supplier}` : ""} · ${SUPPLIER_METHOD_LABEL[p.method]}`}
+                label={`Compra #${p.purchaseNumber}${p.supplier ? ` · ${p.supplier}` : ""} · ${SUPPLIER_METHOD_LABEL[p.method]}${
+                  p.account ? ` · ${MONEY_ACCOUNT_LABEL[p.account]}` : ""
+                }${p.reference ? ` · N° ${p.reference}` : ""}`}
                 value={`− ${formatMoney(p.amountCents)}`}
               />
             ))}
             <div className="border-t pt-2">
-              <Row label="En efectivo (sale de la caja)" value={`− ${formatMoney(s.supplierPayments.cashCents)}`} strong />
-              {s.supplierPayments.transferCents + s.supplierPayments.cardCents > 0 && (
+              <Row label="De la cuenta Efectivo (sale de la caja)" value={`− ${formatMoney(s.supplierPayments.cashCents)}`} strong />
+              {s.supplierPayments.totalCents - s.supplierPayments.cashCents > 0 && (
                 <Row
-                  label="Por transferencia / tarjeta (no sale de la caja)"
-                  value={formatMoney(s.supplierPayments.transferCents + s.supplierPayments.cardCents)}
+                  label="Desde Banco o ATC / PeYa (no sale de la caja)"
+                  value={formatMoney(s.supplierPayments.totalCents - s.supplierPayments.cashCents)}
                 />
               )}
             </div>

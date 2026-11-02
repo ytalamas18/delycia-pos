@@ -53,9 +53,9 @@ export default async function ImprimirCierrePage({ params }: PageProps<"/imprimi
         <>
           <div className="mt-1 font-bold">Pagos a proveedores</div>
           {s.supplierPayments.payments.map((p, i) => (
-            <L key={i} label={`Compra #${p.purchaseNumber}${p.method === "CASH" ? " (efectivo)" : ""}`} value={`-${formatMoney(p.amountCents)}`} />
+            <L key={i} label={`Compra #${p.purchaseNumber}${(p.account ?? p.method) === "CASH" ? " (caja)" : ""}`} value={`-${formatMoney(p.amountCents)}`} />
           ))}
-          <L label="Efectivo que salió" value={`-${formatMoney(s.supplierPayments.cashCents)}`} bold />
+          <L label="Salió de la caja" value={`-${formatMoney(s.supplierPayments.cashCents)}`} bold />
         </>
       )}
       {s.withdrawals && s.withdrawals.items.length > 0 && (
