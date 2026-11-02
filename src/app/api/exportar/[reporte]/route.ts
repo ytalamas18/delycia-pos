@@ -3,7 +3,7 @@ import { getSession } from "@/core/auth/server";
 import { exportResponse, parseExportFormat, type ExportDocument } from "@/core/export";
 import { businessDate } from "@/core/time";
 import { modules } from "@/config/modules";
-import { reportExports } from "@/modules/reports";
+import { cashbookExport, reportExports } from "@/modules/reports";
 import { buildHistoryExport } from "@/modules/sales";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +20,7 @@ const exporters: Record<string, Exporter> = {
       return buildHistoryExport(date, p);
     },
   },
+  "libro-caja-bancos": { module: "reports", permission: "cashbook.view", build: cashbookExport },
   ...Object.fromEntries(
     Object.entries(reportExports).map(([key, build]) => [key, { module: "reports", permission: "reports.view", build }]),
   ),

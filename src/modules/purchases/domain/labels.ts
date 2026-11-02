@@ -1,5 +1,5 @@
 // Sin Decimal: se puede usar en componentes de cliente.
-import type { PurchaseDocType, SupplierPaymentMethod } from "@/generated/prisma/enums";
+import type { MoneyAccount, PurchaseDocType, SupplierPaymentMethod } from "@/generated/prisma/enums";
 
 export const DOC_TYPE_LABEL: Record<PurchaseDocType, string> = {
   RECEIPT: "Boleta / nota",
@@ -11,6 +11,13 @@ export const SUPPLIER_METHOD_LABEL: Record<SupplierPaymentMethod, string> = {
   CASH: "Efectivo",
   TRANSFER: "Transferencia / QR",
   CARD: "Tarjeta",
+};
+
+/** Cuenta de origen por defecto según el método de pago (se puede cambiar en el formulario). */
+export const DEFAULT_ACCOUNT_FOR_METHOD: Record<SupplierPaymentMethod, MoneyAccount> = {
+  CASH: "CASH",
+  TRANSFER: "BANK",
+  CARD: "ATC_PEYA",
 };
 
 export type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";

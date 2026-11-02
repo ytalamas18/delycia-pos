@@ -5,10 +5,11 @@ import { parseMoney } from "@/core/money";
 import { Decimal } from "@/core/quantity";
 import { businessDate } from "@/core/time";
 import type { Prisma } from "@/generated/prisma/client";
-import type { SupplierPaymentMethod } from "@/generated/prisma/enums";
-import { getPurchasableItem, setLastCost, toBaseQuantity, UNIT_LABEL, compatibleUnits, type BaseUnit } from "@/modules/catalog";
+import type { MoneyAccount, SupplierPaymentMethod } from "@/generated/prisma/enums";
+import { categoryNamesByProduct, getPurchasableItem, setLastCost, toBaseQuantity, UNIT_LABEL, compatibleUnits, type BaseUnit } from "@/modules/catalog";
 
 import { isOverdue, purchaseBalance } from "../domain/balance";
+import { DEFAULT_ACCOUNT_FOR_METHOD } from "../domain/labels";
 import { purchaseInput, reasonInput, supplierPaymentInput, type PurchaseInput, type SupplierPaymentInput } from "../schemas";
 
 const purchaseInclude = {
@@ -145,7 +146,19 @@ export async function createPurchase(input: PurchaseInput, userId: string) {
         totalCents,
         createdById: userId,
         lines: { create: lines },
-        payments: paidNow > 0 ? { create: { date: data.date, amountCents: paidNow, method: data.paymentMethod, createdById: userId } } : undefined,
+        payments:
+          paidNow > 0
+            ? {
+                create: {
+                  date: data.date,
+                  amountCents: paidNow,
+                  method: data.paymentMethod,
+                  account: data.paymentAccount ?? DEFAULT_ACCOUNT_FOR_METHOD[data.paymentMethod],
+                  reference: data.paymentReference,
+                  createdById: userId,
+                },
+              }
+            : undefined,
       },
       include: { lines: true },
     });
@@ -208,7 +221,9 @@ export async function addSupplierPayment(purchaseId: string, input: SupplierPaym
     if (data.amountCents > balanceCents) {
       throw new DomainError("El abono supera el saldo pendiente.", { amountCents: "Mayor al saldo" });
     }
-    const payment = await tx.supplierPayment.create({ data: { purchaseId, ...data, createdById: userId } });
+    const payment = await tx.supplierPayment.create({
+      data: { purchaseId, ...data, account: data.account ?? DEFAULT_ACCOUNT_FOR_METHOD[data.method], createdById: userId },
+    });
     await publish("supplier_payment.changed", { purchaseId, paymentId: payment.id, voided: false });
     return payment;
   });
@@ -231,7 +246,8 @@ export async function voidSupplierPayment(paymentId: string, reason: string, use
 }
 
 /**
- * Pagos a proveedores de un día, por método (lo usa el cierre de caja: el efectivo resta del esperado).
+ * Pagos a proveedores de un día, por método y por cuenta de origen (lo usa el cierre de caja: lo que salió
+ * de la cuenta Efectivo resta del esperado).
  * Incluye el detalle para mostrar "Pagos a proveedores" en el cierre.
  */
 export async function supplierPaymentsForDay(date: string) {
@@ -241,17 +257,85 @@ export async function supplierPaymentsForDay(date: string) {
     orderBy: { createdAt: "asc" },
   });
   const byMethod: Record<SupplierPaymentMethod, number> = { CASH: 0, TRANSFER: 0, CARD: 0 };
-  for (const r of rows) byMethod[r.method] += r.amountCents;
+  const byAccount: Record<MoneyAccount, number> = { CASH: 0, BANK: 0, ATC_PEYA: 0 };
+  for (const r of rows) {
+    byMethod[r.method] += r.amountCents;
+    byAccount[r.account] += r.amountCents;
+  }
   return {
     byMethod,
+    byAccount,
     totalCents: rows.reduce((s, r) => s + r.amountCents, 0),
     payments: rows.map((r) => ({
       purchaseNumber: r.purchase.number,
       supplier: r.purchase.supplier?.name ?? null,
       method: r.method,
+      account: r.account,
+      reference: r.reference,
       amountCents: r.amountCents,
     })),
   };
 }
 
 export type SupplierPaymentsForDay = Awaited<ReturnType<typeof supplierPaymentsForDay>>;
+
+// ---------------------------------------------------------------------------
+// Pagos a proveedores (reporte y libro de caja y bancos)
+// ---------------------------------------------------------------------------
+
+export type SupplierPaymentFilters = {
+  from: string;
+  to: string;
+  method?: SupplierPaymentMethod | null;
+  account?: MoneyAccount | null;
+};
+
+/**
+ * Todos los pagos a proveedores por FECHA DEL PAGO (vigentes y anulados), independiente de la compra.
+ * Trae proveedor, n° de compra, ítems con su categoría actual y quién registró / anuló.
+ */
+export async function listSupplierPayments(filters: SupplierPaymentFilters) {
+  const rows = await db.supplierPayment.findMany({
+    where: {
+      date: { gte: filters.from, lte: filters.to },
+      ...(filters.method ? { method: filters.method } : {}),
+      ...(filters.account ? { account: filters.account } : {}),
+    },
+    include: {
+      purchase: {
+        select: {
+          id: true,
+          number: true,
+          status: true,
+          supplier: { select: { name: true } },
+          lines: { select: { productId: true, productName: true }, orderBy: { createdAt: "asc" } },
+        },
+      },
+    },
+    orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+  });
+  const categories = await categoryNamesByProduct(rows.flatMap((r) => r.purchase.lines.map((l) => l.productId)));
+  const userIds = [...new Set(rows.flatMap((r) => [r.createdById, r.voidedById]).filter((x): x is string => !!x))];
+  const users = userIds.length ? await db.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }) : [];
+  const names = new Map(users.map((u) => [u.id, u.name]));
+  return rows.map((r) => ({
+    id: r.id,
+    date: r.date,
+    createdAt: r.createdAt,
+    amountCents: r.amountCents,
+    method: r.method,
+    account: r.account,
+    reference: r.reference,
+    note: r.note,
+    voidedAt: r.voidedAt,
+    voidReason: r.voidReason,
+    voidedByName: r.voidedById ? (names.get(r.voidedById) ?? null) : null,
+    createdByName: names.get(r.createdById) ?? null,
+    purchaseId: r.purchase.id,
+    purchaseNumber: r.purchase.number,
+    supplier: r.purchase.supplier?.name ?? null,
+    items: r.purchase.lines.map((l) => ({ name: l.productName, category: categories.get(l.productId) ?? null })),
+  }));
+}
+
+export type SupplierPaymentRow = Awaited<ReturnType<typeof listSupplierPayments>>[number];

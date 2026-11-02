@@ -75,6 +75,8 @@ export async function addSupplierPaymentAction(_prev: ActionResult, fd: FormData
         date: text(fd, "date"),
         amountCents: text(fd, "amount"),
         method: text(fd, "method") as "CASH",
+        account: text(fd, "account") as "CASH",
+        reference: text(fd, "reference"),
         note: text(fd, "note"),
       },
       session.userId,

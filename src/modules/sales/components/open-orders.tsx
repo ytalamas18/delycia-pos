@@ -77,7 +77,10 @@ export async function OpenOrders() {
   );
 }
 
-/** Pagadas que siguen en curso: cocina no terminó o falta enviarles algo (para llevar cobrado antes). */
+/**
+ * Pagadas que siguen en curso: cocina no terminó. El botón "Enviar a cocina" solo aparece en órdenes de antes del
+ * envío automático que quedaron con algo sin enviar.
+ */
 export async function PaidInProgress() {
   const orders = await listPaidInProgress();
   if (orders.length === 0) return null;

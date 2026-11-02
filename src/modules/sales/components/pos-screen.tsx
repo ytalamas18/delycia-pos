@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, Banknote, ChefHat, Lock } from "lucide-react";
+import { Ban, Banknote, Lock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -127,19 +127,19 @@ export function PosScreen({
   };
   const canSave = order ? true : drafts.length > 0;
 
-  const unsentKitchen =
-    (order?.items ?? []).filter((i) => i.sendsToKitchen && !i.sentToKitchen).length +
-    drafts.filter((d) => productById.get(d.productId)?.sendsToKitchen).length;
+  // Ítems guardados que todavía no fueron a cocina (solo órdenes de antes del envío automático).
+  const unsentSaved = (order?.items ?? []).filter((i) => i.sendsToKitchen && !i.sentToKitchen).length;
 
-  function save(send: boolean) {
+  /** Guardar = guardar y enviar a cocina lo pendiente. */
+  function save() {
     startTransition(async () => {
       if (order) {
-        const result = await saveOrderChangesAction(order.id, info, drafts, { send });
+        const result = await saveOrderChangesAction(order.id, info, drafts);
         setStatus(result);
         if (result.ok) setDrafts([]);
         return;
       }
-      const result = await createOrderAction({ channel: header.channel, ...info }, drafts, { send });
+      const result = await createOrderAction({ channel: header.channel, ...info }, drafts);
       setStatus(result);
       if (result.ok) {
         setDrafts([]);
@@ -148,9 +148,12 @@ export function PosScreen({
     });
   }
 
-  /** Cobrar: si hay cambios sin guardar, primero se guardan y luego se abre la ventana de cobro. */
+  /**
+   * Cobrar: guarda y envía a cocina EN ESE MOMENTO (antes del cobro, aunque luego cierren la ventana) y
+   * abre la ventana de cobro.
+   */
   function charge() {
-    if (order && drafts.length === 0) {
+    if (order && drafts.length === 0 && unsentSaved === 0) {
       setCheckoutOpen(true);
       return;
     }
@@ -158,11 +161,13 @@ export function PosScreen({
       if (order) {
         const result = await saveOrderChangesAction(order.id, info, drafts);
         if (!result.ok) return setStatus(result);
+        setDrafts([]);
         router.push(`/pos?orden=${order.id}&cobrar=1`);
         return;
       }
       const result = await createOrderAction({ channel: header.channel, ...info }, drafts);
       if (!result.ok || !result.orderId) return setStatus(result);
+      setDrafts([]);
       router.push(`/pos?orden=${result.orderId}&cobrar=1`);
     });
   }
@@ -303,16 +308,16 @@ export function PosScreen({
             </div>
           )}
           <div className={cn("grid gap-2", abilities.charge ? "grid-cols-[auto_1fr_1fr]" : "grid-cols-[auto_1fr]")}>
-            <Button variant="outline" size="lg" onClick={resetToNewOrder} disabled={pending}>
+            <Button variant="outline" size="lg" className="h-14" onClick={resetToNewOrder} disabled={pending}>
               Nueva
             </Button>
-            <Button variant="secondary" size="lg" onClick={() => save(false)} disabled={pending || !canSave}>
-              Guardar
+            <Button variant="secondary" size="lg" className="h-14 text-lg" onClick={save} disabled={pending || !canSave}>
+              {pending ? "Guardando…" : "Guardar"}
             </Button>
             {abilities.charge && (
               <Button
                 size="lg"
-                className="bg-green-600 text-white hover:bg-green-700"
+                className="h-14 bg-green-600 text-lg text-white hover:bg-green-700"
                 onClick={charge}
                 disabled={pending || total === 0}
               >
@@ -320,15 +325,7 @@ export function PosScreen({
               </Button>
             )}
           </div>
-          <Button
-            size="lg"
-            className="h-16 w-full text-xl"
-            onClick={() => save(true)}
-            disabled={pending || !canSave || unsentKitchen === 0}
-          >
-            <ChefHat className="size-6" />
-            {pending ? "Enviando…" : `Enviar a cocina${unsentKitchen > 0 ? ` (${unsentKitchen})` : ""}`}
-          </Button>
+          <p className="text-center text-xs text-muted-foreground">Guardar y Cobrar envían a cocina lo nuevo.</p>
         </div>
       </aside>
 

@@ -99,6 +99,76 @@ describe("enviar a cocina", () => {
   });
 });
 
+describe("envío automático (Guardar / Cobrar envían a cocina)", () => {
+  beforeEach(async () => {
+    eventBus.reset();
+    kitchenModule.registerSubscribers?.();
+    await resetDatabase();
+  });
+
+  it("crear la orden desde el POS la guarda y la envía en la misma transacción (la gaseosa no va)", async () => {
+    const { caja, plato, gaseosa } = await fixtures();
+    const order = await orders.createOrder(
+      { channel: "LOCAL", serviceType: "DINE_IN", tableNumber: "2" },
+      [line(plato.id), line(gaseosa.id)],
+      caja.id,
+      { sendToKitchen: true },
+    );
+    expect(order.sentCount).toBe(1);
+    const [ticket] = await listActiveTickets();
+    expect(ticket.items.map((i) => i.name)).toEqual(["Majadito (ejemplo)"]);
+    const bebida = await db.orderItem.findFirstOrThrow({ where: { orderId: order.id, productId: gaseosa.id } });
+    expect(bebida.sentToKitchenAt).toBeNull();
+  });
+
+  it("solo bebidas: se guarda sin crear comanda", async () => {
+    const { caja, gaseosa } = await fixtures();
+    const order = await orders.createOrder({ channel: "LOCAL", serviceType: "TAKEAWAY" }, [line(gaseosa.id)], caja.id, {
+      sendToKitchen: true,
+    });
+    expect(order.sentCount).toBe(0);
+    expect(await db.kitchenTicket.count()).toBe(0);
+  });
+
+  it("guardar una orden existente envía lo agregado como adicional y lo que quedó sin enviar", async () => {
+    const { caja, plato, salchi } = await fixtures();
+    // Orden "antigua" guardada sin enviar.
+    const order = await orders.createOrder({ channel: "LOCAL", serviceType: "DINE_IN", tableNumber: "5" }, [line(plato.id)], caja.id);
+    const first = await orders.saveOrderAndSend(order.id, { serviceType: "DINE_IN", tableNumber: "5", customerName: "Ana" }, []);
+    expect(first.sentCount).toBe(1);
+    const second = await orders.saveOrderAndSend(order.id, { serviceType: "DINE_IN", tableNumber: "5", customerName: "Ana" }, [
+      line(salchi.id),
+    ]);
+    expect(second.sentCount).toBe(1);
+    const all = await listActiveTickets();
+    expect(all.map((t) => t.sequence)).toEqual([1, 2]);
+    expect(all[1].items.map((i) => i.name)).toEqual(["Salchipapa de pollo (ejemplo)"]);
+    // Guardar sin nada nuevo no crea comandas vacías.
+    expect((await orders.saveOrderAndSend(order.id, { serviceType: "DINE_IN", tableNumber: "5" }, [])).sentCount).toBe(0);
+    expect(await db.kitchenTicket.count()).toBe(2);
+  });
+
+  it("PEYA se envía al guardar como para llevar", async () => {
+    const { caja, plato } = await fixtures();
+    await orders.createOrder({ channel: "PEYA", serviceType: "TAKEAWAY", customerName: "Ana" }, [line(plato.id, { serviceType: "TAKEAWAY" })], caja.id, {
+      sendToKitchen: true,
+    });
+    const [ticket] = await listActiveTickets();
+    expect(ticket).toMatchObject({ channel: "PEYA", serviceType: "TAKEAWAY", label: "PEYA · Ana" });
+  });
+
+  it("si cocina falla, la orden nueva no se guarda a medias", async () => {
+    const { caja, plato } = await fixtures();
+    eventBus.onTransaction("order.sent_to_kitchen", () => {
+      throw new Error("cocina caída");
+    });
+    await expect(
+      orders.createOrder({ channel: "LOCAL", serviceType: "TAKEAWAY" }, [line(plato.id)], caja.id, { sendToKitchen: true }),
+    ).rejects.toThrow("cocina caída");
+    expect(await db.order.count()).toBe(0);
+  });
+});
+
 describe("estados de la comanda", () => {
   beforeEach(async () => {
     eventBus.reset();

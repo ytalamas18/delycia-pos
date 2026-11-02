@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { appConfig } from "@/core/config/app";
 import { formatMoney } from "@/core/money";
+import { MONEY_ACCOUNT_LABEL } from "@/core/money/accounts";
 import { SUPPLIER_METHOD_LABEL } from "@/modules/purchases";
 import type { PaymentMethod } from "@/generated/prisma/enums";
 
 import { businessDate } from "@/core/time";
 
+import { cashOutflowsCents } from "../domain/closing";
 import { paymentMethodLabel } from "../domain/labels";
 import { getDailyClosing } from "../services/history";
 import { ClosingForm } from "./closing-form";
@@ -16,6 +18,7 @@ import { OpeningForm } from "./opening-form";
 import { DayPicker } from "./day-picker";
 
 const METHODS: PaymentMethod[] = ["CASH", "QR", "CARD", "PEYA", "CREDIT"];
+const hour = new Intl.DateTimeFormat("es-BO", { timeStyle: "short", timeZone: appConfig.timezone });
 const time = new Intl.DateTimeFormat("es-BO", { dateStyle: "short", timeStyle: "short", timeZone: appConfig.timezone });
 
 export async function ClosingView({ date }: { date: string }) {
@@ -150,18 +153,75 @@ export async function ClosingView({ date }: { date: string }) {
             {s.supplierPayments.payments.map((p, i) => (
               <Row
                 key={i}
-                label={`Compra #${p.purchaseNumber}${p.supplier ? ` · ${p.supplier}` : ""} · ${SUPPLIER_METHOD_LABEL[p.method]}`}
+                label={`Compra #${p.purchaseNumber}${p.supplier ? ` · ${p.supplier}` : ""} · ${SUPPLIER_METHOD_LABEL[p.method]}${
+                  p.account ? ` · ${MONEY_ACCOUNT_LABEL[p.account]}` : ""
+                }${p.reference ? ` · N° ${p.reference}` : ""}`}
                 value={`− ${formatMoney(p.amountCents)}`}
               />
             ))}
             <div className="border-t pt-2">
-              <Row label="En efectivo (sale de la caja)" value={`− ${formatMoney(s.supplierPayments.cashCents)}`} strong />
-              {s.supplierPayments.transferCents + s.supplierPayments.cardCents > 0 && (
+              <Row label="De la cuenta Efectivo (sale de la caja)" value={`− ${formatMoney(s.supplierPayments.cashCents)}`} strong />
+              {s.supplierPayments.totalCents - s.supplierPayments.cashCents > 0 && (
                 <Row
-                  label="Por transferencia / tarjeta (no sale de la caja)"
-                  value={formatMoney(s.supplierPayments.transferCents + s.supplierPayments.cardCents)}
+                  label="Desde Banco o ATC / PeYa (no sale de la caja)"
+                  value={formatMoney(s.supplierPayments.totalCents - s.supplierPayments.cashCents)}
                 />
               )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {s.withdrawals && s.withdrawals.items.length + s.withdrawals.voided.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Retiros de efectivo</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            {s.withdrawals.items.map((w, i) => (
+              <Row
+                key={i}
+                label={`${hour.format(new Date(w.at))} · ${w.reason}${w.byName ? ` · ${w.byName}` : ""}`}
+                value={`− ${formatMoney(w.amountCents)}`}
+              />
+            ))}
+            <div className="border-t pt-2">
+              <Row label="Total retiros (sale de la caja)" value={`− ${formatMoney(s.withdrawals.totalCents)}`} strong />
+            </div>
+            {s.withdrawals.voided.length > 0 && (
+              <div className="pt-2 text-sm text-muted-foreground">
+                <p className="font-medium">Anulados (no restan)</p>
+                {s.withdrawals.voided.map((w, i) => (
+                  <p key={i}>
+                    <span className="line-through">
+                      {hour.format(new Date(w.at))} · {w.reason} · {formatMoney(w.amountCents)}
+                    </span>{" "}
+                    — {w.voidReason}
+                  </p>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {s.cashTransfers && s.cashTransfers.items.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Depósitos / traspasos desde la caja</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            {s.cashTransfers.items.map((t, i) => (
+              <Row
+                key={i}
+                label={`${hour.format(new Date(t.at))} · a ${MONEY_ACCOUNT_LABEL[t.toAccount]}${t.reference ? ` · N° ${t.reference}` : ""}${
+                  t.byName ? ` · ${t.byName}` : ""
+                }`}
+                value={`− ${formatMoney(t.amountOutCents)}`}
+              />
+            ))}
+            <div className="border-t pt-2">
+              <Row label="Total (sale de la caja)" value={`− ${formatMoney(s.cashTransfers.totalCents)}`} strong />
             </div>
           </CardContent>
         </Card>
@@ -181,7 +241,7 @@ export async function ClosingView({ date }: { date: string }) {
             date={date}
             openingCashCents={opening?.openingCashCents ?? 0}
             moneyIn={{ cash: s.moneyInByMethod.CASH, qr: s.moneyInByMethod.QR, card: s.moneyInByMethod.CARD }}
-            cashOutCents={s.supplierPayments?.cashCents ?? 0}
+            cashOutCents={cashOutflowsCents(s)}
             saved={
               saved
                 ? {

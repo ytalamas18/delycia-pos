@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ActionResult } from "@/core/actions/types";
 import { formatMoney, parseMoney } from "@/core/money";
-import type { PurchaseDocType, SupplierPaymentMethod } from "@/generated/prisma/enums";
+import type { MoneyAccount, PurchaseDocType, SupplierPaymentMethod } from "@/generated/prisma/enums";
 
 import { createPurchaseAction } from "../actions";
-import { DOC_TYPE_LABEL, PAYMENT_MODE_LABEL, SUPPLIER_METHOD_LABEL, type PaymentMode } from "../domain/labels";
+import { DOC_TYPE_LABEL, PAYMENT_MODE_LABEL, type PaymentMode } from "../domain/labels";
+import { MethodAccountFields } from "./method-account-fields";
 
 /** Ítem comprable ya preparado por el servidor (sin Decimal). */
 export type PurchaseFormItem = {
@@ -67,6 +68,8 @@ export function PurchaseForm({
         dueDate: String(fd.get("dueDate") ?? ""),
         paymentMode: mode,
         paymentMethod: String(fd.get("paymentMethod") ?? "CASH") as SupplierPaymentMethod,
+        paymentAccount: String(fd.get("paymentAccount") ?? "") as MoneyAccount | "",
+        paymentReference: String(fd.get("paymentReference") ?? ""),
         paidNow: String(fd.get("paidNow") ?? ""),
         lines: lines
           .filter((l) => l.productId)
@@ -197,16 +200,10 @@ export function PurchaseForm({
             </div>
           )}
           {mode !== "CREDIT" && (
-            <div className="grid gap-1">
-              <Label htmlFor="paymentMethod">Método</Label>
-              <select id="paymentMethod" name="paymentMethod" className={`${selectClass} w-56`} defaultValue="CASH">
-                {Object.entries(SUPPLIER_METHOD_LABEL).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <MethodAccountFields
+              idPrefix="purchase-pay"
+              names={{ method: "paymentMethod", account: "paymentAccount", reference: "paymentReference" }}
+            />
           )}
           {mode !== "CASH_FULL" && (
             <div className="grid gap-1">
@@ -216,8 +213,8 @@ export function PurchaseForm({
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          El gasto se registra por el total en la fecha de compra. Si se paga en efectivo, sale de la caja de ese día
-          (aparece en el cierre como &quot;Pagos a proveedores&quot;).
+          El gasto se registra por el total en la fecha de compra. Si sale de la cuenta Efectivo (caja), resta del
+          efectivo de ese día (aparece en el cierre como &quot;Pagos a proveedores&quot;).
         </p>
       </div>
 

@@ -148,4 +148,32 @@ describe("compras", () => {
     const saved = await history.saveClosing(today, { countedCashCents: 15500 }, user.id);
     expect(saved).toMatchObject({ expectedCashCents: 15500, differenceCents: 0 }); // 200 - 45
   });
+
+  it("cuenta de origen por defecto según el método (editable) y n° de comprobante", async () => {
+    const { pan, user, prov } = await setup();
+    const line = [{ productId: pan.id, presentation: "unit:UNIT", quantity: "1", totalCents: "100" }];
+    const credit = await purchases.createPurchase({ date: today, paymentMode: "CREDIT", supplierId: prov.id, lines: line }, user.id);
+    await purchases.addSupplierPayment(credit.id, { date: today, amountCents: "10", method: "TRANSFER", reference: "TRX-123" }, user.id);
+    await purchases.addSupplierPayment(credit.id, { date: today, amountCents: "10", method: "CARD" }, user.id);
+    await purchases.addSupplierPayment(credit.id, { date: today, amountCents: "10", method: "CASH" }, user.id);
+    // Editable: efectivo que salió del banco (ej. retiraron del cajero para pagar).
+    await purchases.addSupplierPayment(credit.id, { date: today, amountCents: "10", method: "CASH", account: "BANK" }, user.id);
+    const rows = await db.supplierPayment.findMany({ where: { purchaseId: credit.id }, orderBy: { createdAt: "asc" } });
+    expect(rows.map((r) => [r.method, r.account, r.reference])).toEqual([
+      ["TRANSFER", "BANK", "TRX-123"],
+      ["CARD", "ATC_PEYA", null],
+      ["CASH", "CASH", null],
+      ["CASH", "BANK", null],
+    ]);
+    const contado = await purchases.createPurchase(
+      { date: today, paymentMode: "CASH_FULL", paymentMethod: "TRANSFER", paymentReference: "QR-9", lines: line },
+      user.id,
+    );
+    expect(await db.supplierPayment.findFirstOrThrow({ where: { purchaseId: contado.id } })).toMatchObject({ account: "BANK", reference: "QR-9" });
+
+    // Cierre: solo lo que salió de la cuenta Efectivo resta del esperado.
+    const { summary } = await history.getDailyClosing(today);
+    expect(summary.supplierPayments?.cashCents).toBe(1000);
+    expect(summary.supplierPayments?.payments[0]).toMatchObject({ account: "BANK", reference: "TRX-123" });
+  });
 });

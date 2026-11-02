@@ -51,9 +51,6 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
           number: paidOrder.number,
           totalCents: paidOrder.totalCents,
           changeCents: paidOrder.payments.reduce((s, p) => s + (p.changeCents ?? 0), 0),
-          unsentKitchen: paidOrder.items.filter(
-            (i) => i.status === "ACTIVE" && i.sendsToKitchen && !i.sentToKitchenAt,
-          ).length,
           kitchenItems: paidOrder.items.filter((i) => i.status === "ACTIVE" && i.sendsToKitchen).length,
         }
       : null;

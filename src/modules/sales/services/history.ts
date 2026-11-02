@@ -5,6 +5,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { OrderStatus, PaymentMethod, SalesChannel, ServiceType } from "@/generated/prisma/enums";
 
 import { supplierPaymentsForDay } from "@/modules/purchases";
+import { cashTransfersForDay, withdrawalsForDay } from "@/modules/treasury";
 
 import { arqueo, summarizeDay, type DailySummary } from "../domain/closing";
 
@@ -104,12 +105,14 @@ export async function openCash(date: string, input: { openingCashCents: number; 
 /** Resumen del día + apertura + cierre guardado (si ya se hizo). */
 export async function getDailyClosing(date: string) {
   const { start, end } = businessDayRange(date);
-  const [orders, collections, saved, opening, outflows] = await Promise.all([
+  const [orders, collections, saved, opening, outflows, cashWithdrawals, cashTransfers] = await Promise.all([
     db.order.findMany({ where: { businessDate: date }, include: { items: true, payments: true } }),
     db.creditCollection.findMany({ where: { createdAt: { gte: start, lt: end } } }),
     db.cashClosing.findUnique({ where: { businessDate: date } }),
     getOpening(date),
     supplierPaymentsForDay(date),
+    withdrawalsForDay(date),
+    cashTransfersForDay(date),
   ]);
   const closedBy = saved ? await db.user.findUnique({ where: { id: saved.closedById }, select: { name: true } }) : null;
 
@@ -126,14 +129,28 @@ export async function getDailyClosing(date: string) {
   }));
 
   const supplierPayments = {
-    cashCents: outflows.byMethod.CASH,
+    // Lo que salió de la cuenta Efectivo (caja), sea cual sea el método.
+    cashCents: outflows.byAccount.CASH,
     transferCents: outflows.byMethod.TRANSFER,
     cardCents: outflows.byMethod.CARD,
     totalCents: outflows.totalCents,
     payments: outflows.payments,
   };
+  const snapshot = (w: (typeof cashWithdrawals.items)[number]) => ({
+    at: w.at,
+    amountCents: w.amountCents,
+    reason: w.reason,
+    byName: w.byName,
+    voidReason: w.voidReason,
+    voidedByName: w.voidedByName,
+  });
+  const withdrawals = {
+    totalCents: cashWithdrawals.totalCents,
+    items: cashWithdrawals.items.map(snapshot),
+    voided: cashWithdrawals.voided.map(snapshot),
+  };
   return {
-    summary: summarizeDay(withCategory, collections, supplierPayments),
+    summary: summarizeDay(withCategory, collections, supplierPayments, withdrawals, cashTransfers),
     saved,
     closedByName: closedBy?.name ?? null,
     opening,

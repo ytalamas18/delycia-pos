@@ -9,11 +9,9 @@ import { Label } from "@/components/ui/label";
 import { initialActionResult, type ActionResult } from "@/core/actions/types";
 
 import { addSupplierPaymentAction } from "../actions";
-import { SUPPLIER_METHOD_LABEL } from "../domain/labels";
+import { MethodAccountFields } from "./method-account-fields";
 
-const selectClass = "h-11 w-full rounded-md border border-input bg-background px-3 text-base";
-
-/** Abono a una compra (fecha, monto y método). */
+/** Abono a una compra (fecha, monto, método, cuenta de origen y n° de comprobante). */
 export function PaymentForm({ purchaseId, today, balance }: { purchaseId: string; today: string; balance: string }) {
   const ref = useRef<HTMLFormElement>(null);
   const [state, action, pending] = useActionState(async (prev: ActionResult, fd: FormData) => {
@@ -33,16 +31,7 @@ export function PaymentForm({ purchaseId, today, balance }: { purchaseId: string
         <Input id="pay-amount" name="amount" inputMode="decimal" placeholder={balance} className="w-36" />
         <FieldError state={state} name="amountCents" />
       </div>
-      <div className="grid gap-1">
-        <Label htmlFor="pay-method">Método</Label>
-        <select id="pay-method" name="method" className={`${selectClass} w-52`} defaultValue="CASH">
-          {Object.entries(SUPPLIER_METHOD_LABEL).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-      </div>
+      <MethodAccountFields idPrefix="pay" />
       <div className="grid min-w-48 flex-1 gap-1">
         <Label htmlFor="pay-note">Nota</Label>
         <Input id="pay-note" name="note" placeholder="Opcional" />

@@ -1,5 +1,6 @@
 import { fileBaseFor, formatPeriod, type ExportDocument } from "@/core/export";
 import { formatMoney as formatMoneyText } from "@/core/money";
+import { MONEY_ACCOUNT_LABEL, MONEY_ACCOUNTS } from "@/core/money/accounts";
 
 import { formatQuantity } from "@/core/quantity";
 import { businessDate } from "@/core/time";
@@ -10,7 +11,17 @@ import { DOC_TYPE_LABEL, PAYMENT_STATUS_LABEL, SUPPLIER_METHOD_LABEL } from "@/m
 import { channelName } from "./domain/labels";
 import { parseCreditStatus } from "./domain/receivables";
 import { parseRange } from "./domain/range";
-import { getAdjustmentsReport, getKardexReport, getPayablesReport, getPurchasesReport, getStockReport } from "./services/stock-purchases";
+import { itemsText, parseSupplierPaymentFilters } from "./domain/supplier-payments";
+import { getCashbook } from "./services/cashbook";
+import type { MoneyAccount } from "@/generated/prisma/enums";
+import {
+  getAdjustmentsReport,
+  getKardexReport,
+  getPayablesReport,
+  getPurchasesReport,
+  getStockReport,
+  getSupplierPaymentsReport,
+} from "./services/stock-purchases";
 import { getMoneyIn, getProductsSold, getReceivables, getSalesByChannel, getVoids, listCategoriesForFilter } from "./services/reports";
 
 /** Parámetros de la URL: los mismos que usa la pantalla de Reportes. */
@@ -507,10 +518,164 @@ async function payablesExport(): Promise<ExportDocument> {
           `${PAYMENT_STATUS_LABEL[p.paymentStatus]}${p.overdue ? " (vencida)" : ""}`,
           p.payments
             .filter((x) => !x.voidedAt)
-            .map((x) => `${x.date} ${SUPPLIER_METHOD_LABEL[x.method]} ${formatMoneyText(x.amountCents)}`)
+            .map((x) => `${x.date} ${SUPPLIER_METHOD_LABEL[x.method]} (${MONEY_ACCOUNT_LABEL[x.account]}${x.reference ? ` N° ${x.reference}` : ""}) ${formatMoneyText(x.amountCents)}`)
             .join(" | "),
         ]),
         totals: ["Total", null, null, null, null, null, r.totalCents, null, null],
+      },
+    ],
+  };
+}
+
+async function supplierPaymentsExport(params: ReportParams): Promise<ExportDocument> {
+  const range = parseRange(params);
+  const filters = parseSupplierPaymentFilters({ metodo: params.metodo, cuenta: params.cuenta });
+  const r = await getSupplierPaymentsReport(range, filters);
+  const columns = [
+    { header: "Fecha", type: "date" as const },
+    { header: "Registrado", type: "datetime" as const },
+    { header: "Proveedor", type: "text" as const },
+    { header: "Compra N°", type: "int" as const },
+    { header: "Ítems / categoría", type: "text" as const, width: 36 },
+    { header: "Método", type: "text" as const },
+    { header: "Cuenta", type: "text" as const },
+    { header: "N° comprobante", type: "text" as const },
+    { header: "Monto", type: "money" as const },
+    { header: "Nota", type: "text" as const },
+    { header: "Registrado por", type: "text" as const },
+  ];
+  const row = (p: (typeof r.active)[number], note: string) => [
+    p.date,
+    p.createdAt,
+    p.supplier ?? "Sin proveedor",
+    p.purchaseNumber,
+    itemsText(p.items),
+    SUPPLIER_METHOD_LABEL[p.method],
+    MONEY_ACCOUNT_LABEL[p.account],
+    p.reference ?? "",
+    p.amountCents,
+    note,
+    p.createdByName ?? "",
+  ];
+  const tables: ExportDocument["tables"] = [
+    {
+      title: "Pagos",
+      columns,
+      rows: r.active.map((p) => row(p, p.note ?? "")),
+      totals: ["Total", null, null, null, null, null, null, null, r.totalCents, null, null],
+      notes: ["Por fecha del pago (el día en que salió el dinero)."],
+    },
+    {
+      title: "Por método",
+      columns: [
+        { header: "Método", type: "text" },
+        { header: "Monto", type: "money" },
+      ],
+      rows: (["CASH", "TRANSFER", "CARD"] as const).map((m) => [SUPPLIER_METHOD_LABEL[m], r.byMethod[m]]),
+      totals: ["Total", r.totalCents],
+    },
+    {
+      title: "Por cuenta",
+      columns: [
+        { header: "Cuenta", type: "text" },
+        { header: "Monto", type: "money" },
+      ],
+      rows: MONEY_ACCOUNTS.map((a) => [MONEY_ACCOUNT_LABEL[a], r.byAccount[a]]),
+      totals: ["Total", r.totalCents],
+    },
+  ];
+  if (r.voided.length > 0) {
+    tables.push({
+      title: "Anulados",
+      columns: columns.map((c) => (c.header === "Nota" ? { ...c, header: "Motivo de anulación" } : c)),
+      rows: r.voided.map((p) => row(p, `${p.voidReason ?? ""}${p.voidedByName ? ` (${p.voidedByName})` : ""}`)),
+      totals: ["Total anulado (no suma)", null, null, null, null, null, null, null, r.voidedCents, null, null],
+    });
+  }
+  return {
+    report: "Pagos a proveedores",
+    fileBase: fileBaseFor("pagos-a-proveedores", range.from, range.to),
+    period: formatPeriod(range.from, range.to),
+    filters: [
+      `Método: ${filters.method ? SUPPLIER_METHOD_LABEL[filters.method] : "Todos"}`,
+      `Cuenta: ${filters.account ? MONEY_ACCOUNT_LABEL[filters.account] : "Todas"}`,
+      "Anulados aparte, no suman",
+    ],
+    generatedAt: new Date(),
+    summary: [
+      { label: "Total pagado", value: r.totalCents, type: "money" },
+      { label: "Pagos", value: r.active.length, type: "int" },
+      { label: "Anulados (no suman)", value: r.voidedCents, type: "money" },
+    ],
+    tables,
+  };
+}
+
+/** Libro de caja y bancos (permiso propio: `cashbook.view`, no `reports.view`). */
+export async function cashbookExport(params: ReportParams): Promise<ExportDocument> {
+  const range = parseRange(params);
+  const account = MONEY_ACCOUNTS.includes(params.cuenta as MoneyAccount) ? (params.cuenta as MoneyAccount) : null;
+  const book = await getCashbook(range, account);
+  const all = !account;
+  const columns = [
+    { header: "Fecha", type: "date" as const },
+    ...(all ? [{ header: "Cuenta", type: "text" as const }] : []),
+    { header: "Detalle", type: "text" as const, width: 48 },
+    { header: "Ítems / categoría", type: "text" as const, width: 30 },
+    { header: "N° comprobante", type: "text" as const },
+    { header: "Ingreso", type: "money" as const },
+    { header: "Egreso", type: "money" as const },
+    { header: "Saldo cuenta", type: "money" as const },
+    ...(all ? [{ header: "Saldo total", type: "money" as const }] : []),
+  ];
+  const pad = (cells: (string | number | null)[]) => cells;
+  return {
+    report: "Libro de caja y bancos",
+    fileBase: fileBaseFor("libro-caja-bancos", range.from, range.to),
+    period: formatPeriod(range.from, range.to),
+    filters: [`Cuenta: ${account ? MONEY_ACCOUNT_LABEL[account] : "Todas"}`, "Ventas por día y medio; lo fiado entra al cobrarse"],
+    generatedAt: new Date(),
+    summary: [
+      { label: "Saldo anterior", value: book.total.beforeCents + book.total.openingCents, type: "money" },
+      { label: "Ingresos", value: book.total.inCents, type: "money" },
+      { label: "Egresos", value: book.total.outCents, type: "money" },
+      { label: "Saldo final", value: book.total.endCents, type: "money" },
+    ],
+    tables: [
+      {
+        title: "Saldos por cuenta",
+        columns: [
+          { header: "Cuenta", type: "text" },
+          { header: "Saldo anterior", type: "money" },
+          { header: "Saldo inicial (en el período)", type: "money" },
+          { header: "Ingresos", type: "money" },
+          { header: "Egresos", type: "money" },
+          { header: "Saldo final", type: "money" },
+        ],
+        rows: book.accounts.map((a) => [MONEY_ACCOUNT_LABEL[a.account], a.beforeCents, a.openingCents, a.inCents, a.outCents, a.endCents]),
+        totals: ["Total", book.total.beforeCents, book.total.openingCents, book.total.inCents, book.total.outCents, book.total.endCents],
+      },
+      {
+        title: "Movimientos",
+        columns,
+        rows: [
+          pad([range.from, ...(all ? [""] : []), "Saldo anterior", "", "", null, null, all ? null : book.total.beforeCents, ...(all ? [book.total.beforeCents] : [])]),
+          ...book.lines.map((l) =>
+            pad([
+              l.date,
+              ...(all ? [MONEY_ACCOUNT_LABEL[l.account]] : []),
+              l.detail,
+              l.items ?? "",
+              l.reference ?? "",
+              l.inCents || null,
+              l.outCents || null,
+              l.balanceCents,
+              ...(all ? [l.totalBalanceCents] : []),
+            ]),
+          ),
+        ],
+        totals: ["Total", ...(all ? [null] : []), null, null, null, book.total.inCents, book.total.outCents, null, ...(all ? [book.total.endCents] : [])],
+        notes: ["Efectivo: la 'Diferencia de arqueo' deja el saldo igual a lo contado en el cierre de caja."],
       },
     ],
   };
@@ -537,5 +702,6 @@ export const reportExports: Record<string, (params: ReportParams) => Promise<Exp
   kardex: kardexExport,
   mermas: adjustmentsExport,
   compras: purchasesExport,
+  "pagos-proveedores": supplierPaymentsExport,
   "cuentas-por-pagar": () => payablesExport(),
 };

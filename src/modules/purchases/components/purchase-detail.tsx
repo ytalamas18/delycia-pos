@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { formatDay } from "@/core/export";
+import { MONEY_ACCOUNT_LABEL } from "@/core/money/accounts";
 import { formatMoney, formatMoneyInput } from "@/core/money";
 import { formatQuantity } from "@/core/quantity";
 import { businessDate } from "@/core/time";
@@ -98,6 +99,8 @@ export async function PurchaseDetail({ id }: { id: string }) {
             <li key={x.id} className={cn("flex flex-wrap items-center gap-3 p-3 text-sm", x.voidedAt && "opacity-60")}>
               <span className="w-24">{formatDay(x.date)}</span>
               <span className="w-44">{SUPPLIER_METHOD_LABEL[x.method]}</span>
+              <span className="w-32">{MONEY_ACCOUNT_LABEL[x.account]}</span>
+              <span className="w-36 text-muted-foreground">{x.reference ? `N° ${x.reference}` : "Sin comprobante"}</span>
               <span className={cn("w-28 text-right font-semibold tabular-nums", x.voidedAt && "line-through")}>{formatMoney(x.amountCents)}</span>
               <span className="flex-1 text-muted-foreground">
                 {x.voidedAt ? `Anulado: ${x.voidReason}` : (x.note ?? "")}

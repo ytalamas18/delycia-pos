@@ -1,9 +1,11 @@
 import { Decimal } from "@/core/quantity";
 import { listAdjustments, listStockItems, withRunningBalance, itemMovements } from "@/modules/inventory";
 import { listTrackedItems } from "@/modules/catalog";
-import { listPayables, listPurchases } from "@/modules/purchases";
+import type { MoneyAccount, SupplierPaymentMethod } from "@/generated/prisma/enums";
+import { listPayables, listPurchases, listSupplierPayments } from "@/modules/purchases";
 
 import type { DateRange } from "../domain/range";
+import { summarizeSupplierPayments } from "../domain/supplier-payments";
 
 /*
  * Reportes de Inventario y Compras: se leen por la API pública de esos módulos (solo lectura).
@@ -78,4 +80,13 @@ export async function getPayablesReport() {
     overdueCents: rows.filter((p) => p.overdue).reduce((s, p) => s + p.balanceCents, 0),
     bySupplier: [...bySupplier.values()].sort((a, b) => b.balanceCents - a.balanceCents),
   };
+}
+
+/** Pagos a proveedores por fecha del pago (filtro opcional por método y cuenta). Anulados aparte, no suman. */
+export async function getSupplierPaymentsReport(
+  range: DateRange,
+  filters: { method?: SupplierPaymentMethod | null; account?: MoneyAccount | null } = {},
+) {
+  const rows = await listSupplierPayments({ from: range.from, to: range.to, ...filters });
+  return summarizeSupplierPayments(rows);
 }

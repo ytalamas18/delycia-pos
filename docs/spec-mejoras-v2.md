@@ -1,6 +1,6 @@
 # Spec — Mejoras v2 (caja, pagos y libro de caja y bancos)
 
-Observaciones del dueño (Yasser) acordadas el 2026-11-02. **Pendiente de implementar.**
+Observaciones del dueño (Yasser) acordadas el 2026-11-02. **Implementado el 02/11/2026** (falta desplegar).
 Orden sugerido: 1 → 2 → 3 → 4 → 5. Cada punto en commits pequeños, con tests (Vitest) y verificación
 en navegador (Playwright). Si algo no está definido aquí, **preguntar**: no inventar reglas ni cifras.
 
@@ -12,11 +12,11 @@ día de negocio en `America/La_Paz`.
 
 | # | Mejora | Estado |
 |---|---|---|
-| 1 | Envío automático a cocina | Pendiente |
-| 2 | Retiros de efectivo de caja | Pendiente |
-| 3 | N° de comprobante y cuenta de origen en pagos a proveedores | Pendiente |
-| 4 | Reporte "Pagos a proveedores" | Pendiente |
-| 5 | Libro de caja y bancos | Pendiente (prioridad) |
+| 1 | Envío automático a cocina | ✅ Listo |
+| 2 | Retiros de efectivo de caja | ✅ Listo |
+| 3 | N° de comprobante y cuenta de origen en pagos a proveedores | ✅ Listo |
+| 4 | Reporte "Pagos a proveedores" | ✅ Listo |
+| 5 | Libro de caja y bancos | ✅ Listo |
 
 Descartado por ahora: módulo "Gastos". Los gastos operativos se registran como **compras** de ítems
 de la categoría "Gastos operativos" (transporte, sueldos, servicios, etc.). Quizá a futuro.
@@ -115,3 +115,34 @@ consolidado en una sola pantalla**, armado solo por el sistema (nadie escribe do
 ## Al terminar
 
 Actualizar `CLAUDE.md` y `docs/estado-actual.md` con lo nuevo y marcar el estado en la tabla de arriba.
+
+## Decisiones (Yasser, 02/11/2026)
+
+- Libro de caja y bancos: las **ventas cobradas** van en **una línea por día y medio de pago** (ej. "Ventas en
+  efectivo"); pagos a proveedores, cobros de fiado, retiros y traspasos van uno por uno.
+- Libro, cuenta Efectivo: si el cierre de caja tiene faltante o sobrante, se agrega una línea **"Diferencia de
+  arqueo"** (faltante = egreso, sobrante = ingreso): el saldo Efectivo queda igual a lo contado.
+- Libro de caja y bancos (ver y registrar traspasos / saldos iniciales): **solo Admin** por defecto; se puede dar a
+  otro rol desde Usuarios → Roles.
+- Retiros: los anula quien tiene el permiso de retiros (Caja y Admin), con motivo y **solo el mismo día de negocio**.
+
+## Decisiones técnicas
+
+- Módulo nuevo `treasury` ("Caja y bancos"): retiros, traspasos y saldos iniciales. Ventas lo consulta para el
+  cierre (como hace con Compras). El libro se arma en `reports` (solo lectura, SQL) para no crear dependencias
+  circulares entre Ventas, Compras y Caja y bancos.
+- Pagos a proveedores: el cierre de caja resta lo que salió de la **cuenta Efectivo** (no el método). Así, un
+  pago en efectivo registrado con cuenta Banco (ej. plata sacada del cajero) no descuadra la caja. Los pagos
+  anteriores quedan con la cuenta que corresponde a su método (migración `pagos_cuenta_y_referencia`).
+- Libro: el saldo **Efectivo** es todo el efectivo del negocio (caja + lo guardado). El fondo de apertura no
+  es un movimiento; cada día con cierre guardado cambia exactamente "contado − fondo". La diferencia de arqueo
+  se recalcula con los movimientos actuales (si algo cambia después de cerrar, se ve al volver a guardar el cierre).
+- Traspasos: desde Efectivo solo con fecha de hoy y se anulan solo el mismo día; **hacia Efectivo no se permiten
+  por ahora** (el cierre no suma dinero que entra por traspaso). Lo que llega no puede superar lo que sale.
+  La comisión (sale − llega) es un egreso de la cuenta de origen.
+- Saldo inicial: uno vigente por cuenta, con fecha (saldo al empezar ese día); para corregirlo se anula con
+  motivo y se carga otro. Lo anterior a su fecha no cuenta en esa cuenta. Se acepta negativo (banco en rojo).
+- Ventas en el libro: por el **día de negocio de la orden** (igual que el cierre); cobros de fiado por la fecha
+  del abono; pagos anulados y órdenes anuladas (pagos devueltos) no aparecen.
+- Pantalla `/caja-bancos` (menú "Caja y bancos"); por defecto el mes en curso. Exporte
+  `/api/exportar/libro-caja-bancos` (permiso `cashbook.view`).

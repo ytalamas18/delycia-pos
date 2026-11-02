@@ -10,6 +10,7 @@ import { getDailyClosing, paymentMethodLabel } from "@/modules/sales";
 export const dynamic = "force-dynamic";
 
 const METHODS: PaymentMethod[] = ["CASH", "QR", "CARD", "PEYA", "CREDIT"];
+const hour = new Intl.DateTimeFormat("es-BO", { timeStyle: "short", timeZone: appConfig.timezone });
 const dateTime = new Intl.DateTimeFormat("es-BO", { dateStyle: "short", timeStyle: "short", timeZone: appConfig.timezone });
 
 export default async function ImprimirCierrePage({ params }: PageProps<"/imprimir/cierre/[fecha]">) {
@@ -52,9 +53,27 @@ export default async function ImprimirCierrePage({ params }: PageProps<"/imprimi
         <>
           <div className="mt-1 font-bold">Pagos a proveedores</div>
           {s.supplierPayments.payments.map((p, i) => (
-            <L key={i} label={`Compra #${p.purchaseNumber}${p.method === "CASH" ? " (efectivo)" : ""}`} value={`-${formatMoney(p.amountCents)}`} />
+            <L key={i} label={`Compra #${p.purchaseNumber}${(p.account ?? p.method) === "CASH" ? " (caja)" : ""}`} value={`-${formatMoney(p.amountCents)}`} />
           ))}
-          <L label="Efectivo que salió" value={`-${formatMoney(s.supplierPayments.cashCents)}`} bold />
+          <L label="Salió de la caja" value={`-${formatMoney(s.supplierPayments.cashCents)}`} bold />
+        </>
+      )}
+      {s.withdrawals && s.withdrawals.items.length > 0 && (
+        <>
+          <div className="mt-1 font-bold">Retiros de efectivo</div>
+          {s.withdrawals.items.map((w, i) => (
+            <L key={i} label={`${hour.format(new Date(w.at))} ${w.reason}`} value={`-${formatMoney(w.amountCents)}`} />
+          ))}
+          <L label="Total retiros" value={`-${formatMoney(s.withdrawals.totalCents)}`} bold />
+        </>
+      )}
+      {s.cashTransfers && s.cashTransfers.items.length > 0 && (
+        <>
+          <div className="mt-1 font-bold">Depósitos desde caja</div>
+          {s.cashTransfers.items.map((t, i) => (
+            <L key={i} label={`${hour.format(new Date(t.at))}${t.reference ? ` N° ${t.reference}` : ""}`} value={`-${formatMoney(t.amountOutCents)}`} />
+          ))}
+          <L label="Total depósitos" value={`-${formatMoney(s.cashTransfers.totalCents)}`} bold />
         </>
       )}
       <hr className="my-2 border-dashed border-black" />

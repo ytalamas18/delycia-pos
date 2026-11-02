@@ -66,3 +66,11 @@ export function listIngredients() {
     orderBy: { name: "asc" },
   });
 }
+
+/** Categoría ACTUAL de cada ítem (para mostrar ítem y categoría en pagos y en el libro de caja). */
+export async function categoryNamesByProduct(ids: string[]): Promise<Map<string, string>> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return new Map();
+  const rows = await db.product.findMany({ where: { id: { in: unique } }, select: { id: true, category: { select: { name: true } } } });
+  return new Map(rows.map((r) => [r.id, r.category.name]));
+}

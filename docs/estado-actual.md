@@ -1,7 +1,23 @@
-# Estado actual de la app — 30/10/2026
+# Estado actual de la app — 02/11/2026
 
-178 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: **usuarios y roles** (ver abajo). Antes:
-compras, inventario y recetas completos (fases 1 a 6, `docs/spec-compras-inventario.md`).
+194 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: **mejoras v2** (`docs/spec-mejoras-v2.md`).
+Antes: usuarios y roles; compras, inventario y recetas (fases 1 a 6, `docs/spec-compras-inventario.md`).
+
+## Mejoras v2 (02/11/2026) — listo en código, falta desplegar
+
+1. **Envío automático a cocina:** Guardar y Cobrar envían lo pendiente (Cobrar, antes de abrir la ventana de
+   cobro). Sin botón "Enviar a cocina" en el POS ni en "cobrada"; queda solo en "Pagadas, esperando cocina" para
+   órdenes viejas con algo sin enviar.
+2. **Retiros de efectivo:** botón en la barra superior (permiso `cash.withdraw`, Caja y Admin; migración
+   `retiros_de_efectivo` lo agrega al rol Caja). Monto + motivo, anulable con motivo el mismo día. Cierre (pantalla,
+   resumen, PDF y 80 mm): sección Retiros, resta del esperado.
+3. **Pagos a proveedores:** cuenta de origen (por defecto según método) y n° de comprobante. El cierre resta lo
+   que salió de la cuenta Efectivo. Migración `pagos_cuenta_y_referencia` completa los pagos existentes.
+4. **Reporte "Pagos a proveedores"** (Reportes → Compras) con filtros método/cuenta, totales y anulados aparte; PDF/Excel.
+5. **Libro de caja y bancos** (`/caja-bancos`, solo Admin): Efectivo / Banco / ATC-PeYa con saldo acumulado,
+   traspasos con comisión automática, saldos iniciales y diferencia de arqueo; PDF/Excel. Migración `libro_caja_bancos`.
+- **Al desplegar:** cargar los saldos iniciales de las 3 cuentas (Admin → Caja y bancos). Hacer respaldo antes.
+- Pendiente de decidir: traspasos **hacia** Efectivo (hoy bloqueados); dar el libro a otro rol (Harumi) desde Roles.
 
 ## Usuarios y roles (30/10/2026) — listo en código, falta desplegar
 

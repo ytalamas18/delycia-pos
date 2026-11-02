@@ -2,14 +2,17 @@
 import "./events";
 
 export { purchasesModule } from "./module";
-export { DOC_TYPE_LABEL, PAYMENT_STATUS_LABEL, SUPPLIER_METHOD_LABEL, type PaymentStatus } from "./domain/labels";
+export { DEFAULT_ACCOUNT_FOR_METHOD, DOC_TYPE_LABEL, PAYMENT_STATUS_LABEL, SUPPLIER_METHOD_LABEL, type PaymentStatus } from "./domain/labels";
 export { purchaseBalance, isOverdue } from "./domain/balance";
 export { getSupplier, listSuppliers } from "./services/suppliers";
 export {
   getPurchase,
   listPayables,
   listPurchases,
+  listSupplierPayments,
   supplierPaymentsForDay,
+  type SupplierPaymentFilters,
+  type SupplierPaymentRow,
   type SupplierPaymentsForDay,
 } from "./services/purchases";
 export { getPurchaseFormData } from "./services/form-data";

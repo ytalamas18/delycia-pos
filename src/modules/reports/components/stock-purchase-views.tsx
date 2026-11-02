@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { appConfig } from "@/core/config/app";
 import { formatDay } from "@/core/export";
 import { formatMoney } from "@/core/money";
+import { MONEY_ACCOUNT_LABEL } from "@/core/money/accounts";
 import { formatQuantity } from "@/core/quantity";
 import { cn } from "@/lib/utils";
 import { formatCost, formatUnitCost, ITEM_TYPE_LABEL, ITEM_TYPES, UNIT_SHORT } from "@/modules/catalog";
@@ -363,7 +364,8 @@ export async function PayablesReportView() {
               <ul className="mt-2 space-y-0.5 text-muted-foreground">
                 {p.payments.map((x) => (
                   <li key={x.id} className={cn(x.voidedAt && "line-through")}>
-                    {formatDay(x.date)} · {SUPPLIER_METHOD_LABEL[x.method]} · {formatMoney(x.amountCents)}
+                    {formatDay(x.date)} · {SUPPLIER_METHOD_LABEL[x.method]} · {MONEY_ACCOUNT_LABEL[x.account]}
+                    {x.reference && ` · N° ${x.reference}`} · {formatMoney(x.amountCents)}
                     {x.voidedAt && ` (anulado: ${x.voidReason})`}
                   </li>
                 ))}

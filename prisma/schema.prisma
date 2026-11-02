@@ -566,6 +566,16 @@ enum SupplierPaymentMethod {
   CARD
 }
 
+/// Cuenta de dinero del negocio (libro de caja y bancos). Tarjeta y PeYa caen en ATC / PeYa.
+enum MoneyAccount {
+  /// Efectivo (caja)
+  CASH
+  /// Banco (QR / transferencias)
+  BANK
+  /// ATC (datáfono) y PeYa: depositan al banco después, ya descontada la comisión.
+  ATC_PEYA
+}
+
 enum PurchaseStatus {
   ACTIVE
   CANCELLED
@@ -636,6 +646,10 @@ model SupplierPayment {
   date        String
   amountCents Int
   method      SupplierPaymentMethod
+  /// De qué cuenta salió el dinero. Si es Efectivo, resta del efectivo esperado del cierre de caja.
+  account     MoneyAccount          @default(CASH)
+  /// N° de comprobante / referencia del pago (n° de transferencia o QR, recibo del proveedor). Opcional.
+  reference   String?
   note        String?
   voidedAt    DateTime?
   voidReason  String?
@@ -645,6 +659,7 @@ model SupplierPayment {
 
   @@index([purchaseId])
   @@index([date])
+  @@index([account])
 }
 
 // ============================================================================
@@ -736,4 +751,71 @@ model StockCountLine {
 
   @@index([countId])
   @@index([productId])
+}
+
+// ============================================================================
+// CAJA Y BANCOS (treasury)
+// ============================================================================
+
+/// Retiro de efectivo de la caja (autorizado por escrito fuera del sistema). Resta del efectivo esperado del
+/// cierre de su día de negocio. Anular no borra: queda con motivo.
+model CashWithdrawal {
+  id           String    @id @default(cuid())
+  /// Día de negocio (La Paz) "YYYY-MM-DD".
+  businessDate String
+  amountCents  Int
+  reason       String
+  createdById  String
+  createdAt    DateTime  @default(now())
+  voidedAt     DateTime?
+  voidReason   String?
+  voidedById   String?
+
+  @@index([businessDate])
+}
+
+/**
+ * Depósito / traspaso entre cuentas (ej. ATC/PeYa → Banco, Efectivo → Banco). No es ingreso ni gasto.
+ * PeYa y ATC depositan ya descontada la comisión: sale `amountOutCents`, llega `amountInCents` y la
+ * diferencia es la comisión (egreso de la cuenta de origen). Un traspaso desde Efectivo resta del
+ * efectivo esperado del cierre de su día. Anular no borra: queda con motivo.
+ */
+model AccountTransfer {
+  id             String       @id @default(cuid())
+  /// Día del traspaso "YYYY-MM-DD".
+  date           String
+  fromAccount    MoneyAccount
+  toAccount      MoneyAccount
+  amountOutCents Int
+  amountInCents  Int
+  reference      String?
+  note           String?
+  createdById    String
+  createdAt      DateTime     @default(now())
+  voidedAt       DateTime?
+  voidReason     String?
+  voidedById     String?
+
+  @@index([date])
+}
+
+/**
+ * Saldo inicial de una cuenta: con cuánto empieza el libro de caja y bancos ese día. Se carga una vez por
+ * cuenta; para corregirlo se anula (con motivo) y se carga otro. Los movimientos anteriores a su fecha no
+ * cuentan en esa cuenta.
+ */
+model AccountOpeningBalance {
+  id          String       @id @default(cuid())
+  account     MoneyAccount
+  /// Saldo al empezar este día "YYYY-MM-DD".
+  date        String
+  amountCents Int
+  note        String?
+  createdById String
+  createdAt   DateTime     @default(now())
+  voidedAt    DateTime?
+  voidReason  String?
+  voidedById  String?
+
+  @@index([account])
 }
