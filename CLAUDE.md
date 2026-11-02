@@ -6,7 +6,8 @@ crédito y abonos, inventario (kárdex), reportes y usuarios con roles y permiso
 respuestas concisas; no inventar precios ni cifras: preguntar).
 
 Lee también: `AGENTS.md` (reglas de Next 16), `docs/estado-actual.md` (pendientes y bugs), `docs/infra.md` (AWS),
-`docs/spec-compras-inventario.md` (spec y decisiones de compras/inventario/recetas).
+`docs/spec-compras-inventario.md` (spec y decisiones de compras/inventario/recetas), `docs/spec-mejoras-v2.md`
+(envío automático a cocina, retiros, pagos a proveedores, libro de caja y bancos).
 
 ## Stack
 
@@ -29,7 +30,7 @@ Lee también: `AGENTS.md` (reglas de Next 16), `docs/estado-actual.md` (pendient
 
 ```
 src/
-├─ app/                  rutas (solo composición): (caja)/pos|ordenes|cuentas-por-cobrar|historial|cierre|reportes|catalogo|compras|inventario|usuarios|ajustes|sin-acceso,
+├─ app/                  rutas (solo composición): (caja)/pos|ordenes|cuentas-por-cobrar|historial|cierre|reportes|catalogo|compras|caja-bancos|inventario|usuarios|ajustes|sin-acceso,
 │                        cocina/, login/, imprimir/{ticket,comanda,cierre}, api/{realtime,cocina/comandas,reportes/cierre,exportar/[reporte],plantilla-items,health}
 ├─ config/               raíz de composición: modules.ts (módulos activos), bootstrap.ts (suscriptores + SSE)
 ├─ core/                 núcleo compartido (NO importa módulos): money, events (bus), db (cliente lazy + runInTransaction),
@@ -42,16 +43,18 @@ src/
 │  │                     carga rápida (Excel/CSV), getSellableCatalog() (solo Normal y Preparado)
 │  ├─ sales/             órdenes, precios por canal (PEYA), cobro, fiado, historial, apertura/cierre, reportes PDF/CSV
 │  ├─ kitchen/           comandas (KDS), estados, mensajes caja→cocina, avisos de anulación
-│  ├─ purchases/         proveedores, compras (contado/crédito/parcial), abonos, cuentas por pagar
+│  ├─ purchases/         proveedores, compras (contado/crédito/parcial), abonos (cuenta de origen + n° comprobante), cuentas por pagar
+│  ├─ treasury/          "Caja y bancos": retiros de efectivo, traspasos entre cuentas (con comisión), saldos iniciales
 │  ├─ inventory/         kárdex (StockMovement), descuento por ventas/compras por eventos, ingreso, conteo, salida rápida
 │  ├─ users/             administración de usuarios y roles (las tablas User/Role son del núcleo: core/auth las lee)
 │  └─ reports/           SOLO LECTURA: ventas por canal (+ dinero cobrado), productos, anulaciones, cuentas por cobrar,
-│                        stock, stock bajo, kárdex, mermas, compras, cuentas por pagar
+│                        stock, stock bajo, kárdex, mermas, compras, pagos a proveedores, cuentas por pagar y el
+│                        LIBRO DE CAJA Y BANCOS (domain/cashbook.ts puro + services/cashbook.ts)
 ├─ components/ui|shell|print
 ├─ lib/                  use-live-events (SSE + vigilante), sound (Web Audio), theme (claro/oscuro), utils
 ├─ instrumentation.ts    llama bootstrap() al arrancar
 └─ proxy.ts              sesión + permisos por ruta
-prisma/  schema.prisma, migrations/ (18), seed.ts + seed-data.ts, data/menu-delycia.json
+prisma/  schema.prisma, migrations/ (21), seed.ts + seed-data.ts, data/menu-delycia.json
 tests/   core, catalog, sales, kitchen, purchases, inventory, reports, integration, support (db reset, catálogo fijo, createTestUser)
 ```
 
@@ -89,9 +92,24 @@ tests/   core, catalog, sales, kitchen, purchases, inventory, reports, integrati
   `purchase.registered/cancelled`, `order.sent_to_kitchen`/`order.paid` (descuenta con el primero, idempotente por
   `orderItemId`; PEYA = para llevar), `order.item_voided`/`order.cancelled` (revierte) y `catalog.items_imported`
   (inventario inicial). Ventas solo publica (sus eventos llevan `productId` e ítems). Stock negativo permitido.
-- **Compras:** el gasto es el total en la fecha de compra; el dinero sale en la fecha de cada pago. Pagos a
-  proveedores en efectivo restan del efectivo esperado del cierre ("Pagos a proveedores"; Ventas llama a
-  `supplierPaymentsForDay`). Anular compra exige anular antes sus pagos.
+- **Compras:** el gasto es el total en la fecha de compra; el dinero sale en la fecha de cada pago. Cada pago
+  tiene método, **cuenta de origen** (`MoneyAccount`: Efectivo / Banco / ATC-PeYa; por defecto según el método,
+  editable) y n° de comprobante opcional. Lo que sale de la cuenta **Efectivo** resta del efectivo esperado del
+  cierre ("Pagos a proveedores"; Ventas llama a `supplierPaymentsForDay`). Anular compra exige anular antes sus pagos.
+  Los gastos operativos se registran como compras de ítems de la categoría "Gastos operativos".
+- **Cuentas de dinero:** `MoneyAccount` + etiquetas en `core/money/accounts.ts` (lo comparten Compras, Caja y
+  bancos y Reportes). Ventas: EFECTIVO → Efectivo, QR → Banco, TARJETA y PEYA → ATC/PeYa; fiado no es dinero.
+- **Caja y bancos (`treasury`):** retiros de efectivo (`CashWithdrawal`, día de negocio, motivo, anulables con
+  motivo solo el mismo día), traspasos (`AccountTransfer`: sale/llega, la diferencia = comisión; desde Efectivo solo
+  hoy; hacia Efectivo no) y saldos iniciales (`AccountOpeningBalance`, uno vigente por cuenta). Ventas consulta
+  `withdrawalsForDay` y `cashTransfersForDay` para el cierre: **efectivo esperado = fondo + entradas en efectivo −
+  pagos desde Efectivo − retiros − traspasos desde Efectivo** (`cashOutflowsCents`). Treasury no importa Ventas.
+- **Libro de caja y bancos** (`/caja-bancos`, `reports`): se arma solo, cronológico, saldo por cuenta y total.
+  Ventas por día y medio (día de la orden, como el cierre), cobros de fiado por fecha del abono, pagos a proveedores
+  por fecha del pago y cuenta, retiros, traspasos + comisión, saldos iniciales y "Diferencia de arqueo" por cierre
+  guardado (así Efectivo cambia cada día lo mismo que el cierre: contado − fondo).
+- **Envío a cocina:** Guardar y Cobrar envían a cocina lo pendiente en la misma transacción
+  (`createOrder({ sendToKitchen })`, `saveOrderAndSend`). Ya no hay botón "Enviar a cocina" en el POS.
 - **Tema claro/oscuro** por dispositivo y por pantalla (`localStorage` `delycia.theme.pos|cocina`; POS claro,
   Cocina oscuro por defecto). `themeBootScript` en `app/layout.tsx` lo aplica antes de pintar; usar siempre
   variantes `dark:` en colores fijos (ej. `text-red-700 dark:text-red-400`). `/imprimir` siempre en claro.
@@ -134,8 +152,9 @@ tests/   core, catalog, sales, kitchen, purchases, inventory, reports, integrati
   solo el mismo día de negocio, pagos → `refundedAt`. Fiado con abonos: no se anula. Eventos `order.item_voided` /
   `order.cancelled` → Cocina marca ANULADO y deja la comanda con aviso (`voidAlertAt`) hasta "Entendido".
 - Permisos por defecto: **Caja** = POS, cobrar, descuento, anular (con autorización), historial, cuentas por
-  cobrar, mensajes a cocina, apertura/cierre, ver Cocina y salida rápida. **Cocina** = ver y atender Cocina.
-  Reportes, Ajustes, Catálogo, Compras, Inventario (ver/ingreso/conteo) y Usuarios: solo Admin por defecto.
+  cobrar, mensajes a cocina, apertura/cierre, **retiros de efectivo** (`cash.withdraw`), ver Cocina y salida rápida.
+  **Cocina** = ver y atender Cocina. Reportes, Ajustes, Catálogo, Compras, Inventario (ver/ingreso/conteo), Usuarios y
+  Libro de caja y bancos (`cashbook.view` / `cashbook.manage`): solo Admin por defecto.
   En ventas, la UI esconde Cobrar / descuento / Anular según el rol (`salesAbilities()`), y las actions lo validan.
 - Apertura de caja obligatoria antes de vender; **una por día, no editable**. Cierre: arqueo efectivo/QR/tarjeta.
 

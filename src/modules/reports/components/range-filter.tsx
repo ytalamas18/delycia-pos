@@ -7,8 +7,17 @@ import { cn } from "@/lib/utils";
 import { rangePresets, type DateRange } from "../domain/range";
 
 /** Filtro común: atajos (Hoy, Ayer, 7 días, Este mes) o desde/hasta. `keep` conserva la vista y otros filtros. */
-export function RangeFilter({ range, keep }: { range: DateRange; keep: Record<string, string> }) {
-  const href = (r: DateRange) => `/reportes?${new URLSearchParams({ ...keep, desde: r.from, hasta: r.to })}`;
+export function RangeFilter({
+  range,
+  keep,
+  basePath = "/reportes",
+}: {
+  range: DateRange;
+  keep: Record<string, string>;
+  /** Pantalla a la que apuntan los atajos y el formulario (Reportes o el libro de caja y bancos). */
+  basePath?: string;
+}) {
+  const href = (r: DateRange) => `${basePath}?${new URLSearchParams({ ...keep, desde: r.from, hasta: r.to })}`;
   const today = businessDate();
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -30,7 +39,7 @@ export function RangeFilter({ range, keep }: { range: DateRange; keep: Record<st
           );
         })}
       </div>
-      <form action="/reportes" className="flex flex-wrap items-end gap-2">
+      <form action={basePath} className="flex flex-wrap items-end gap-2">
         {Object.entries(keep).map(([k, v]) => (
           <input key={k} type="hidden" name={k} value={v} />
         ))}

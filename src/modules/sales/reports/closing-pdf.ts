@@ -208,6 +208,17 @@ export async function buildClosingPdf(data: ClosingPdfData): Promise<Uint8Array>
     }
   }
 
+  // Depósitos / traspasos desde la caja (Caja y bancos)
+  const ct = s.cashTransfers;
+  if (ct && ct.items.length > 0) {
+    w.section("Depósitos / traspasos desde la caja");
+    const accountName = { CASH: "Efectivo", BANK: "Banco", ATC_PEYA: "ATC/PeYa" } as const;
+    for (const t of ct.items) {
+      w.row([`${hourFmt.format(new Date(t.at))} - a ${accountName[t.toAccount]}${t.reference ? ` N° ${t.reference}` : ""}`, `- ${formatMoney(t.amountOutCents)}`], two);
+    }
+    w.row(["Total (sale de la caja)", `- ${formatMoney(ct.totalCents)}`], two, { bold: true });
+  }
+
   // Arqueo
   w.section("Arqueo");
   if (data.closing) {

@@ -12,6 +12,8 @@ import { channelName } from "./domain/labels";
 import { parseCreditStatus } from "./domain/receivables";
 import { parseRange } from "./domain/range";
 import { itemsText, parseSupplierPaymentFilters } from "./domain/supplier-payments";
+import { getCashbook } from "./services/cashbook";
+import type { MoneyAccount } from "@/generated/prisma/enums";
 import {
   getAdjustmentsReport,
   getKardexReport,
@@ -606,6 +608,76 @@ async function supplierPaymentsExport(params: ReportParams): Promise<ExportDocum
       { label: "Anulados (no suman)", value: r.voidedCents, type: "money" },
     ],
     tables,
+  };
+}
+
+/** Libro de caja y bancos (permiso propio: `cashbook.view`, no `reports.view`). */
+export async function cashbookExport(params: ReportParams): Promise<ExportDocument> {
+  const range = parseRange(params);
+  const account = MONEY_ACCOUNTS.includes(params.cuenta as MoneyAccount) ? (params.cuenta as MoneyAccount) : null;
+  const book = await getCashbook(range, account);
+  const all = !account;
+  const columns = [
+    { header: "Fecha", type: "date" as const },
+    ...(all ? [{ header: "Cuenta", type: "text" as const }] : []),
+    { header: "Detalle", type: "text" as const, width: 48 },
+    { header: "Ítems / categoría", type: "text" as const, width: 30 },
+    { header: "N° comprobante", type: "text" as const },
+    { header: "Ingreso", type: "money" as const },
+    { header: "Egreso", type: "money" as const },
+    { header: "Saldo cuenta", type: "money" as const },
+    ...(all ? [{ header: "Saldo total", type: "money" as const }] : []),
+  ];
+  const pad = (cells: (string | number | null)[]) => cells;
+  return {
+    report: "Libro de caja y bancos",
+    fileBase: fileBaseFor("libro-caja-bancos", range.from, range.to),
+    period: formatPeriod(range.from, range.to),
+    filters: [`Cuenta: ${account ? MONEY_ACCOUNT_LABEL[account] : "Todas"}`, "Ventas por día y medio; lo fiado entra al cobrarse"],
+    generatedAt: new Date(),
+    summary: [
+      { label: "Saldo anterior", value: book.total.beforeCents + book.total.openingCents, type: "money" },
+      { label: "Ingresos", value: book.total.inCents, type: "money" },
+      { label: "Egresos", value: book.total.outCents, type: "money" },
+      { label: "Saldo final", value: book.total.endCents, type: "money" },
+    ],
+    tables: [
+      {
+        title: "Saldos por cuenta",
+        columns: [
+          { header: "Cuenta", type: "text" },
+          { header: "Saldo anterior", type: "money" },
+          { header: "Saldo inicial (en el período)", type: "money" },
+          { header: "Ingresos", type: "money" },
+          { header: "Egresos", type: "money" },
+          { header: "Saldo final", type: "money" },
+        ],
+        rows: book.accounts.map((a) => [MONEY_ACCOUNT_LABEL[a.account], a.beforeCents, a.openingCents, a.inCents, a.outCents, a.endCents]),
+        totals: ["Total", book.total.beforeCents, book.total.openingCents, book.total.inCents, book.total.outCents, book.total.endCents],
+      },
+      {
+        title: "Movimientos",
+        columns,
+        rows: [
+          pad([range.from, ...(all ? [""] : []), "Saldo anterior", "", "", null, null, all ? null : book.total.beforeCents, ...(all ? [book.total.beforeCents] : [])]),
+          ...book.lines.map((l) =>
+            pad([
+              l.date,
+              ...(all ? [MONEY_ACCOUNT_LABEL[l.account]] : []),
+              l.detail,
+              l.items ?? "",
+              l.reference ?? "",
+              l.inCents || null,
+              l.outCents || null,
+              l.balanceCents,
+              ...(all ? [l.totalBalanceCents] : []),
+            ]),
+          ),
+        ],
+        totals: ["Total", ...(all ? [null] : []), null, null, null, book.total.inCents, book.total.outCents, null, ...(all ? [book.total.endCents] : [])],
+        notes: ["Efectivo: la 'Diferencia de arqueo' deja el saldo igual a lo contado en el cierre de caja."],
+      },
+    ],
   };
 }
 

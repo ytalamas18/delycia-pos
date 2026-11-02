@@ -67,6 +67,15 @@ export default async function ImprimirCierrePage({ params }: PageProps<"/imprimi
           <L label="Total retiros" value={`-${formatMoney(s.withdrawals.totalCents)}`} bold />
         </>
       )}
+      {s.cashTransfers && s.cashTransfers.items.length > 0 && (
+        <>
+          <div className="mt-1 font-bold">Depósitos desde caja</div>
+          {s.cashTransfers.items.map((t, i) => (
+            <L key={i} label={`${hour.format(new Date(t.at))}${t.reference ? ` N° ${t.reference}` : ""}`} value={`-${formatMoney(t.amountOutCents)}`} />
+          ))}
+          <L label="Total depósitos" value={`-${formatMoney(s.cashTransfers.totalCents)}`} bold />
+        </>
+      )}
       <hr className="my-2 border-dashed border-black" />
       <L label="Local" value={formatMoney(s.byChannel.LOCAL.netCents)} />
       <L label="PEYA" value={formatMoney(s.byChannel.PEYA.netCents)} />

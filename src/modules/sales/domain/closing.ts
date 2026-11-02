@@ -57,6 +57,21 @@ export type CashWithdrawals = { totalCents: Cents; items: WithdrawalSnapshot[]; 
 
 export const NO_WITHDRAWALS: CashWithdrawals = { totalCents: 0, items: [], voided: [] };
 
+/** Depósitos / traspasos que salieron de la caja (cuenta Efectivo) en el día: restan del esperado. */
+export type CashTransfersOut = {
+  totalCents: Cents;
+  items: {
+    at: string;
+    toAccount: "CASH" | "BANK" | "ATC_PEYA";
+    amountOutCents: Cents;
+    amountInCents: Cents;
+    reference: string | null;
+    byName: string | null;
+  }[];
+};
+
+export const NO_CASH_TRANSFERS: CashTransfersOut = { totalCents: 0, items: [] };
+
 const METHODS: PaymentMethod[] = ["CASH", "QR", "CARD", "PEYA", "CREDIT"];
 const zeroByMethod = () => Object.fromEntries(METHODS.map((m) => [m, 0])) as Record<PaymentMethod, Cents>;
 
@@ -92,6 +107,8 @@ export type DailySummary = {
   supplierPayments?: SupplierOutflows;
   /** Retiros de efectivo del día. Puede faltar en cierres guardados antes de que existieran. */
   withdrawals?: CashWithdrawals;
+  /** Depósitos / traspasos desde la caja. Puede faltar en cierres guardados antes de que existieran. */
+  cashTransfers?: CashTransfersOut;
 };
 
 export type ProductLine = { name: string; category: string; quantity: number; amountCents: Cents };
@@ -107,6 +124,7 @@ export function summarizeDay(
   collections: ClosingCollection[],
   supplierPayments: SupplierOutflows = NO_OUTFLOWS,
   withdrawals: CashWithdrawals = NO_WITHDRAWALS,
+  cashTransfers: CashTransfersOut = NO_CASH_TRANSFERS,
 ): DailySummary {
   const paid = orders.filter((o) => o.status === "PAID" || o.status === "CLOSED");
   const open = orders.filter((o) => o.status === "OPEN");
@@ -184,15 +202,18 @@ export function summarizeDay(
     productsByCategory,
     supplierPayments,
     withdrawals,
+    cashTransfers,
   };
 }
 
-/** Efectivo que salió de la caja en el día (no venta): pagos a proveedores en efectivo + retiros. */
+/** Efectivo que salió de la caja en el día (no venta): pagos a proveedores, retiros y depósitos/traspasos. */
 export function cashOutflowsCents(summary: DailySummary): Cents {
-  return (summary.supplierPayments?.cashCents ?? 0) + (summary.withdrawals?.totalCents ?? 0);
+  return (
+    (summary.supplierPayments?.cashCents ?? 0) + (summary.withdrawals?.totalCents ?? 0) + (summary.cashTransfers?.totalCents ?? 0)
+  );
 }
 
-/** Efectivo que debería haber en caja: fondo + lo que entró en efectivo − lo que salió (proveedores, retiros). */
+/** Efectivo que debería haber en caja: fondo + lo que entró en efectivo − lo que salió (proveedores, retiros, depósitos). */
 export function cashCount(summary: DailySummary, openingCashCents: Cents, countedCashCents: Cents) {
   const expectedCashCents = openingCashCents + summary.moneyInByMethod.CASH - cashOutflowsCents(summary);
   return { expectedCashCents, differenceCents: countedCashCents - expectedCashCents };

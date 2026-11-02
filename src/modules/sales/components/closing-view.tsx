@@ -205,6 +205,28 @@ export async function ClosingView({ date }: { date: string }) {
         </Card>
       )}
 
+      {s.cashTransfers && s.cashTransfers.items.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Depósitos / traspasos desde la caja</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            {s.cashTransfers.items.map((t, i) => (
+              <Row
+                key={i}
+                label={`${hour.format(new Date(t.at))} · a ${MONEY_ACCOUNT_LABEL[t.toAccount]}${t.reference ? ` · N° ${t.reference}` : ""}${
+                  t.byName ? ` · ${t.byName}` : ""
+                }`}
+                value={`− ${formatMoney(t.amountOutCents)}`}
+              />
+            ))}
+            <div className="border-t pt-2">
+              <Row label="Total (sale de la caja)" value={`− ${formatMoney(s.cashTransfers.totalCents)}`} strong />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Arqueo de caja</CardTitle>

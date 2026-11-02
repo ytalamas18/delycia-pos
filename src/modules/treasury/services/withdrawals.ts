@@ -76,3 +76,23 @@ export async function voidWithdrawal(id: string, reason: string, userId: string,
     await publish("cash.withdrawal_changed", { withdrawalId: id, businessDate: row.businessDate, amountCents: row.amountCents, voided: true });
   });
 }
+
+/** Retiros (vigentes y anulados) de un rango de días de negocio (para el libro de caja y bancos). */
+export async function listWithdrawalsInRange(range: { from?: string; to: string }): Promise<(WithdrawalLine & { businessDate: string })[]> {
+  const rows = await db.cashWithdrawal.findMany({
+    where: { businessDate: { gte: range.from, lte: range.to } },
+    orderBy: { createdAt: "asc" },
+  });
+  const names = await userNames(rows.flatMap((r) => [r.createdById, r.voidedById]));
+  return rows.map((r) => ({
+    id: r.id,
+    businessDate: r.businessDate,
+    at: r.createdAt.toISOString(),
+    amountCents: r.amountCents,
+    reason: r.reason,
+    byName: names.get(r.createdById) ?? null,
+    voidedAt: r.voidedAt?.toISOString() ?? null,
+    voidReason: r.voidReason,
+    voidedByName: r.voidedById ? (names.get(r.voidedById) ?? null) : null,
+  }));
+}

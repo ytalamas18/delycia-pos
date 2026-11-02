@@ -5,7 +5,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { OrderStatus, PaymentMethod, SalesChannel, ServiceType } from "@/generated/prisma/enums";
 
 import { supplierPaymentsForDay } from "@/modules/purchases";
-import { withdrawalsForDay } from "@/modules/treasury";
+import { cashTransfersForDay, withdrawalsForDay } from "@/modules/treasury";
 
 import { arqueo, summarizeDay, type DailySummary } from "../domain/closing";
 
@@ -105,13 +105,14 @@ export async function openCash(date: string, input: { openingCashCents: number; 
 /** Resumen del día + apertura + cierre guardado (si ya se hizo). */
 export async function getDailyClosing(date: string) {
   const { start, end } = businessDayRange(date);
-  const [orders, collections, saved, opening, outflows, cashWithdrawals] = await Promise.all([
+  const [orders, collections, saved, opening, outflows, cashWithdrawals, cashTransfers] = await Promise.all([
     db.order.findMany({ where: { businessDate: date }, include: { items: true, payments: true } }),
     db.creditCollection.findMany({ where: { createdAt: { gte: start, lt: end } } }),
     db.cashClosing.findUnique({ where: { businessDate: date } }),
     getOpening(date),
     supplierPaymentsForDay(date),
     withdrawalsForDay(date),
+    cashTransfersForDay(date),
   ]);
   const closedBy = saved ? await db.user.findUnique({ where: { id: saved.closedById }, select: { name: true } }) : null;
 
@@ -149,7 +150,7 @@ export async function getDailyClosing(date: string) {
     voided: cashWithdrawals.voided.map(snapshot),
   };
   return {
-    summary: summarizeDay(withCategory, collections, supplierPayments, withdrawals),
+    summary: summarizeDay(withCategory, collections, supplierPayments, withdrawals, cashTransfers),
     saved,
     closedByName: closedBy?.name ?? null,
     opening,

@@ -1,6 +1,6 @@
 # Spec — Mejoras v2 (caja, pagos y libro de caja y bancos)
 
-Observaciones del dueño (Yasser) acordadas el 2026-11-02. **Pendiente de implementar.**
+Observaciones del dueño (Yasser) acordadas el 2026-11-02. **Implementado el 02/11/2026** (falta desplegar).
 Orden sugerido: 1 → 2 → 3 → 4 → 5. Cada punto en commits pequeños, con tests (Vitest) y verificación
 en navegador (Playwright). Si algo no está definido aquí, **preguntar**: no inventar reglas ni cifras.
 
@@ -16,7 +16,7 @@ día de negocio en `America/La_Paz`.
 | 2 | Retiros de efectivo de caja | ✅ Listo |
 | 3 | N° de comprobante y cuenta de origen en pagos a proveedores | ✅ Listo |
 | 4 | Reporte "Pagos a proveedores" | ✅ Listo |
-| 5 | Libro de caja y bancos | Pendiente (prioridad) |
+| 5 | Libro de caja y bancos | ✅ Listo |
 
 Descartado por ahora: módulo "Gastos". Los gastos operativos se registran como **compras** de ítems
 de la categoría "Gastos operativos" (transporte, sueldos, servicios, etc.). Quizá a futuro.
@@ -134,3 +134,15 @@ Actualizar `CLAUDE.md` y `docs/estado-actual.md` con lo nuevo y marcar el estado
 - Pagos a proveedores: el cierre de caja resta lo que salió de la **cuenta Efectivo** (no el método). Así, un
   pago en efectivo registrado con cuenta Banco (ej. plata sacada del cajero) no descuadra la caja. Los pagos
   anteriores quedan con la cuenta que corresponde a su método (migración `pagos_cuenta_y_referencia`).
+- Libro: el saldo **Efectivo** es todo el efectivo del negocio (caja + lo guardado). El fondo de apertura no
+  es un movimiento; cada día con cierre guardado cambia exactamente "contado − fondo". La diferencia de arqueo
+  se recalcula con los movimientos actuales (si algo cambia después de cerrar, se ve al volver a guardar el cierre).
+- Traspasos: desde Efectivo solo con fecha de hoy y se anulan solo el mismo día; **hacia Efectivo no se permiten
+  por ahora** (el cierre no suma dinero que entra por traspaso). Lo que llega no puede superar lo que sale.
+  La comisión (sale − llega) es un egreso de la cuenta de origen.
+- Saldo inicial: uno vigente por cuenta, con fecha (saldo al empezar ese día); para corregirlo se anula con
+  motivo y se carga otro. Lo anterior a su fecha no cuenta en esa cuenta. Se acepta negativo (banco en rojo).
+- Ventas en el libro: por el **día de negocio de la orden** (igual que el cierre); cobros de fiado por la fecha
+  del abono; pagos anulados y órdenes anuladas (pagos devueltos) no aparecen.
+- Pantalla `/caja-bancos` (menú "Caja y bancos"); por defecto el mes en curso. Exporte
+  `/api/exportar/libro-caja-bancos` (permiso `cashbook.view`).
