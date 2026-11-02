@@ -1,6 +1,6 @@
 import { fileBaseFor, formatPeriod, type ExportDocument } from "@/core/export";
 import { formatMoney as formatMoneyText } from "@/core/money";
-import { MONEY_ACCOUNT_LABEL } from "@/core/money/accounts";
+import { MONEY_ACCOUNT_LABEL, MONEY_ACCOUNTS } from "@/core/money/accounts";
 
 import { formatQuantity } from "@/core/quantity";
 import { businessDate } from "@/core/time";
@@ -11,7 +11,15 @@ import { DOC_TYPE_LABEL, PAYMENT_STATUS_LABEL, SUPPLIER_METHOD_LABEL } from "@/m
 import { channelName } from "./domain/labels";
 import { parseCreditStatus } from "./domain/receivables";
 import { parseRange } from "./domain/range";
-import { getAdjustmentsReport, getKardexReport, getPayablesReport, getPurchasesReport, getStockReport } from "./services/stock-purchases";
+import { itemsText, parseSupplierPaymentFilters } from "./domain/supplier-payments";
+import {
+  getAdjustmentsReport,
+  getKardexReport,
+  getPayablesReport,
+  getPurchasesReport,
+  getStockReport,
+  getSupplierPaymentsReport,
+} from "./services/stock-purchases";
 import { getMoneyIn, getProductsSold, getReceivables, getSalesByChannel, getVoids, listCategoriesForFilter } from "./services/reports";
 
 /** Parámetros de la URL: los mismos que usa la pantalla de Reportes. */
@@ -517,6 +525,90 @@ async function payablesExport(): Promise<ExportDocument> {
   };
 }
 
+async function supplierPaymentsExport(params: ReportParams): Promise<ExportDocument> {
+  const range = parseRange(params);
+  const filters = parseSupplierPaymentFilters({ metodo: params.metodo, cuenta: params.cuenta });
+  const r = await getSupplierPaymentsReport(range, filters);
+  const columns = [
+    { header: "Fecha", type: "date" as const },
+    { header: "Registrado", type: "datetime" as const },
+    { header: "Proveedor", type: "text" as const },
+    { header: "Compra N°", type: "int" as const },
+    { header: "Ítems / categoría", type: "text" as const, width: 36 },
+    { header: "Método", type: "text" as const },
+    { header: "Cuenta", type: "text" as const },
+    { header: "N° comprobante", type: "text" as const },
+    { header: "Monto", type: "money" as const },
+    { header: "Nota", type: "text" as const },
+    { header: "Registrado por", type: "text" as const },
+  ];
+  const row = (p: (typeof r.active)[number], note: string) => [
+    p.date,
+    p.createdAt,
+    p.supplier ?? "Sin proveedor",
+    p.purchaseNumber,
+    itemsText(p.items),
+    SUPPLIER_METHOD_LABEL[p.method],
+    MONEY_ACCOUNT_LABEL[p.account],
+    p.reference ?? "",
+    p.amountCents,
+    note,
+    p.createdByName ?? "",
+  ];
+  const tables: ExportDocument["tables"] = [
+    {
+      title: "Pagos",
+      columns,
+      rows: r.active.map((p) => row(p, p.note ?? "")),
+      totals: ["Total", null, null, null, null, null, null, null, r.totalCents, null, null],
+      notes: ["Por fecha del pago (el día en que salió el dinero)."],
+    },
+    {
+      title: "Por método",
+      columns: [
+        { header: "Método", type: "text" },
+        { header: "Monto", type: "money" },
+      ],
+      rows: (["CASH", "TRANSFER", "CARD"] as const).map((m) => [SUPPLIER_METHOD_LABEL[m], r.byMethod[m]]),
+      totals: ["Total", r.totalCents],
+    },
+    {
+      title: "Por cuenta",
+      columns: [
+        { header: "Cuenta", type: "text" },
+        { header: "Monto", type: "money" },
+      ],
+      rows: MONEY_ACCOUNTS.map((a) => [MONEY_ACCOUNT_LABEL[a], r.byAccount[a]]),
+      totals: ["Total", r.totalCents],
+    },
+  ];
+  if (r.voided.length > 0) {
+    tables.push({
+      title: "Anulados",
+      columns: columns.map((c) => (c.header === "Nota" ? { ...c, header: "Motivo de anulación" } : c)),
+      rows: r.voided.map((p) => row(p, `${p.voidReason ?? ""}${p.voidedByName ? ` (${p.voidedByName})` : ""}`)),
+      totals: ["Total anulado (no suma)", null, null, null, null, null, null, null, r.voidedCents, null, null],
+    });
+  }
+  return {
+    report: "Pagos a proveedores",
+    fileBase: fileBaseFor("pagos-a-proveedores", range.from, range.to),
+    period: formatPeriod(range.from, range.to),
+    filters: [
+      `Método: ${filters.method ? SUPPLIER_METHOD_LABEL[filters.method] : "Todos"}`,
+      `Cuenta: ${filters.account ? MONEY_ACCOUNT_LABEL[filters.account] : "Todas"}`,
+      "Anulados aparte, no suman",
+    ],
+    generatedAt: new Date(),
+    summary: [
+      { label: "Total pagado", value: r.totalCents, type: "money" },
+      { label: "Pagos", value: r.active.length, type: "int" },
+      { label: "Anulados (no suman)", value: r.voidedCents, type: "money" },
+    ],
+    tables,
+  };
+}
+
 /** "Bebidas Frías" → "bebidas-frias" (para el nombre del archivo). */
 export function slug(text: string): string {
   return text
@@ -538,5 +630,6 @@ export const reportExports: Record<string, (params: ReportParams) => Promise<Exp
   kardex: kardexExport,
   mermas: adjustmentsExport,
   compras: purchasesExport,
+  "pagos-proveedores": supplierPaymentsExport,
   "cuentas-por-pagar": () => payablesExport(),
 };

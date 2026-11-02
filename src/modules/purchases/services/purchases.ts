@@ -6,7 +6,7 @@ import { Decimal } from "@/core/quantity";
 import { businessDate } from "@/core/time";
 import type { Prisma } from "@/generated/prisma/client";
 import type { MoneyAccount, SupplierPaymentMethod } from "@/generated/prisma/enums";
-import { getPurchasableItem, setLastCost, toBaseQuantity, UNIT_LABEL, compatibleUnits, type BaseUnit } from "@/modules/catalog";
+import { categoryNamesByProduct, getPurchasableItem, setLastCost, toBaseQuantity, UNIT_LABEL, compatibleUnits, type BaseUnit } from "@/modules/catalog";
 
 import { isOverdue, purchaseBalance } from "../domain/balance";
 import { DEFAULT_ACCOUNT_FOR_METHOD } from "../domain/labels";
@@ -278,3 +278,64 @@ export async function supplierPaymentsForDay(date: string) {
 }
 
 export type SupplierPaymentsForDay = Awaited<ReturnType<typeof supplierPaymentsForDay>>;
+
+// ---------------------------------------------------------------------------
+// Pagos a proveedores (reporte y libro de caja y bancos)
+// ---------------------------------------------------------------------------
+
+export type SupplierPaymentFilters = {
+  from: string;
+  to: string;
+  method?: SupplierPaymentMethod | null;
+  account?: MoneyAccount | null;
+};
+
+/**
+ * Todos los pagos a proveedores por FECHA DEL PAGO (vigentes y anulados), independiente de la compra.
+ * Trae proveedor, n° de compra, ítems con su categoría actual y quién registró / anuló.
+ */
+export async function listSupplierPayments(filters: SupplierPaymentFilters) {
+  const rows = await db.supplierPayment.findMany({
+    where: {
+      date: { gte: filters.from, lte: filters.to },
+      ...(filters.method ? { method: filters.method } : {}),
+      ...(filters.account ? { account: filters.account } : {}),
+    },
+    include: {
+      purchase: {
+        select: {
+          id: true,
+          number: true,
+          status: true,
+          supplier: { select: { name: true } },
+          lines: { select: { productId: true, productName: true }, orderBy: { createdAt: "asc" } },
+        },
+      },
+    },
+    orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+  });
+  const categories = await categoryNamesByProduct(rows.flatMap((r) => r.purchase.lines.map((l) => l.productId)));
+  const userIds = [...new Set(rows.flatMap((r) => [r.createdById, r.voidedById]).filter((x): x is string => !!x))];
+  const users = userIds.length ? await db.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }) : [];
+  const names = new Map(users.map((u) => [u.id, u.name]));
+  return rows.map((r) => ({
+    id: r.id,
+    date: r.date,
+    createdAt: r.createdAt,
+    amountCents: r.amountCents,
+    method: r.method,
+    account: r.account,
+    reference: r.reference,
+    note: r.note,
+    voidedAt: r.voidedAt,
+    voidReason: r.voidReason,
+    voidedByName: r.voidedById ? (names.get(r.voidedById) ?? null) : null,
+    createdByName: names.get(r.createdById) ?? null,
+    purchaseId: r.purchase.id,
+    purchaseNumber: r.purchase.number,
+    supplier: r.purchase.supplier?.name ?? null,
+    items: r.purchase.lines.map((l) => ({ name: l.productName, category: categories.get(l.productId) ?? null })),
+  }));
+}
+
+export type SupplierPaymentRow = Awaited<ReturnType<typeof listSupplierPayments>>[number];

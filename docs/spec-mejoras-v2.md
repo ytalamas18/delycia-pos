@@ -15,7 +15,7 @@ día de negocio en `America/La_Paz`.
 | 1 | Envío automático a cocina | ✅ Listo |
 | 2 | Retiros de efectivo de caja | ✅ Listo |
 | 3 | N° de comprobante y cuenta de origen en pagos a proveedores | ✅ Listo |
-| 4 | Reporte "Pagos a proveedores" | Pendiente |
+| 4 | Reporte "Pagos a proveedores" | ✅ Listo |
 | 5 | Libro de caja y bancos | Pendiente (prioridad) |
 
 Descartado por ahora: módulo "Gastos". Los gastos operativos se registran como **compras** de ítems

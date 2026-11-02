@@ -23,6 +23,8 @@ import {
   PurchasesReportView,
   StockReportView,
 } from "./stock-purchase-views";
+import { parseSupplierPaymentFilters } from "../domain/supplier-payments";
+import { SupplierPaymentsReportView } from "./supplier-payments-view";
 import { VoidsView } from "./voids-view";
 
 const VIEWS = [
@@ -35,6 +37,7 @@ const VIEWS = [
   { key: "kardex", label: "Kárdex", report: "kardex", note: "movimientos del ítem en el período", group: "Inventario" },
   { key: "mermas", label: "Mermas y ajustes", report: "mermas", note: "diferencias de conteo físico en el período", group: "Inventario" },
   { key: "compras", label: "Compras", report: "compras", note: "compras vigentes por fecha de compra", group: "Compras" },
+  { key: "pagos-proveedores", label: "Pagos a proveedores", report: "pagos-proveedores", note: "por fecha del pago; anulados aparte y no suman", group: "Compras" },
   { key: "por-pagar", label: "Cuentas por pagar", report: "cuentas-por-pagar", note: "saldo pendiente hoy (las fechas no aplican)", group: "Compras" },
 ] as const satisfies readonly { key: string; label: string; report: string; note: string; group?: string }[];
 
@@ -52,6 +55,8 @@ type Params = {
   cliente?: string;
   tipo?: string;
   item?: string;
+  metodo?: string;
+  cuenta?: string;
 };
 
 const shortDate = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
@@ -69,6 +74,9 @@ export async function ReportsScreen({ params }: { params: Params }) {
   if ((view === "stock" || view === "stock-bajo") && params.tipo) keep.tipo = params.tipo;
   if ((view === "stock" || view === "stock-bajo") && params.cat) keep.cat = params.cat;
   if (view === "kardex" && params.item) keep.item = params.item;
+  const paymentFilters = parseSupplierPaymentFilters(params);
+  if (view === "pagos-proveedores" && paymentFilters.method) keep.metodo = paymentFilters.method;
+  if (view === "pagos-proveedores" && paymentFilters.account) keep.cuenta = paymentFilters.account;
 
   return (
     <div className="max-w-6xl space-y-4">
@@ -115,6 +123,9 @@ export async function ReportsScreen({ params }: { params: Params }) {
       {view === "kardex" && <KardexReportView productId={params.item ?? null} range={range} />}
       {view === "mermas" && <AdjustmentsReportView range={range} />}
       {view === "compras" && <PurchasesReportView range={range} />}
+      {view === "pagos-proveedores" && (
+        <SupplierPaymentsReportView range={range} method={paymentFilters.method} account={paymentFilters.account} />
+      )}
       {view === "por-pagar" && <PayablesReportView />}
     </div>
   );

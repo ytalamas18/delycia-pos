@@ -38,6 +38,7 @@ export { formatCost, formatUnitCost, formatUnitCostInput, parseUnitCost } from "
 export { RECIPE_CONDITION_LABEL, type RecipeCondition } from "./domain/recipe-conditions";
 export { stockConsumption, type SoldItem } from "./domain/recipes";
 export {
+  categoryNamesByProduct,
   getPurchasableItem,
   listIngredients,
   listPurchasableItems,
