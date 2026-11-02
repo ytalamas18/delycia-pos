@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import {
@@ -67,15 +67,27 @@ describe("permisos por rol", () => {
     expect(groups.flatMap((g) => g.items).length).toBe(ALL_PERMISSIONS.length);
   });
 
-  it("la migración crea Caja y Cocina con los mismos permisos que SYSTEM_ROLES", () => {
-    const dir = path.join(__dirname, "../../prisma/migrations/20261030120000_usuarios_y_roles/migration.sql");
-    const sql = readFileSync(dir, "utf8");
+  it("las migraciones dejan Caja y Cocina con los mismos permisos que SYSTEM_ROLES", () => {
+    const migrations = path.join(__dirname, "../../prisma/migrations");
+    const sql = readFileSync(path.join(migrations, "20261030120000_usuarios_y_roles/migration.sql"), "utf8");
     const arrayFor = (id: string) => {
       const m = sql.match(new RegExp(`'${id}'[^]*?ARRAY\\[([^\\]]*)\\]`));
       return [...(m?.[1] ?? "").matchAll(/'([^']+)'/g)].map((x) => x[1]);
     };
-    expect(arrayFor("role_cashier")).toEqual(SYSTEM_ROLES.CASHIER.permissions);
-    expect(arrayFor("role_kitchen")).toEqual(SYSTEM_ROLES.KITCHEN.permissions);
+    // Permisos que migraciones posteriores agregan a un rol de sistema (array_append ... WHERE "systemKey" = 'X').
+    const appended = (systemKey: string) =>
+      readdirSync(migrations)
+        .filter((d) => d > "20261030120000")
+        .sort()
+        .flatMap((d) => {
+          const file = path.join(migrations, d, "migration.sql");
+          if (!existsSync(file)) return [];
+          const text = readFileSync(file, "utf8");
+          const re = new RegExp(`array_append\\("permissions", '([^']+)'\\)[^;]*"systemKey" = '${systemKey}'`, "g");
+          return [...text.matchAll(re)].map((x) => x[1]);
+        });
+    expect([...arrayFor("role_cashier"), ...appended("CASHIER")].sort()).toEqual([...SYSTEM_ROLES.CASHIER.permissions].sort());
+    expect([...arrayFor("role_kitchen"), ...appended("KITCHEN")].sort()).toEqual([...SYSTEM_ROLES.KITCHEN.permissions].sort());
   });
 });
 

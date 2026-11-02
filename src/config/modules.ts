@@ -6,6 +6,7 @@ import { kitchenModule } from "@/modules/kitchen";
 import { purchasesModule } from "@/modules/purchases";
 import { reportsModule } from "@/modules/reports";
 import { salesModule } from "@/modules/sales";
+import { treasuryModule } from "@/modules/treasury";
 import { usersModule } from "@/modules/users";
 
 /** Pantalla de ajustes generales: reúne los ajustes que expone cada módulo. */
@@ -24,6 +25,7 @@ export const modules = createModuleRegistry([
   { definition: kitchenModule, enabled: true },
   { definition: reportsModule, enabled: true },
   { definition: purchasesModule, enabled: true },
+  { definition: treasuryModule, enabled: true },
   { definition: inventoryModule, enabled: true },
   { definition: catalogModule, enabled: true },
   { definition: usersModule, enabled: true },

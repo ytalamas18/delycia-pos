@@ -13,6 +13,7 @@ import { getSetting } from "@/core/settings";
 import { StockAlertLink } from "@/modules/inventory";
 import { KitchenMessageButton, quickMessagesSetting } from "@/modules/kitchen";
 import { ReadyNotifier } from "@/modules/sales";
+import { WithdrawalButton } from "@/modules/treasury";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default async function CajaLayout({ children }: LayoutProps<"/">) {
         <AppNav items={items} />
         <div className="ml-auto flex items-center gap-2">
           {modules.isEnabled("inventory") && can(session, "inventory.view") && <StockAlertLink />}
+          {modules.isEnabled("treasury") && can(session, "cash.withdraw") && <WithdrawalButton />}
           {canMessageKitchen && <KitchenMessageButton quickMessages={quickMessages} />}
           <ThemeToggle section="pos" />
           <span className="text-sm text-muted-foreground">{session.name}</span>

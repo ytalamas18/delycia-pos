@@ -43,7 +43,7 @@ export function ClosingForm({
   openingCashCents: number;
   /** Lo que el sistema registró que entró hoy por cada medio (ventas + cobros de fiados). */
   moneyIn: { cash: number; qr: number; card: number };
-  /** Pagos a proveedores en efectivo del día: salieron de la caja. */
+  /** Efectivo que salió de la caja en el día: pagos a proveedores en efectivo y retiros. */
   cashOutCents?: number;
   saved: Saved | null;
 }) {

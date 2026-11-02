@@ -31,6 +31,21 @@ export type SupplierOutflows = {
 
 export const NO_OUTFLOWS: SupplierOutflows = { cashCents: 0, transferCents: 0, cardCents: 0, totalCents: 0, payments: [] };
 
+/** Un retiro de efectivo (módulo Caja y bancos) tal como queda en el cierre. Horas en texto ISO. */
+export type WithdrawalSnapshot = {
+  at: string;
+  amountCents: Cents;
+  reason: string;
+  byName: string | null;
+  voidReason?: string | null;
+  voidedByName?: string | null;
+};
+
+/** Retiros de efectivo del día: el total vigente resta del efectivo esperado; los anulados se informan aparte. */
+export type CashWithdrawals = { totalCents: Cents; items: WithdrawalSnapshot[]; voided: WithdrawalSnapshot[] };
+
+export const NO_WITHDRAWALS: CashWithdrawals = { totalCents: 0, items: [], voided: [] };
+
 const METHODS: PaymentMethod[] = ["CASH", "QR", "CARD", "PEYA", "CREDIT"];
 const zeroByMethod = () => Object.fromEntries(METHODS.map((m) => [m, 0])) as Record<PaymentMethod, Cents>;
 
@@ -64,6 +79,8 @@ export type DailySummary = {
   productsByCategory: { category: string; quantity: number; amountCents: Cents; products: ProductLine[] }[];
   /** Pagos a proveedores del día. Puede faltar en cierres guardados antes de que existiera Compras. */
   supplierPayments?: SupplierOutflows;
+  /** Retiros de efectivo del día. Puede faltar en cierres guardados antes de que existieran. */
+  withdrawals?: CashWithdrawals;
 };
 
 export type ProductLine = { name: string; category: string; quantity: number; amountCents: Cents };
@@ -78,6 +95,7 @@ export function summarizeDay(
   orders: ClosingOrder[],
   collections: ClosingCollection[],
   supplierPayments: SupplierOutflows = NO_OUTFLOWS,
+  withdrawals: CashWithdrawals = NO_WITHDRAWALS,
 ): DailySummary {
   const paid = orders.filter((o) => o.status === "PAID" || o.status === "CLOSED");
   const open = orders.filter((o) => o.status === "OPEN");
@@ -154,12 +172,18 @@ export function summarizeDay(
     products,
     productsByCategory,
     supplierPayments,
+    withdrawals,
   };
 }
 
-/** Efectivo que debería haber en caja: fondo + lo que entró en efectivo − pagos a proveedores en efectivo. */
+/** Efectivo que salió de la caja en el día (no venta): pagos a proveedores en efectivo + retiros. */
+export function cashOutflowsCents(summary: DailySummary): Cents {
+  return (summary.supplierPayments?.cashCents ?? 0) + (summary.withdrawals?.totalCents ?? 0);
+}
+
+/** Efectivo que debería haber en caja: fondo + lo que entró en efectivo − lo que salió (proveedores, retiros). */
 export function cashCount(summary: DailySummary, openingCashCents: Cents, countedCashCents: Cents) {
-  const expectedCashCents = openingCashCents + summary.moneyInByMethod.CASH - (summary.supplierPayments?.cashCents ?? 0);
+  const expectedCashCents = openingCashCents + summary.moneyInByMethod.CASH - cashOutflowsCents(summary);
   return { expectedCashCents, differenceCents: countedCashCents - expectedCashCents };
 }
 

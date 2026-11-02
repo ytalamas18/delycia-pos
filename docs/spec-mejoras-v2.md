@@ -13,7 +13,7 @@ día de negocio en `America/La_Paz`.
 | # | Mejora | Estado |
 |---|---|---|
 | 1 | Envío automático a cocina | ✅ Listo |
-| 2 | Retiros de efectivo de caja | Pendiente |
+| 2 | Retiros de efectivo de caja | ✅ Listo |
 | 3 | N° de comprobante y cuenta de origen en pagos a proveedores | Pendiente |
 | 4 | Reporte "Pagos a proveedores" | Pendiente |
 | 5 | Libro de caja y bancos | Pendiente (prioridad) |
@@ -115,3 +115,19 @@ consolidado en una sola pantalla**, armado solo por el sistema (nadie escribe do
 ## Al terminar
 
 Actualizar `CLAUDE.md` y `docs/estado-actual.md` con lo nuevo y marcar el estado en la tabla de arriba.
+
+## Decisiones (Yasser, 02/11/2026)
+
+- Libro de caja y bancos: las **ventas cobradas** van en **una línea por día y medio de pago** (ej. "Ventas en
+  efectivo"); pagos a proveedores, cobros de fiado, retiros y traspasos van uno por uno.
+- Libro, cuenta Efectivo: si el cierre de caja tiene faltante o sobrante, se agrega una línea **"Diferencia de
+  arqueo"** (faltante = egreso, sobrante = ingreso): el saldo Efectivo queda igual a lo contado.
+- Libro de caja y bancos (ver y registrar traspasos / saldos iniciales): **solo Admin** por defecto; se puede dar a
+  otro rol desde Usuarios → Roles.
+- Retiros: los anula quien tiene el permiso de retiros (Caja y Admin), con motivo y **solo el mismo día de negocio**.
+
+## Decisiones técnicas
+
+- Módulo nuevo `treasury` ("Caja y bancos"): retiros, traspasos y saldos iniciales. Ventas lo consulta para el
+  cierre (como hace con Compras). El libro se arma en `reports` (solo lectura, SQL) para no crear dependencias
+  circulares entre Ventas, Compras y Caja y bancos.

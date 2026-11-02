@@ -33,6 +33,7 @@ const GRAY = rgb(0.4, 0.4, 0.4);
 const LINE = rgb(0.85, 0.85, 0.85);
 
 const dateTime = new Intl.DateTimeFormat("es-BO", { dateStyle: "short", timeStyle: "short", timeZone: appConfig.timezone });
+const hourFmt = new Intl.DateTimeFormat("es-BO", { timeStyle: "short", timeZone: appConfig.timezone });
 const longDate = new Intl.DateTimeFormat("es-BO", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
 /**
@@ -192,13 +193,26 @@ export async function buildClosingPdf(data: ClosingPdfData): Promise<Uint8Array>
     w.row(["En efectivo (sale de la caja)", `- ${formatMoney(out.cashCents)}`], two, { bold: true });
   }
 
+  // Retiros de efectivo (Caja y bancos)
+  const wd = s.withdrawals;
+  if (wd && wd.items.length + wd.voided.length > 0) {
+    w.section("Retiros de efectivo");
+    for (const r of wd.items) {
+      w.row([`${hourFmt.format(new Date(r.at))} - ${r.reason}${r.byName ? ` (${r.byName})` : ""}`, `- ${formatMoney(r.amountCents)}`], two);
+    }
+    w.row(["Total retiros (sale de la caja)", `- ${formatMoney(wd.totalCents)}`], two, { bold: true });
+    for (const r of wd.voided) {
+      w.text(`Anulado: ${hourFmt.format(new Date(r.at))} - ${r.reason} - ${formatMoney(r.amountCents)} (${r.voidReason ?? ""})`, { size: 8, color: GRAY });
+    }
+  }
+
   // Arqueo
   w.section("Arqueo");
   if (data.closing) {
     const c = data.closing;
     const diffText = (d: number) => (d === 0 ? "Cuadra" : `${d < 0 ? "Falta" : "Sobra"} ${formatMoney(Math.abs(d))}`);
     w.row(["Medio", "Sistema", "Contado", "Diferencia"], four, { bold: true, size: 9 });
-    w.row(["Efectivo (fondo + entradas - pagos)", formatMoney(c.expectedCashCents), formatMoney(c.countedCashCents), diffText(c.differenceCents)], four);
+    w.row(["Efectivo (fondo + entradas - salidas)", formatMoney(c.expectedCashCents), formatMoney(c.countedCashCents), diffText(c.differenceCents)], four);
     if (c.countedQrCents !== null) {
       w.row(["QR (banco)", formatMoney(c.expectedQrCents), formatMoney(c.countedQrCents), diffText(c.countedQrCents - c.expectedQrCents)], four);
     }

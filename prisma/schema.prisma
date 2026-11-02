@@ -737,3 +737,24 @@ model StockCountLine {
   @@index([countId])
   @@index([productId])
 }
+
+// ============================================================================
+// CAJA Y BANCOS (treasury)
+// ============================================================================
+
+/// Retiro de efectivo de la caja (autorizado por escrito fuera del sistema). Resta del efectivo esperado del
+/// cierre de su día de negocio. Anular no borra: queda con motivo.
+model CashWithdrawal {
+  id           String    @id @default(cuid())
+  /// Día de negocio (La Paz) "YYYY-MM-DD".
+  businessDate String
+  amountCents  Int
+  reason       String
+  createdById  String
+  createdAt    DateTime  @default(now())
+  voidedAt     DateTime?
+  voidReason   String?
+  voidedById   String?
+
+  @@index([businessDate])
+}

@@ -82,6 +82,16 @@ describe("cierre del día", () => {
     expect(cashCount(summary, 10000, 16500)).toEqual({ expectedCashCents: 16800, differenceCents: -300 });
   });
 
+  it("retiros de efectivo vigentes restan del esperado (junto con pagos a proveedores en efectivo)", () => {
+    const withOut = summarizeDay(
+      orders,
+      [{ method: "CASH", amountCents: 2000 }],
+      { cashCents: 500, transferCents: 0, cardCents: 0, totalCents: 500, payments: [] },
+      { totalCents: 1000, items: [{ at: "2026-11-02T15:00:00.000Z", amountCents: 1000, reason: "Dueño", byName: "Caja" }], voided: [] },
+    );
+    expect(cashCount(withOut, 10000, 15300)).toEqual({ expectedCashCents: 15300, differenceCents: 0 });
+  });
+
   it("arqueo de QR y tarjeta contra lo del sistema (sin fondo inicial)", () => {
     const r = arqueo(summary, { openingCashCents: 0, countedCashCents: 6800, countedQrCents: 2500, countedCardCents: null });
     expect(r.cash).toEqual({ expectedCents: 6800, countedCents: 6800, differenceCents: 0 });

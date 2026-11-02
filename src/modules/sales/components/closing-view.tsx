@@ -9,6 +9,7 @@ import type { PaymentMethod } from "@/generated/prisma/enums";
 
 import { businessDate } from "@/core/time";
 
+import { cashOutflowsCents } from "../domain/closing";
 import { paymentMethodLabel } from "../domain/labels";
 import { getDailyClosing } from "../services/history";
 import { ClosingForm } from "./closing-form";
@@ -16,6 +17,7 @@ import { OpeningForm } from "./opening-form";
 import { DayPicker } from "./day-picker";
 
 const METHODS: PaymentMethod[] = ["CASH", "QR", "CARD", "PEYA", "CREDIT"];
+const hour = new Intl.DateTimeFormat("es-BO", { timeStyle: "short", timeZone: appConfig.timezone });
 const time = new Intl.DateTimeFormat("es-BO", { dateStyle: "short", timeStyle: "short", timeZone: appConfig.timezone });
 
 export async function ClosingView({ date }: { date: string }) {
@@ -167,6 +169,39 @@ export async function ClosingView({ date }: { date: string }) {
         </Card>
       )}
 
+      {s.withdrawals && s.withdrawals.items.length + s.withdrawals.voided.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Retiros de efectivo</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            {s.withdrawals.items.map((w, i) => (
+              <Row
+                key={i}
+                label={`${hour.format(new Date(w.at))} · ${w.reason}${w.byName ? ` · ${w.byName}` : ""}`}
+                value={`− ${formatMoney(w.amountCents)}`}
+              />
+            ))}
+            <div className="border-t pt-2">
+              <Row label="Total retiros (sale de la caja)" value={`− ${formatMoney(s.withdrawals.totalCents)}`} strong />
+            </div>
+            {s.withdrawals.voided.length > 0 && (
+              <div className="pt-2 text-sm text-muted-foreground">
+                <p className="font-medium">Anulados (no restan)</p>
+                {s.withdrawals.voided.map((w, i) => (
+                  <p key={i}>
+                    <span className="line-through">
+                      {hour.format(new Date(w.at))} · {w.reason} · {formatMoney(w.amountCents)}
+                    </span>{" "}
+                    — {w.voidReason}
+                  </p>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Arqueo de caja</CardTitle>
@@ -181,7 +216,7 @@ export async function ClosingView({ date }: { date: string }) {
             date={date}
             openingCashCents={opening?.openingCashCents ?? 0}
             moneyIn={{ cash: s.moneyInByMethod.CASH, qr: s.moneyInByMethod.QR, card: s.moneyInByMethod.CARD }}
-            cashOutCents={s.supplierPayments?.cashCents ?? 0}
+            cashOutCents={cashOutflowsCents(s)}
             saved={
               saved
                 ? {
