@@ -154,8 +154,16 @@ async function insertItems(tx: Tx, publish: Publish, orderId: string, lines: Pri
   await publish("order.item_added", { orderId, items: created.map(toSnapshot) });
 }
 
-/** Crea una orden "por pagar" con sus ítems. Todavía NO se envía a cocina. */
-export async function createOrder(header: OrderHeaderInput, lines: DraftLineInput[], userId: string) {
+/**
+ * Crea una orden "por pagar" con sus ítems. Con `sendToKitchen` envía a cocina lo que corresponde en la
+ * MISMA transacción (así lo hace el POS: guardar = enviar). Sin la opción no se envía (tests, usos internos).
+ */
+export async function createOrder(
+  header: OrderHeaderInput,
+  lines: DraftLineInput[],
+  userId: string,
+  options: { sendToKitchen?: boolean } = {},
+) {
   const h = orderHeaderInput.parse(header);
   const markupPercent = h.channel === "PEYA" ? await getSetting(peyaMarkupSetting) : 0;
   const priced = await priceLines(lines, h.channel, markupPercent);
@@ -185,7 +193,36 @@ export async function createOrder(header: OrderHeaderInput, lines: DraftLineInpu
     });
     await insertItems(tx, publish, order.id, priced);
     await recalcTotals(tx, order.id);
-    return order;
+    const sentCount = options.sendToKitchen ? await sendPendingInTx(tx, publish, order.id) : 0;
+    return { ...order, sentCount };
+  });
+}
+
+/**
+ * Guardar desde el POS una orden ya existente: datos de la cabecera, ítems nuevos y envío a cocina de TODO
+ * lo pendiente, en una sola transacción (si algo falla, no queda nada a medias).
+ */
+export async function saveOrderAndSend(
+  orderId: string,
+  info: Pick<OrderHeaderInput, "serviceType" | "tableNumber" | "customerName">,
+  lines: DraftLineInput[],
+) {
+  const existing = await db.order.findUnique({ where: { id: orderId } });
+  if (!existing) throw new DomainError("La orden no existe");
+  const priced = lines.length > 0 ? await priceLines(lines, existing.channel, Number(existing.channelMarkupPercent)) : [];
+
+  return runInTransaction(async (tx, publish) => {
+    const order = await lockOpenOrder(tx, orderId);
+    const h = orderHeaderInput.parse({ ...info, channel: order.channel });
+    await tx.order.update({
+      where: { id: orderId },
+      data: { serviceType: h.serviceType, tableNumber: h.tableNumber, customerName: h.customerName },
+    });
+    if (priced.length > 0) {
+      await insertItems(tx, publish, orderId, priced);
+      await recalcTotals(tx, orderId);
+    }
+    return { sentCount: await sendPendingInTx(tx, publish, orderId) };
   });
 }
 
@@ -261,42 +298,50 @@ export function countUnsentKitchenItems(orderId: string) {
 }
 
 /**
- * Envía a cocina SOLO los ítems que van a cocina y todavía no se enviaron.
- * Se puede enviar estando "por pagar" o ya pagada (para llevar se cobra antes).
- * Cada envío genera una comanda; el segundo en adelante es una "adicional".
+ * Envía a cocina SOLO los ítems que van a cocina y todavía no se enviaron (dentro de una transacción).
+ * Devuelve cuántos ítems mandó (0 = no había nada: no crea comandas vacías).
+ * Se puede enviar estando "por pagar" o ya pagada. Cada envío genera una comanda; el segundo en adelante
+ * es una "adicional".
  */
+async function sendPendingInTx(tx: Tx, publish: Publish, orderId: string): Promise<number> {
+  await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
+  const order = await tx.order.findUnique({ where: { id: orderId }, include: { items: true } });
+  if (!order) throw new DomainError("La orden no existe");
+  if (order.status === "CANCELLED" || order.status === "CLOSED") {
+    throw new DomainError("La orden está anulada o cerrada: no se puede enviar a cocina.");
+  }
+
+  const pending = order.items.filter((i) => i.status === "ACTIVE" && i.sendsToKitchen && !i.sentToKitchenAt);
+  if (pending.length === 0) return 0;
+
+  const sentAt = new Date();
+  await tx.orderItem.updateMany({ where: { id: { in: pending.map((i) => i.id) } }, data: { sentToKitchenAt: sentAt } });
+
+  await publish("order.sent_to_kitchen", {
+    orderId: order.id,
+    orderNumber: order.number,
+    channel: order.channel,
+    serviceType: order.serviceType,
+    label: orderLabel(order),
+    items: pending.map((i) => ({
+      orderItemId: i.id,
+      productId: i.productId,
+      name: i.productName,
+      quantity: i.quantity,
+      modifiers: (i.modifiers as { name: string }[]).map((m) => m.name),
+      note: i.note,
+      serviceType: i.serviceType,
+      sendsToKitchen: true,
+    })),
+  });
+  return pending.length;
+}
+
+/** Envía a cocina lo pendiente de una orden. Error si no hay nada nuevo que enviar. */
 export async function sendToKitchen(orderId: string) {
   return runInTransaction(async (tx, publish) => {
-    await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
-    const order = await tx.order.findUnique({ where: { id: orderId }, include: { items: true } });
-    if (!order) throw new DomainError("La orden no existe");
-    if (order.status === "CANCELLED" || order.status === "CLOSED") {
-      throw new DomainError("La orden está anulada o cerrada: no se puede enviar a cocina.");
-    }
-
-    const pending = order.items.filter((i) => i.status === "ACTIVE" && i.sendsToKitchen && !i.sentToKitchenAt);
-    if (pending.length === 0) throw new DomainError("No hay platos nuevos para enviar a cocina.");
-
-    const sentAt = new Date();
-    await tx.orderItem.updateMany({ where: { id: { in: pending.map((i) => i.id) } }, data: { sentToKitchenAt: sentAt } });
-
-    await publish("order.sent_to_kitchen", {
-      orderId: order.id,
-      orderNumber: order.number,
-      channel: order.channel,
-      serviceType: order.serviceType,
-      label: orderLabel(order),
-      items: pending.map((i) => ({
-        orderItemId: i.id,
-        productId: i.productId,
-        name: i.productName,
-        quantity: i.quantity,
-        modifiers: (i.modifiers as { name: string }[]).map((m) => m.name),
-        note: i.note,
-        serviceType: i.serviceType,
-        sendsToKitchen: true,
-      })),
-    });
-    return { sentCount: pending.length };
+    const sentCount = await sendPendingInTx(tx, publish, orderId);
+    if (sentCount === 0) throw new DomainError("No hay platos nuevos para enviar a cocina.");
+    return { sentCount };
   });
 }

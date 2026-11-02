@@ -12,7 +12,7 @@ día de negocio en `America/La_Paz`.
 
 | # | Mejora | Estado |
 |---|---|---|
-| 1 | Envío automático a cocina | Pendiente |
+| 1 | Envío automático a cocina | ✅ Listo |
 | 2 | Retiros de efectivo de caja | Pendiente |
 | 3 | N° de comprobante y cuenta de origen en pagos a proveedores | Pendiente |
 | 4 | Reporte "Pagos a proveedores" | Pendiente |
