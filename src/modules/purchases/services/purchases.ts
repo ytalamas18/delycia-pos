@@ -339,3 +339,80 @@ export async function listSupplierPayments(filters: SupplierPaymentFilters) {
 }
 
 export type SupplierPaymentRow = Awaited<ReturnType<typeof listSupplierPayments>>[number];
+
+// ---------------------------------------------------------------------------
+// Compra en efectivo desde la caja (permiso `purchases.cash`, Caja y Admin)
+// ---------------------------------------------------------------------------
+
+export type CashPurchaseInput = Pick<PurchaseInput, "supplierId" | "docType" | "docNumber" | "note" | "lines">;
+
+/**
+ * Compra o gasto pagado con efectivo de la caja: fecha de hoy, contado, método y cuenta Efectivo. Resta sola del
+ * efectivo esperado del cierre (como cualquier pago desde la cuenta Efectivo).
+ */
+export function createCashPurchase(input: CashPurchaseInput, userId: string, today = businessDate()) {
+  return createPurchase(
+    { ...input, date: today, paymentMode: "CASH_FULL", paymentMethod: "CASH", paymentAccount: "CASH", dueDate: "" },
+    userId,
+  );
+}
+
+/**
+ * Compras de contado pagadas desde la caja en un día (vigentes y anuladas), para la ventana de la barra superior:
+ * todos sus pagos salieron de la cuenta Efectivo ese día y cubren el total (no incluye abonos a compras a crédito).
+ */
+export async function listCashPurchasesForDay(date: string) {
+  const all = await db.purchase.findMany({
+    where: { date, payments: { some: { account: "CASH", date } } },
+    include: purchaseInclude,
+    orderBy: { createdAt: "asc" },
+  });
+  const rows = all.filter((p) => {
+    const relevant = p.status === "CANCELLED" ? p.payments : p.payments.filter((x) => !x.voidedAt);
+    return (
+      relevant.every((x) => x.account === "CASH" && x.date === date) &&
+      relevant.reduce((s, x) => s + x.amountCents, 0) === p.totalCents
+    );
+  });
+  const ids = [...new Set(rows.flatMap((r) => [r.createdById, r.cancelledById]).filter((x): x is string => !!x))];
+  const users = ids.length ? await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : [];
+  const names = new Map(users.map((u) => [u.id, u.name]));
+  return rows.map((r) => ({
+    id: r.id,
+    number: r.number,
+    createdAt: r.createdAt.toISOString(),
+    totalCents: r.totalCents,
+    supplier: r.supplier?.name ?? null,
+    note: r.note,
+    items: r.lines.map((l) => l.productName),
+    status: r.status,
+    cancelReason: r.cancelReason,
+    byName: names.get(r.createdById) ?? null,
+    cancelledByName: r.cancelledById ? (names.get(r.cancelledById) ?? null) : null,
+  }));
+}
+
+export type CashPurchaseRow = Awaited<ReturnType<typeof listCashPurchasesForDay>>[number];
+
+/**
+ * Anula, el MISMO día, una compra pagada solo desde la caja: anula sus pagos y la compra en una sola operación
+ * (revierte el stock y deja de restar del cierre). Las demás compras se anulan en Compras (Admin).
+ */
+export async function voidCashPurchase(id: string, reason: string, userId: string, today = businessDate()) {
+  const text = reasonInput.parse(reason);
+  return runInTransaction(async (tx, publish) => {
+    const p = await lockPurchase(tx, id);
+    if (p.status === "CANCELLED") throw new DomainError("La compra ya está anulada.");
+    const active = p.payments.filter((x) => !x.voidedAt);
+    if (p.date !== today || active.length === 0 || active.some((x) => x.account !== "CASH" || x.date !== today)) {
+      throw new DomainError("Desde la caja solo se anula una compra en efectivo de hoy. Las demás, en Compras.");
+    }
+    const now = new Date();
+    for (const pay of active) {
+      await tx.supplierPayment.update({ where: { id: pay.id }, data: { voidedAt: now, voidReason: text, voidedById: userId } });
+      await publish("supplier_payment.changed", { purchaseId: id, paymentId: pay.id, voided: true });
+    }
+    await tx.purchase.update({ where: { id }, data: { status: "CANCELLED", cancelledAt: now, cancelReason: text, cancelledById: userId } });
+    await publish("purchase.cancelled", { purchaseId: id, number: p.number, reason: text });
+  });
+}

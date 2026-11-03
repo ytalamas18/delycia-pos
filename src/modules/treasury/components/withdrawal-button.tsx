@@ -24,11 +24,11 @@ export function WithdrawalButton() {
     <>
       <Button
         variant="outline"
-        aria-label="Retiro de efectivo"
+        aria-label="Alivio de caja"
         onClick={() => setOpen(true)}
         className="border-amber-600 text-amber-700 dark:border-amber-400 dark:text-amber-300"
       >
-        <HandCoins /> <span className="hidden sm:inline">Retiro de efectivo</span>
+        <HandCoins /> <span className="hidden sm:inline">Alivio</span>
       </Button>
       {open && <WithdrawalDialog onClose={() => setOpen(false)} />}
     </>
@@ -38,7 +38,6 @@ export function WithdrawalButton() {
 function WithdrawalDialog({ onClose }: { onClose: () => void }) {
   const [list, setList] = useState<WithdrawalLine[] | null>(null);
   const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
-  const [kind, setKind] = useState<"RELIEF" | "OWNER">("RELIEF");
   const [carrier, setCarrier] = useState("");
   const [loading, startLoading] = useTransition();
   const reload = () =>
@@ -68,26 +67,13 @@ function WithdrawalDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogTitle>Retiro de efectivo</DialogTitle>
-        <DialogDescription>Sale de la caja de hoy y resta del efectivo esperado en el cierre.</DialogDescription>
+        <DialogTitle>Alivio de caja</DialogTitle>
+        <DialogDescription>
+          Plata que alguien se lleva de la caja para depositarla en el banco. Resta del efectivo esperado en el cierre y queda
+          &quot;por depositar&quot; hasta que se registre el depósito. Para pagar una compra o gasto usa &quot;Compra en efectivo&quot;.
+        </DialogDescription>
         <form key={formKey} action={formAction} className="space-y-3">
-          <input type="hidden" name="kind" value={kind} />
-          <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1" role="radiogroup" aria-label="Tipo de retiro">
-            {(["RELIEF", "OWNER"] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                role="radio"
-                aria-checked={kind === k}
-                onClick={() => setKind(k)}
-                className={`h-10 rounded-md text-sm font-medium ${kind === k ? "bg-background shadow-sm" : "text-muted-foreground"}`}
-              >
-                {k === "RELIEF" ? "Alivio (para depositar)" : "Retiro del dueño"}
-              </button>
-            ))}
-          </div>
-          {kind === "RELIEF" && (
-            <div className="space-y-1">
+          <div className="space-y-1">
               <Label htmlFor="withdrawal-carrier">Quién se lleva la plata</Label>
               <select
                 id="withdrawal-carrier"
@@ -102,37 +88,35 @@ function WithdrawalDialog({ onClose }: { onClose: () => void }) {
                   </option>
                 ))}
               </select>
-            </div>
-          )}
+          </div>
           <div className="space-y-1">
             <Label htmlFor="withdrawal-amount">Monto (Bs)</Label>
             <Input id="withdrawal-amount" name="amount" inputMode="decimal" placeholder="Ej. 200" className="h-12 text-xl" autoFocus required />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="withdrawal-reason">{kind === "RELIEF" ? "Nota (opcional)" : "Motivo"}</Label>
+            <Label htmlFor="withdrawal-reason">Nota (opcional)</Label>
             <Input
               id="withdrawal-reason"
               name="reason"
               maxLength={200}
-              placeholder={kind === "RELIEF" ? "Alivio" : "Ej. Retiro del dueño, pago de un gasto"}
-              required={kind === "OWNER"}
+              placeholder="Alivio"
             />
           </div>
           <Button type="submit" size="lg" className="w-full" disabled={pending}>
-            {pending ? "Guardando…" : kind === "RELIEF" ? "Registrar alivio" : "Registrar retiro"}
+            {pending ? "Guardando…" : "Registrar alivio"}
           </Button>
           <FormStatus state={state} />
         </form>
 
         <div className="space-y-2 border-t pt-3">
           <div className="flex items-baseline justify-between">
-            <h3 className="font-semibold">Retiros de hoy</h3>
+            <h3 className="font-semibold">Alivios de hoy</h3>
             <span className="font-bold tabular-nums">{formatMoney(total)}</span>
           </div>
           {list === null || loading ? (
             <p className="text-sm text-muted-foreground">Cargando…</p>
           ) : list.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Todavía no hay retiros hoy.</p>
+            <p className="text-sm text-muted-foreground">Todavía no hay alivios hoy.</p>
           ) : (
             <ul className="divide-y">
               {list.map((w) => (
@@ -186,7 +170,7 @@ function WithdrawalRow({ w, onVoided }: { w: WithdrawalLine; onVoided: () => voi
         </form>
       ) : (
         <Button variant="ghost" size="sm" className="h-7 px-2 text-destructive" onClick={() => setVoiding(true)}>
-          Anular retiro
+          Anular
         </Button>
       )}
     </li>

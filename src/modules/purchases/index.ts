@@ -22,3 +22,4 @@ export { PurchaseDetail } from "./components/purchase-detail";
 export { PurchaseForm } from "./components/purchase-form";
 export { PayablesView } from "./components/payables-view";
 export { SupplierForm } from "./components/supplier-form";
+export { CashPurchaseButton } from "./components/cash-purchase-button";

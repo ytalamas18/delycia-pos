@@ -7,11 +7,12 @@ import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { modules } from "@/config/modules";
 import { appConfig } from "@/core/config/app";
-import { can } from "@/core/auth/permissions";
+import { can, canAny } from "@/core/auth/permissions";
 import { getSession } from "@/core/auth/server";
 import { getSetting } from "@/core/settings";
 import { StockAlertLink } from "@/modules/inventory";
 import { KitchenMessageButton, quickMessagesSetting } from "@/modules/kitchen";
+import { CashPurchaseButton } from "@/modules/purchases";
 import { ReadyNotifier } from "@/modules/sales";
 import { WithdrawalButton } from "@/modules/treasury";
 
@@ -32,6 +33,7 @@ export default async function CajaLayout({ children }: LayoutProps<"/">) {
         <div className="ml-auto flex items-center gap-2">
           {modules.isEnabled("inventory") && can(session, "inventory.view") && <StockAlertLink />}
           {modules.isEnabled("treasury") && can(session, "cash.withdraw") && <WithdrawalButton />}
+          {modules.isEnabled("purchases") && canAny(session, ["purchases.cash", "purchases.manage"]) && <CashPurchaseButton />}
           {canMessageKitchen && <KitchenMessageButton quickMessages={quickMessages} />}
           <ThemeToggle section="pos" />
           <span className="text-sm text-muted-foreground">{session.name}</span>

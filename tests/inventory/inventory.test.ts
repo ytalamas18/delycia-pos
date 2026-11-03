@@ -141,6 +141,24 @@ describe("inventario (movimientos)", () => {
     expect(await stock(coca.id)).toEqual(["0"]);
   });
 
+  it("cambiar cantidad o 'para llevar' de un plato en cocina ajusta solo la diferencia; anular después revierte el neto", async () => {
+    const { user, burger, pan, caja } = await setup();
+    const o = await orders.createOrder({ channel: "LOCAL", serviceType: "DINE_IN", tableNumber: "1" }, [line(burger.id, { quantity: 2 })], user.id, {
+      sendToKitchen: true,
+    });
+    expect(await stock(pan.id, caja.id)).toEqual(["-2", "0"]);
+    const [item] = (await orders.getOrder(o.id))!.items;
+    await orders.updateItem(o.id, item.id, { quantity: 3, note: "", serviceType: "TAKEAWAY" });
+    expect(await stock(pan.id, caja.id)).toEqual(["-3", "-3"]);
+    await orders.updateItem(o.id, item.id, { quantity: 1, note: "", serviceType: "DINE_IN" });
+    expect(await stock(pan.id, caja.id)).toEqual(["-1", "0"]);
+    await voids.voidItem(o.id, item.id, "Se fue", { userId: user.id, authorizedById: user.id });
+    expect(await stock(pan.id, caja.id)).toEqual(["0", "0"]);
+    // Anular otra vez la orden no devuelve de más.
+    await voids.cancelOrder(o.id, "Cerrar", { userId: user.id, authorizedById: user.id });
+    expect(await stock(pan.id)).toEqual(["0"]);
+  });
+
   it("ingreso a inventario usa el costo de la receta y actualiza el último costo", async () => {
     const { user, medallon } = await setup();
     const carne = await products.createProduct({ name: "Carne", categoryId: (await db.category.findFirstOrThrow()).id, type: "SUPPLY", baseUnit: "KG", tracksStock: true, lastCostCents: "52", sendsToKitchen: false, active: true });

@@ -19,6 +19,8 @@ Antes: usuarios y roles; compras, inventario y recetas (fases 1 a 6, `docs/spec-
 6. **Alivios y depósitos:** el retiro puede ser "Alivio" (quién se lleva la plata) o "Retiro del dueño". Los alivios
    pasan a la cuenta "Por depositar"; Admin registra el depósito marcando los alivios que cubre (diferencia con
    motivo). Migración `alivios_y_depositos`.
+7. **Compra en efectivo desde caja** (reemplaza "Retiro del dueño") y **cambiar platos** de una orden por pagar
+   mientras cocina no los marque listos (aviso "PLATO CAMBIADO" en cocina). Migración `compra_caja_y_editar_platos`.
 - **Pendiente en producción:** cargar los saldos iniciales de Efectivo, Banco y ATC/PeYa (Admin → Caja y bancos).
 - Pendiente de decidir: traspasos **hacia** Efectivo (hoy bloqueados); dar el libro a otro rol (Harumi) desde Roles.
 

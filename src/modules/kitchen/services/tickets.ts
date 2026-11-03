@@ -43,6 +43,15 @@ export function listTicketsForOrder(orderId: string) {
   return db.kitchenTicket.findMany({ where: { orderId }, orderBy: { sequence: "asc" } });
 }
 
+/** Ítems de una orden que cocina ya terminó (ítem marcado listo o comanda lista/entregada): ya no se cambian. */
+export async function readyOrderItemIds(orderId: string): Promise<Set<string>> {
+  const items = await db.kitchenTicketItem.findMany({
+    where: { ticket: { orderId }, OR: [{ readyAt: { not: null } }, { ticket: { status: { in: DONE_STATUSES } } }] },
+    select: { orderItemId: true },
+  });
+  return new Set(items.map((i) => i.orderItemId));
+}
+
 export function getTicket(id: string) {
   return db.kitchenTicket.findUnique({ where: { id }, include: ticketInclude });
 }
@@ -199,12 +208,46 @@ export async function cancelTicketsForOrder(tx: Tx, publish: Publish, orderId: s
   }
 }
 
-/** Cocina toca "Entendido" en una comanda con anulación: se quita el aviso. */
+/** Texto de lo que había antes de un cambio de caja (para que cocina vea qué cambió). */
+function describeBefore(before: { quantity: number; note: string | null; serviceType: string }, after: { quantity: number; note: string | null; serviceType: string }) {
+  const parts: string[] = [];
+  if (before.quantity !== after.quantity) parts.push(`antes ${before.quantity}×`);
+  if ((before.note ?? "") !== (after.note ?? "")) parts.push(before.note ? `nota antes: "${before.note}"` : "antes sin nota");
+  if (before.serviceType !== after.serviceType) parts.push(before.serviceType === "TAKEAWAY" ? "antes para llevar" : "antes comer aquí");
+  return parts.join(" · ") || null;
+}
+
+/**
+ * Caja cambió un plato que está en cocina: si cocina todavía no lo marcó listo, se actualiza la comanda y queda
+ * un aviso "CAMBIADO" hasta "Entendido". Si ya está listo (o la comanda terminó), el cambio se rechaza y la
+ * transacción de Ventas se revierte entera.
+ */
+export async function updateTicketItem(
+  tx: Tx,
+  orderItemId: string,
+  after: { quantity: number; note: string | null; serviceType: "DINE_IN" | "TAKEAWAY" },
+  before: { quantity: number; note: string | null; serviceType: "DINE_IN" | "TAKEAWAY" },
+) {
+  const item = await tx.kitchenTicketItem.findUnique({ where: { orderItemId } });
+  if (!item || item.voidedAt) return;
+  const ticket = await lockTicket(tx, item.ticketId);
+  if (item.readyAt || !ACTIVE_STATUSES.includes(ticket.status)) {
+    throw new DomainError("Cocina ya marcó este plato como listo: ya no se puede cambiar (si hace falta, anúlalo).");
+  }
+  const now = new Date();
+  await tx.kitchenTicketItem.update({
+    where: { id: item.id },
+    data: { ...after, changedAt: now, changeNote: describeBefore(before, after) },
+  });
+  await tx.kitchenTicket.update({ where: { id: ticket.id }, data: { changeAlertAt: now } });
+}
+
+/** Cocina toca "Entendido" en una comanda con anulación o cambio: se quitan los avisos. */
 export function acknowledgeVoid(ticketId: string) {
   return runInTransaction(async (tx, publish) => {
     const ticket = await lockTicket(tx, ticketId);
-    if (!ticket.voidAlertAt) return;
-    await tx.kitchenTicket.update({ where: { id: ticketId }, data: { voidAlertAt: null } });
+    if (!ticket.voidAlertAt && !ticket.changeAlertAt) return;
+    await tx.kitchenTicket.update({ where: { id: ticketId }, data: { voidAlertAt: null, changeAlertAt: null } });
     await publish("ticket.void_seen", { ticketId, orderId: ticket.orderId });
   });
 }

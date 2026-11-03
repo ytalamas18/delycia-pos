@@ -163,3 +163,18 @@ controla a mano cruzando caja con los ingresos del banco.
 - Lista de **alivios pendientes de depositar** (quién lleva, desde cuándo, cuánto) y de depósitos con los alivios
   que cubrió. El saldo de "Por depositar" vuelve a 0 cuando todo está depositado.
 - Fuera por ahora: pagar a un proveedor con la plata de un alivio (hoy se registraría el depósito con diferencia).
+
+## 7) Compra en efectivo desde caja y cambiar platos en cocina (Yasser, 03/11/2026) — ✅ Listo
+
+- Se quita "Retiro del dueño" de la ventana (queda solo **Alivio**). Los retiros del dueño ya registrados se
+  siguen viendo en cierres y en el libro.
+- Botón **"Compra en efectivo"** en la barra superior (permiso nuevo `purchases.cash`: Caja y Admin; la migración
+  `compra_caja_y_editar_platos` lo agrega al rol Caja): ítems + cantidad + total, proveedor y n° de boleta
+  opcionales. Queda como compra de contado de hoy, método y cuenta **Efectivo**: resta sola del efectivo esperado
+  del cierre, suma stock si el ítem lo maneja y aparece en el libro con ítem y categoría. Desde la caja se anula
+  (con motivo) solo una compra en efectivo de **hoy**; las demás, en Compras (Admin).
+- **Cambiar platos de una orden por pagar**: cantidad, nota y comer aquí / para llevar de cualquier ítem, aunque
+  ya esté en cocina, **mientras cocina no lo marque listo** (ítem listo o comanda lista = solo anular). Cocina ve
+  la comanda actualizada con aviso **"PLATO CAMBIADO — REVISAR"** y "CAMBIADO · antes 1×" hasta tocar
+  "Entendido". Inventario descuenta o devuelve solo la diferencia. Quitar un plato que ya está en cocina sigue
+  siendo **anular** (con motivo y autorización como siempre). Las bebidas que no van a cocina se cambian libremente.

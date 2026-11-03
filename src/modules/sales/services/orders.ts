@@ -266,14 +266,37 @@ async function unsentItem(tx: Tx, orderId: string, itemId: string) {
   return item;
 }
 
-/** Cambia cantidad, nota o "para llevar" de un ítem que todavía no fue a cocina. */
+/**
+ * Cambia cantidad, nota o "para llevar" de un ítem de una orden por pagar. Vale también para lo que ya está en
+ * cocina mientras cocina NO lo haya marcado listo (Cocina rechaza el cambio en la misma transacción).
+ */
 export async function updateItem(orderId: string, itemId: string, input: ItemUpdateInput) {
   const data = itemUpdateInput.parse(input);
-  return runInTransaction(async (tx) => {
-    await lockOpenOrder(tx, orderId);
-    await unsentItem(tx, orderId, itemId);
-    await tx.orderItem.update({ where: { id: itemId }, data: { ...data, note: data.note || null } });
+  return runInTransaction(async (tx, publish) => {
+    const order = await lockOpenOrder(tx, orderId);
+    const item = await tx.orderItem.findFirst({ where: { id: itemId, orderId } });
+    if (!item || item.status !== "ACTIVE") throw new DomainError("El ítem no existe");
+    const note = data.note || null;
+    if (item.quantity === data.quantity && item.note === note && item.serviceType === data.serviceType) return;
+    await tx.orderItem.update({ where: { id: itemId }, data: { ...data, note } });
     await recalcTotals(tx, orderId);
+    await publish("order.item_updated", {
+      orderId,
+      orderNumber: order.number,
+      channel: order.channel,
+      item: {
+        orderItemId: item.id,
+        productId: item.productId,
+        name: item.productName,
+        quantity: data.quantity,
+        modifiers: (item.modifiers as { name: string }[]).map((m) => m.name),
+        note,
+        serviceType: data.serviceType,
+        sendsToKitchen: item.sendsToKitchen,
+      },
+      before: { quantity: item.quantity, note: item.note, serviceType: item.serviceType },
+      sentToKitchen: item.sentToKitchenAt !== null,
+    });
   });
 }
 

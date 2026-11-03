@@ -176,4 +176,32 @@ describe("compras", () => {
     expect(summary.supplierPayments?.cashCents).toBe(1000);
     expect(summary.supplierPayments?.payments[0]).toMatchObject({ account: "BANK", reference: "TRX-123" });
   });
+
+  it("compra en efectivo desde caja: hoy, contado, cuenta Efectivo; resta del cierre; se anula el mismo día", async () => {
+    const { pan, gas, user } = await setup();
+    await db.cashOpening.create({ data: { businessDate: today, openingCashCents: 20000, openedById: user.id } });
+    const p = await purchases.createCashPurchase(
+      { note: "pasaje", lines: [{ productId: gas.id, presentation: "unit:UNIT", quantity: "1", totalCents: "25" }] },
+      user.id,
+    );
+    expect(p).toMatchObject({ date: today, totalCents: 2500 });
+    const pay = await db.supplierPayment.findFirstOrThrow({ where: { purchaseId: p.id } });
+    expect(pay).toMatchObject({ method: "CASH", account: "CASH", date: today, amountCents: 2500 });
+    expect((await history.getDailyClosing(today)).summary.supplierPayments?.cashCents).toBe(2500);
+
+    const list = await purchases.listCashPurchasesForDay(today);
+    expect(list.map((x) => [x.number, x.items, x.status])).toEqual([[p.number, ["Servilletas"], "ACTIVE"]]);
+
+    // No se anula de otro día ni una compra que no salió de la caja.
+    await expect(purchases.voidCashPurchase(p.id, "error de monto", user.id, "2099-01-01")).rejects.toThrow("solo se anula");
+    const banco = await purchases.createPurchase(
+      { date: today, paymentMode: "CASH_FULL", paymentMethod: "TRANSFER", lines: [{ productId: pan.id, presentation: "unit:UNIT", quantity: "1", totalCents: "5" }] },
+      user.id,
+    );
+    await expect(purchases.voidCashPurchase(banco.id, "error de monto", user.id)).rejects.toThrow("solo se anula");
+
+    await purchases.voidCashPurchase(p.id, "Se registró dos veces", user.id);
+    expect((await db.purchase.findUniqueOrThrow({ where: { id: p.id } })).status).toBe("CANCELLED");
+    expect((await history.getDailyClosing(today)).summary.supplierPayments?.cashCents).toBe(0);
+  });
 });

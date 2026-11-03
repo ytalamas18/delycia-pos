@@ -25,6 +25,8 @@ export type PosSavedItem = {
   modifiers: string[];
   sendsToKitchen: boolean;
   sentToKitchen: boolean;
+  /** Cocina ya lo marcó listo: no se puede cambiar (solo anular). */
+  kitchenReady: boolean;
 };
 
 export type PosOrder = {

@@ -43,7 +43,8 @@ src/
 │  │                     carga rápida (Excel/CSV), getSellableCatalog() (solo Normal y Preparado)
 │  ├─ sales/             órdenes, precios por canal (PEYA), cobro, fiado, historial, apertura/cierre, reportes PDF/CSV
 │  ├─ kitchen/           comandas (KDS), estados, mensajes caja→cocina, avisos de anulación
-│  ├─ purchases/         proveedores, compras (contado/crédito/parcial), abonos (cuenta de origen + n° comprobante), cuentas por pagar
+│  ├─ purchases/         proveedores, compras (contado/crédito/parcial), abonos (cuenta de origen + n° comprobante), cuentas por pagar,
+│  │                     compra en efectivo desde caja (botón de la barra, `purchases.cash`)
 │  ├─ treasury/          "Caja y bancos": retiros (alivio / del dueño), depósitos de alivios al banco, traspasos entre
 │  │                     cuentas (con comisión), saldos iniciales
 │  ├─ inventory/         kárdex (StockMovement), descuento por ventas/compras por eventos, ingreso, conteo, salida rápida
@@ -55,7 +56,7 @@ src/
 ├─ lib/                  use-live-events (SSE + vigilante), sound (Web Audio), theme (claro/oscuro), utils
 ├─ instrumentation.ts    llama bootstrap() al arrancar
 └─ proxy.ts              sesión + permisos por ruta
-prisma/  schema.prisma, migrations/ (22), seed.ts + seed-data.ts, data/menu-delycia.json
+prisma/  schema.prisma, migrations/ (23), seed.ts + seed-data.ts, data/menu-delycia.json
 tests/   core, catalog, sales, kitchen, purchases, inventory, reports, integration, support (db reset, catálogo fijo, createTestUser)
 ```
 
@@ -115,6 +116,13 @@ tests/   core, catalog, sales, kitchen, purchases, inventory, reports, integrati
   guardado (así Efectivo cambia cada día lo mismo que el cierre: contado − fondo).
 - **Envío a cocina:** Guardar y Cobrar envían a cocina lo pendiente en la misma transacción
   (`createOrder({ sendToKitchen })`, `saveOrderAndSend`). Ya no hay botón "Enviar a cocina" en el POS.
+- **Cambiar un plato en cocina:** `updateItem` publica `order.item_updated`; Cocina (en la misma transacción)
+  actualiza la comanda con aviso `changeAlertAt` o **rechaza** si el ítem/comanda ya está listo; Inventario ajusta
+  solo la diferencia (`adjustSoldItem`; `reverseSale` devuelve el neto). El POS sabe qué está listo con
+  `readyOrderItemIds()` de Cocina.
+- **Compra en efectivo desde caja** (`createCashPurchase`): contado de hoy, método y cuenta Efectivo; se anula
+  desde la caja solo el mismo día (`voidCashPurchase` anula pagos + compra juntos). Ya no se registran "retiros del
+  dueño" desde la app (el enum `OWNER` queda por los registros viejos).
 - **Tema claro/oscuro** por dispositivo y por pantalla (`localStorage` `delycia.theme.pos|cocina`; POS claro,
   Cocina oscuro por defecto). `themeBootScript` en `app/layout.tsx` lo aplica antes de pintar; usar siempre
   variantes `dark:` en colores fijos (ej. `text-red-700 dark:text-red-400`). `/imprimir` siempre en claro.
@@ -157,7 +165,8 @@ tests/   core, catalog, sales, kitchen, purchases, inventory, reports, integrati
   solo el mismo día de negocio, pagos → `refundedAt`. Fiado con abonos: no se anula. Eventos `order.item_voided` /
   `order.cancelled` → Cocina marca ANULADO y deja la comanda con aviso (`voidAlertAt`) hasta "Entendido".
 - Permisos por defecto: **Caja** = POS, cobrar, descuento, anular (con autorización), historial, cuentas por
-  cobrar, mensajes a cocina, apertura/cierre, **retiros de efectivo** (`cash.withdraw`), ver Cocina y salida rápida.
+  cobrar, mensajes a cocina, apertura/cierre, **alivios** (`cash.withdraw`), **compra en efectivo** (`purchases.cash`),
+  ver Cocina y salida rápida.
   **Cocina** = ver y atender Cocina. Reportes, Ajustes, Catálogo, Compras, Inventario (ver/ingreso/conteo), Usuarios y
   Libro de caja y bancos (`cashbook.view` / `cashbook.manage`): solo Admin por defecto.
   En ventas, la UI esconde Cobrar / descuento / Anular según el rol (`salesAbilities()`), y las actions lo validan.

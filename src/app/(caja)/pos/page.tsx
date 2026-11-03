@@ -7,6 +7,7 @@ import { getSetting } from "@/core/settings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { businessDate } from "@/core/time";
 import { getSellableCatalog } from "@/modules/catalog";
+import { readyOrderItemIds } from "@/modules/kitchen";
 import {
   getOpening,
   getOrder,
@@ -61,6 +62,7 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
     orderId ? getOrder(orderId) : null,
   ]);
   if (orderId && !order) notFound();
+  const readyItems = order && order.status === "OPEN" ? await readyOrderItemIds(order.id) : new Set<string>();
 
   const products: PosProduct[] = catalog.flatMap((c) => c.products.map((p) => ({ ...p, categoryId: c.id })));
   const posOrder: PosOrder | null =
@@ -85,6 +87,7 @@ export default async function PosPage({ searchParams }: PageProps<"/pos">) {
               modifiers: (i.modifiers as { name: string }[]).map((m) => m.name),
               sendsToKitchen: i.sendsToKitchen,
               sentToKitchen: i.sentToKitchenAt !== null,
+              kitchenReady: readyItems.has(i.id),
             })),
         }
       : null;

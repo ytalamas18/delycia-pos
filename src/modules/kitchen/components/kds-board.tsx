@@ -24,7 +24,9 @@ import type { KdsMessage, KdsSnapshot, KdsTicket } from "../services/snapshot";
 const clock = new Intl.DateTimeFormat("es-BO", { hour: "2-digit", minute: "2-digit", timeZone: appConfig.timezone });
 
 /** Cambia si se anula otro ítem de la misma comanda: así vuelve a sonar. */
-const alertKey = (t: KdsTicket) => `${t.id}:${t.status}:${t.items.filter((i) => i.voided).length}`;
+const alertKey = (t: KdsTicket) =>
+  `${t.id}:${t.status}:${t.items.filter((i) => i.voided).length}:${t.items.map((i) => `${i.quantity}${i.note ?? ""}${i.serviceType}`).join("|")}`;
+const hasAlert = (t: KdsTicket) => t.voidAlert || t.changeAlert;
 
 const levelStyles: Record<WaitLevel, string> = {
   ok: "border-green-500",
@@ -45,7 +47,7 @@ export function KdsBoard({ initial, canOperate }: { initial: KdsSnapshot; canOpe
   const [now, setNow] = useState(() => Date.now());
   const known = useRef(new Set(initial.active.map((t) => t.id)));
   const knownMessages = useRef(new Set(initial.messages.map((m) => m.id)));
-  const knownAlerts = useRef(new Set(initial.active.filter((t) => t.voidAlert).map(alertKey)));
+  const knownAlerts = useRef(new Set(initial.active.filter(hasAlert).map(alertKey)));
   const refetchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const refetch = useCallback(async () => {
@@ -65,7 +67,7 @@ export function KdsBoard({ initial, canOperate }: { initial: KdsSnapshot; canOpe
       if (freshMessages.length > 0 && fresh.length === 0 && audioUnlocked()) playKitchenMessage();
       knownMessages.current = new Set(next.messages.map((m) => m.id));
       // Anulación nueva (orden entera o un ítem): sonido propio, tiene prioridad sobre los demás.
-      const alerts = next.active.filter((t) => t.voidAlert).map(alertKey);
+      const alerts = next.active.filter(hasAlert).map(alertKey);
       if (alerts.some((k) => !knownAlerts.current.has(k)) && audioUnlocked()) playVoid();
       knownAlerts.current = new Set(alerts);
       setSnapshot(next);
@@ -208,6 +210,7 @@ function TicketCard({
         (ticket.status === "READY" || ticket.status === "DELIVERED") && "border-green-700 opacity-90",
         cancelled && "border-red-600 bg-red-50 dark:bg-red-950",
         ticket.voidAlert && "border-red-600 ring-4 ring-red-500",
+        !ticket.voidAlert && ticket.changeAlert && "border-amber-500 ring-4 ring-amber-400",
         pending && "opacity-60",
       )}
     >
@@ -247,6 +250,9 @@ function TicketCard({
       {ticket.voidAlert && !cancelled && (
         <div className="animate-pulse bg-red-600 py-2 text-center text-2xl font-black tracking-wide text-white">ÍTEM ANULADO — REVISAR</div>
       )}
+      {ticket.changeAlert && !cancelled && (
+        <div className="animate-pulse bg-amber-400 py-2 text-center text-2xl font-black tracking-wide text-black">PLATO CAMBIADO — REVISAR</div>
+      )}
 
       <ul className="flex-1 divide-y">
         {ticket.items.map((item) => (
@@ -278,6 +284,11 @@ function TicketCard({
                         .join("")}
                   </span>
                 )}
+                {item.changed && !item.voided && (
+                  <span className="block text-lg font-black text-amber-700 dark:text-amber-300">
+                    CAMBIADO{item.changeNote ? ` · ${item.changeNote}` : ""}
+                  </span>
+                )}
                 {item.serviceType === "TAKEAWAY" && ticket.serviceType === "DINE_IN" && (
                   <span className="inline-block rounded bg-orange-500 px-2 text-base font-bold text-black">PARA LLEVAR</span>
                 )}
@@ -295,10 +306,13 @@ function TicketCard({
       </ul>
 
       <footer className="flex gap-2 border-t p-3">
-        {canOperate && ticket.voidAlert && (
+        {canOperate && hasAlert(ticket) && (
           <Button
             size="lg"
-            className="h-16 flex-1 bg-red-600 text-xl text-white hover:bg-red-700"
+            className={cn(
+              "h-16 flex-1 text-xl",
+              ticket.voidAlert ? "bg-red-600 text-white hover:bg-red-700" : "bg-amber-400 text-black hover:bg-amber-500",
+            )}
             disabled={pending}
             onClick={() => run(() => acknowledgeVoidAction(ticket.id))}
           >

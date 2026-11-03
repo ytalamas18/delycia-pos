@@ -18,6 +18,8 @@ export type KdsTicket = {
   updatedAt: string;
   /** Caja anuló algo de esta comanda y cocina todavía no tocó "Entendido". */
   voidAlert: boolean;
+  /** Caja cambió un plato (cantidad, nota, para llevar) y cocina todavía no tocó "Entendido". */
+  changeAlert: boolean;
   /** Hora en que se anuló la comanda entera (null si no está anulada). */
   cancelledAt: string | null;
   items: {
@@ -31,6 +33,9 @@ export type KdsTicket = {
     voided: boolean;
     voidReason: string | null;
     voidedAt: string | null;
+    /** Qué había antes del último cambio de caja (null = sin cambios). */
+    changeNote: string | null;
+    changed: boolean;
   }[];
 };
 
@@ -57,6 +62,7 @@ function toKdsTicket(t: TicketWithItems): KdsTicket {
     receivedAt: t.receivedAt.toISOString(),
     updatedAt: t.updatedAt.toISOString(),
     voidAlert: t.voidAlertAt !== null,
+    changeAlert: t.changeAlertAt !== null,
     cancelledAt: t.cancelledAt?.toISOString() ?? null,
     items: t.items.map((i) => ({
       id: i.id,
@@ -69,6 +75,8 @@ function toKdsTicket(t: TicketWithItems): KdsTicket {
       voided: i.voidedAt !== null,
       voidReason: i.voidReason,
       voidedAt: i.voidedAt?.toISOString() ?? null,
+      changed: i.changedAt !== null,
+      changeNote: i.changeNote,
     })),
   };
 }
@@ -88,7 +96,9 @@ export async function getKdsSnapshot(): Promise<KdsSnapshot> {
       createdAt: m.createdAt.toISOString(),
     })),
     // Las anulaciones sin ver van primero: cocina tiene que enterarse antes que nada.
-    active: active.map(toKdsTicket).sort((a, b) => Number(b.voidAlert) - Number(a.voidAlert)),
+    active: active
+      .map(toKdsTicket)
+      .sort((a, b) => Number(b.voidAlert || b.changeAlert) - Number(a.voidAlert || a.changeAlert)),
     recent: recent.map(toKdsTicket),
     thresholds,
     serverNow: new Date().toISOString(),
