@@ -1,6 +1,6 @@
 import { fileBaseFor, formatPeriod, type ExportDocument } from "@/core/export";
 import { formatMoney as formatMoneyText } from "@/core/money";
-import { MONEY_ACCOUNT_LABEL, MONEY_ACCOUNTS } from "@/core/money/accounts";
+import { isLedgerAccount, MONEY_ACCOUNT_LABEL, MONEY_ACCOUNTS } from "@/core/money/accounts";
 
 import { formatQuantity } from "@/core/quantity";
 import { businessDate } from "@/core/time";
@@ -13,7 +13,6 @@ import { parseCreditStatus } from "./domain/receivables";
 import { parseRange } from "./domain/range";
 import { itemsText, parseSupplierPaymentFilters } from "./domain/supplier-payments";
 import { getCashbook } from "./services/cashbook";
-import type { MoneyAccount } from "@/generated/prisma/enums";
 import {
   getAdjustmentsReport,
   getKardexReport,
@@ -614,7 +613,7 @@ async function supplierPaymentsExport(params: ReportParams): Promise<ExportDocum
 /** Libro de caja y bancos (permiso propio: `cashbook.view`, no `reports.view`). */
 export async function cashbookExport(params: ReportParams): Promise<ExportDocument> {
   const range = parseRange(params);
-  const account = MONEY_ACCOUNTS.includes(params.cuenta as MoneyAccount) ? (params.cuenta as MoneyAccount) : null;
+  const account = isLedgerAccount(params.cuenta) ? params.cuenta : null;
   const book = await getCashbook(range, account);
   const all = !account;
   const columns = [

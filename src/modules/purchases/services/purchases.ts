@@ -257,7 +257,7 @@ export async function supplierPaymentsForDay(date: string) {
     orderBy: { createdAt: "asc" },
   });
   const byMethod: Record<SupplierPaymentMethod, number> = { CASH: 0, TRANSFER: 0, CARD: 0 };
-  const byAccount: Record<MoneyAccount, number> = { CASH: 0, BANK: 0, ATC_PEYA: 0 };
+  const byAccount: Record<MoneyAccount, number> = { CASH: 0, BANK: 0, ATC_PEYA: 0, PENDING_DEPOSIT: 0 };
   for (const r of rows) {
     byMethod[r.method] += r.amountCents;
     byAccount[r.account] += r.amountCents;

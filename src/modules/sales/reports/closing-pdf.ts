@@ -4,7 +4,7 @@ import { appConfig } from "@/core/config/app";
 import { formatMoney } from "@/core/money";
 import type { PaymentMethod } from "@/generated/prisma/enums";
 
-import type { DailySummary } from "../domain/closing";
+import { withdrawalText, type DailySummary } from "../domain/closing";
 import { paymentMethodLabel } from "../domain/labels";
 
 export type ClosingPdfData = {
@@ -187,7 +187,7 @@ export async function buildClosingPdf(data: ClosingPdfData): Promise<Uint8Array>
   if (out && out.totalCents > 0) {
     w.section("Pagos a proveedores");
     const methodName = { CASH: "Efectivo", TRANSFER: "Transferencia/QR", CARD: "Tarjeta" } as const;
-    const accountName = { CASH: "caja", BANK: "banco", ATC_PEYA: "ATC/PeYa" } as const;
+    const accountName = { CASH: "caja", BANK: "banco", ATC_PEYA: "ATC/PeYa", PENDING_DEPOSIT: "por depositar" } as const;
     for (const p of out.payments) {
       const ref = p.reference ? ` N° ${p.reference}` : "";
       w.row([`Compra #${p.purchaseNumber}${p.supplier ? ` - ${p.supplier}` : ""} (${methodName[p.method]}${p.account ? `, ${accountName[p.account]}` : ""}${ref})`, `- ${formatMoney(p.amountCents)}`], two);
@@ -198,13 +198,13 @@ export async function buildClosingPdf(data: ClosingPdfData): Promise<Uint8Array>
   // Retiros de efectivo (Caja y bancos)
   const wd = s.withdrawals;
   if (wd && wd.items.length + wd.voided.length > 0) {
-    w.section("Retiros de efectivo");
+    w.section("Alivios y retiros de efectivo");
     for (const r of wd.items) {
-      w.row([`${hourFmt.format(new Date(r.at))} - ${r.reason}${r.byName ? ` (${r.byName})` : ""}`, `- ${formatMoney(r.amountCents)}`], two);
+      w.row([`${hourFmt.format(new Date(r.at))} - ${withdrawalText(r)}${r.byName ? ` (registró ${r.byName})` : ""}`, `- ${formatMoney(r.amountCents)}`], two);
     }
-    w.row(["Total retiros (sale de la caja)", `- ${formatMoney(wd.totalCents)}`], two, { bold: true });
+    w.row(["Total alivios y retiros (sale de la caja)", `- ${formatMoney(wd.totalCents)}`], two, { bold: true });
     for (const r of wd.voided) {
-      w.text(`Anulado: ${hourFmt.format(new Date(r.at))} - ${r.reason} - ${formatMoney(r.amountCents)} (${r.voidReason ?? ""})`, { size: 8, color: GRAY });
+      w.text(`Anulado: ${hourFmt.format(new Date(r.at))} - ${withdrawalText(r)} - ${formatMoney(r.amountCents)} (${r.voidReason ?? ""})`, { size: 8, color: GRAY });
     }
   }
 
@@ -212,7 +212,7 @@ export async function buildClosingPdf(data: ClosingPdfData): Promise<Uint8Array>
   const ct = s.cashTransfers;
   if (ct && ct.items.length > 0) {
     w.section("Depósitos / traspasos desde la caja");
-    const accountName = { CASH: "Efectivo", BANK: "Banco", ATC_PEYA: "ATC/PeYa" } as const;
+    const accountName = { CASH: "Efectivo", BANK: "Banco", ATC_PEYA: "ATC/PeYa", PENDING_DEPOSIT: "Por depositar" } as const;
     for (const t of ct.items) {
       w.row([`${hourFmt.format(new Date(t.at))} - a ${accountName[t.toAccount]}${t.reference ? ` N° ${t.reference}` : ""}`, `- ${formatMoney(t.amountOutCents)}`], two);
     }

@@ -16,6 +16,8 @@ export {
   type CashTransfersForDay,
   type TransferRow,
 } from "./services/accounts";
+export { listDeposits, type DepositRow } from "./services/deposits";
+export { listPendingReliefs, WITHDRAWAL_KIND_LABEL } from "./services/withdrawals";
 export { WithdrawalButton } from "./components/withdrawal-button";
 export { TransferForm } from "./components/transfer-form";
 export { OpeningBalanceForm } from "./components/opening-balance-form";

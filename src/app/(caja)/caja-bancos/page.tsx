@@ -1,7 +1,7 @@
 import { requireModule } from "@/components/shell/require-module";
 import { can } from "@/core/auth/permissions";
 import { requirePermission } from "@/core/auth/server";
-import { isMoneyAccount } from "@/core/money/accounts";
+import { isLedgerAccount } from "@/core/money/accounts";
 import { businessDate } from "@/core/time";
 import { CashbookView, parseReportRange } from "@/modules/reports";
 import { TreasuryRecords } from "@/modules/treasury";
@@ -18,7 +18,7 @@ export default async function CajaBancosPage({ searchParams }: PageProps<"/caja-
   return (
     <div className="max-w-6xl space-y-6">
       <h1 className="text-2xl font-bold">Libro de caja y bancos</h1>
-      <CashbookView range={range} account={isMoneyAccount(cuenta) ? cuenta : null} />
+      <CashbookView range={range} account={isLedgerAccount(cuenta) ? cuenta : null} />
       <TreasuryRecords range={range} canManage={can(session, "cashbook.manage")} />
     </div>
   );

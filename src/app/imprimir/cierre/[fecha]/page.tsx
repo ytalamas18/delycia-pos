@@ -5,7 +5,7 @@ import { requirePermission } from "@/core/auth/server";
 import { appConfig } from "@/core/config/app";
 import { formatMoney } from "@/core/money";
 import type { PaymentMethod } from "@/generated/prisma/enums";
-import { getDailyClosing, paymentMethodLabel } from "@/modules/sales";
+import { getDailyClosing, paymentMethodLabel, withdrawalText } from "@/modules/sales";
 
 export const dynamic = "force-dynamic";
 
@@ -60,11 +60,11 @@ export default async function ImprimirCierrePage({ params }: PageProps<"/imprimi
       )}
       {s.withdrawals && s.withdrawals.items.length > 0 && (
         <>
-          <div className="mt-1 font-bold">Retiros de efectivo</div>
+          <div className="mt-1 font-bold">Alivios y retiros</div>
           {s.withdrawals.items.map((w, i) => (
-            <L key={i} label={`${hour.format(new Date(w.at))} ${w.reason}`} value={`-${formatMoney(w.amountCents)}`} />
+            <L key={i} label={`${hour.format(new Date(w.at))} ${withdrawalText(w)}`} value={`-${formatMoney(w.amountCents)}`} />
           ))}
-          <L label="Total retiros" value={`-${formatMoney(s.withdrawals.totalCents)}`} bold />
+          <L label="Total alivios y retiros" value={`-${formatMoney(s.withdrawals.totalCents)}`} bold />
         </>
       )}
       {s.cashTransfers && s.cashTransfers.items.length > 0 && (

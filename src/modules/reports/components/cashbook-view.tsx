@@ -7,7 +7,7 @@ import { MONEY_ACCOUNT_LABEL } from "@/core/money/accounts";
 import type { MoneyAccount } from "@/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 
-import { LEDGER_ACCOUNTS } from "../domain/cashbook";
+import { LEDGER_ACCOUNTS } from "@/core/money/accounts";
 import type { DateRange } from "../domain/range";
 import { getCashbook } from "../services/cashbook";
 import { RangeFilter } from "./range-filter";
@@ -116,7 +116,7 @@ export async function CashbookView({ range, account }: { range: DateRange; accou
               {showAccount && <td className="p-2 text-right font-semibold">{signed(book.total.beforeCents)}</td>}
             </tr>
             {book.lines.map((l, i) => (
-              <tr key={i} className={cn(l.kind === "OPENING" && "bg-muted/30", l.kind === "CASH_DIFFERENCE" && "bg-yellow-50 dark:bg-yellow-950/40")}>
+              <tr key={i} className={cn(l.kind === "OPENING" && "bg-muted/30", (l.kind === "CASH_DIFFERENCE" || l.kind === "DEPOSIT_DIFFERENCE") && "bg-yellow-50 dark:bg-yellow-950/40")}>
                 <td className="p-2 whitespace-nowrap">{formatDay(l.date)}</td>
                 {showAccount && <td className="p-2 whitespace-nowrap">{MONEY_ACCOUNT_LABEL[l.account]}</td>}
                 <td className="p-2">
@@ -142,7 +142,8 @@ export async function CashbookView({ range, account }: { range: DateRange; accou
       </div>
       <p className="text-sm text-muted-foreground">
         Efectivo: cada día con cierre guardado cambia lo que dice el cierre (contado − fondo); si hubo faltante o sobrante aparece como
-        &quot;Diferencia de arqueo&quot;. Banco: compáralo con el extracto (ventas por QR, depósitos y pagos por transferencia).
+        &quot;Diferencia de arqueo&quot;. Por depositar: alivios que alguien se llevó y todavía no depositó (debe volver a 0 al depositar
+        todo). Banco: compáralo con el extracto (ventas por QR, depósitos y pagos por transferencia).
       </p>
     </div>
   );

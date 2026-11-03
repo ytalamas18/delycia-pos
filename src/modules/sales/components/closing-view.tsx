@@ -10,7 +10,7 @@ import type { PaymentMethod } from "@/generated/prisma/enums";
 
 import { businessDate } from "@/core/time";
 
-import { cashOutflowsCents } from "../domain/closing";
+import { cashOutflowsCents, withdrawalText } from "../domain/closing";
 import { paymentMethodLabel } from "../domain/labels";
 import { getDailyClosing } from "../services/history";
 import { ClosingForm } from "./closing-form";
@@ -175,18 +175,18 @@ export async function ClosingView({ date }: { date: string }) {
       {s.withdrawals && s.withdrawals.items.length + s.withdrawals.voided.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Retiros de efectivo</CardTitle>
+            <CardTitle>Alivios y retiros de efectivo</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
             {s.withdrawals.items.map((w, i) => (
               <Row
                 key={i}
-                label={`${hour.format(new Date(w.at))} · ${w.reason}${w.byName ? ` · ${w.byName}` : ""}`}
+                label={`${hour.format(new Date(w.at))} · ${withdrawalText(w)}${w.byName ? ` · registró ${w.byName}` : ""}`}
                 value={`− ${formatMoney(w.amountCents)}`}
               />
             ))}
             <div className="border-t pt-2">
-              <Row label="Total retiros (sale de la caja)" value={`− ${formatMoney(s.withdrawals.totalCents)}`} strong />
+              <Row label="Total alivios y retiros (sale de la caja)" value={`− ${formatMoney(s.withdrawals.totalCents)}`} strong />
             </div>
             {s.withdrawals.voided.length > 0 && (
               <div className="pt-2 text-sm text-muted-foreground">
@@ -194,7 +194,7 @@ export async function ClosingView({ date }: { date: string }) {
                 {s.withdrawals.voided.map((w, i) => (
                   <p key={i}>
                     <span className="line-through">
-                      {hour.format(new Date(w.at))} · {w.reason} · {formatMoney(w.amountCents)}
+                      {hour.format(new Date(w.at))} · {withdrawalText(w)} · {formatMoney(w.amountCents)}
                     </span>{" "}
                     — {w.voidReason}
                   </p>
