@@ -3,7 +3,7 @@
 194 tests pasando (`npm test`), lint y typecheck limpios. Último trabajo: **mejoras v2** (`docs/spec-mejoras-v2.md`).
 Antes: usuarios y roles; compras, inventario y recetas (fases 1 a 6, `docs/spec-compras-inventario.md`).
 
-## Mejoras v2 (02/11/2026) — listo en código, falta desplegar
+## Mejoras v2 (02-03/11/2026) — desplegado el 02/11 (alivios: 03/11)
 
 1. **Envío automático a cocina:** Guardar y Cobrar envían lo pendiente (Cobrar, antes de abrir la ventana de
    cobro). Sin botón "Enviar a cocina" en el POS ni en "cobrada"; queda solo en "Pagadas, esperando cocina" para
@@ -16,7 +16,10 @@ Antes: usuarios y roles; compras, inventario y recetas (fases 1 a 6, `docs/spec-
 4. **Reporte "Pagos a proveedores"** (Reportes → Compras) con filtros método/cuenta, totales y anulados aparte; PDF/Excel.
 5. **Libro de caja y bancos** (`/caja-bancos`, solo Admin): Efectivo / Banco / ATC-PeYa con saldo acumulado,
    traspasos con comisión automática, saldos iniciales y diferencia de arqueo; PDF/Excel. Migración `libro_caja_bancos`.
-- **Al desplegar:** cargar los saldos iniciales de las 3 cuentas (Admin → Caja y bancos). Hacer respaldo antes.
+6. **Alivios y depósitos:** el retiro puede ser "Alivio" (quién se lleva la plata) o "Retiro del dueño". Los alivios
+   pasan a la cuenta "Por depositar"; Admin registra el depósito marcando los alivios que cubre (diferencia con
+   motivo). Migración `alivios_y_depositos`.
+- **Pendiente en producción:** cargar los saldos iniciales de Efectivo, Banco y ATC/PeYa (Admin → Caja y bancos).
 - Pendiente de decidir: traspasos **hacia** Efectivo (hoy bloqueados); dar el libro a otro rol (Harumi) desde Roles.
 
 ## Usuarios y roles (30/10/2026) — listo en código, falta desplegar

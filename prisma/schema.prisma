@@ -574,6 +574,9 @@ enum MoneyAccount {
   BANK
   /// ATC (datáfono) y PeYa: depositan al banco después, ya descontada la comisión.
   ATC_PEYA
+  /// Por depositar: efectivo de los alivios que alguien se llevó y todavía no depositó en el banco.
+  /// Solo la usa el libro (no se elige al pagar ni en traspasos).
+  PENDING_DEPOSIT
 }
 
 enum PurchaseStatus {
@@ -757,14 +760,28 @@ model StockCountLine {
 // CAJA Y BANCOS (treasury)
 // ============================================================================
 
+/// Tipo de retiro de efectivo.
+enum WithdrawalKind {
+  /// Retiro del dueño / gasto: sale del negocio.
+  OWNER
+  /// Alivio: alguien se lleva la plata para depositarla en el banco (pasa a "Por depositar").
+  RELIEF
+}
+
 /// Retiro de efectivo de la caja (autorizado por escrito fuera del sistema). Resta del efectivo esperado del
 /// cierre de su día de negocio. Anular no borra: queda con motivo.
 model CashWithdrawal {
-  id           String    @id @default(cuid())
+  id           String         @id @default(cuid())
   /// Día de negocio (La Paz) "YYYY-MM-DD".
   businessDate String
   amountCents  Int
   reason       String
+  kind         WithdrawalKind @default(OWNER)
+  /// Alivio: quién se lleva la plata (usuario).
+  carriedById  String?
+  /// Alivio: depósito al banco que lo cubrió (null = pendiente de depositar).
+  depositId    String?
+  deposit      BankDeposit?   @relation(fields: [depositId], references: [id])
   createdById  String
   createdAt    DateTime  @default(now())
   voidedAt     DateTime?
@@ -772,6 +789,35 @@ model CashWithdrawal {
   voidedById   String?
 
   @@index([businessDate])
+  @@index([depositId])
+}
+
+/**
+ * Depósito al banco de uno o varios alivios: la plata pasa de "Por depositar" a Banco. Si lo que llegó no
+ * coincide con la suma de los alivios, la diferencia queda con motivo obligatorio. Anular (con motivo) devuelve
+ * los alivios a pendientes; `withdrawalIds` guarda cuáles cubría.
+ */
+model BankDeposit {
+  id               String           @id @default(cuid())
+  /// Día del depósito "YYYY-MM-DD".
+  date             String
+  /// Lo que llegó al banco.
+  amountCents      Int
+  /// Suma de los alivios que cubre (copia al registrar).
+  reliefsCents     Int
+  reference        String?
+  note             String?
+  /// Obligatorio si amountCents ≠ reliefsCents.
+  differenceReason String?
+  withdrawalIds    String[]
+  withdrawals      CashWithdrawal[]
+  createdById      String
+  createdAt        DateTime         @default(now())
+  voidedAt         DateTime?
+  voidReason       String?
+  voidedById       String?
+
+  @@index([date])
 }
 
 /**

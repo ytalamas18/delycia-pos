@@ -1,3 +1,4 @@
+import { LEDGER_ACCOUNTS } from "@/core/money/accounts";
 import type { MoneyAccount } from "@/generated/prisma/enums";
 
 /*
@@ -5,7 +6,7 @@ import type { MoneyAccount } from "@/generated/prisma/enums";
  * Se arma solo con lo que ya registra el sistema; esta parte es pura (sin base) para poder probarla.
  */
 
-export const LEDGER_ACCOUNTS: readonly MoneyAccount[] = ["CASH", "BANK", "ATC_PEYA"];
+export { LEDGER_ACCOUNTS };
 
 export type LedgerKind =
   | "OPENING"
@@ -13,6 +14,9 @@ export type LedgerKind =
   | "COLLECTION"
   | "SUPPLIER_PAYMENT"
   | "WITHDRAWAL"
+  | "RELIEF"
+  | "DEPOSIT"
+  | "DEPOSIT_DIFFERENCE"
   | "TRANSFER_OUT"
   | "TRANSFER_IN"
   | "COMMISSION"
@@ -23,7 +27,10 @@ export const LEDGER_KIND_LABEL: Record<LedgerKind, string> = {
   SALES: "Ventas",
   COLLECTION: "Cobro de fiado",
   SUPPLIER_PAYMENT: "Pago a proveedor",
-  WITHDRAWAL: "Retiro de efectivo",
+  WITHDRAWAL: "Retiro del dueño",
+  RELIEF: "Alivio",
+  DEPOSIT: "Depósito de alivios",
+  DEPOSIT_DIFFERENCE: "Diferencia de depósito",
   TRANSFER_OUT: "Traspaso (sale)",
   TRANSFER_IN: "Traspaso (llega)",
   COMMISSION: "Comisión",
@@ -76,13 +83,16 @@ const KIND_ORDER: Record<LedgerKind, number> = {
   COLLECTION: 1,
   SUPPLIER_PAYMENT: 1,
   WITHDRAWAL: 1,
+  RELIEF: 1,
+  DEPOSIT: 1,
+  DEPOSIT_DIFFERENCE: 1,
   TRANSFER_OUT: 1,
   TRANSFER_IN: 1,
   COMMISSION: 1,
   SALES: 2,
   CASH_DIFFERENCE: 3,
 };
-const ACCOUNT_ORDER: Record<MoneyAccount, number> = { CASH: 0, BANK: 1, ATC_PEYA: 2 };
+const ACCOUNT_ORDER: Record<MoneyAccount, number> = { CASH: 0, PENDING_DEPOSIT: 1, BANK: 2, ATC_PEYA: 3 };
 
 function compare(a: LedgerMovement, b: LedgerMovement): number {
   if (a.date !== b.date) return a.date < b.date ? -1 : 1;

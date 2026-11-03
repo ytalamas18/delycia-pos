@@ -44,7 +44,8 @@ src/
 │  ├─ sales/             órdenes, precios por canal (PEYA), cobro, fiado, historial, apertura/cierre, reportes PDF/CSV
 │  ├─ kitchen/           comandas (KDS), estados, mensajes caja→cocina, avisos de anulación
 │  ├─ purchases/         proveedores, compras (contado/crédito/parcial), abonos (cuenta de origen + n° comprobante), cuentas por pagar
-│  ├─ treasury/          "Caja y bancos": retiros de efectivo, traspasos entre cuentas (con comisión), saldos iniciales
+│  ├─ treasury/          "Caja y bancos": retiros (alivio / del dueño), depósitos de alivios al banco, traspasos entre
+│  │                     cuentas (con comisión), saldos iniciales
 │  ├─ inventory/         kárdex (StockMovement), descuento por ventas/compras por eventos, ingreso, conteo, salida rápida
 │  ├─ users/             administración de usuarios y roles (las tablas User/Role son del núcleo: core/auth las lee)
 │  └─ reports/           SOLO LECTURA: ventas por canal (+ dinero cobrado), productos, anulaciones, cuentas por cobrar,
@@ -54,7 +55,7 @@ src/
 ├─ lib/                  use-live-events (SSE + vigilante), sound (Web Audio), theme (claro/oscuro), utils
 ├─ instrumentation.ts    llama bootstrap() al arrancar
 └─ proxy.ts              sesión + permisos por ruta
-prisma/  schema.prisma, migrations/ (21), seed.ts + seed-data.ts, data/menu-delycia.json
+prisma/  schema.prisma, migrations/ (22), seed.ts + seed-data.ts, data/menu-delycia.json
 tests/   core, catalog, sales, kitchen, purchases, inventory, reports, integration, support (db reset, catálogo fijo, createTestUser)
 ```
 
@@ -99,14 +100,18 @@ tests/   core, catalog, sales, kitchen, purchases, inventory, reports, integrati
   Los gastos operativos se registran como compras de ítems de la categoría "Gastos operativos".
 - **Cuentas de dinero:** `MoneyAccount` + etiquetas en `core/money/accounts.ts` (lo comparten Compras, Caja y
   bancos y Reportes). Ventas: EFECTIVO → Efectivo, QR → Banco, TARJETA y PEYA → ATC/PeYa; fiado no es dinero.
-- **Caja y bancos (`treasury`):** retiros de efectivo (`CashWithdrawal`, día de negocio, motivo, anulables con
-  motivo solo el mismo día), traspasos (`AccountTransfer`: sale/llega, la diferencia = comisión; desde Efectivo solo
+- **Caja y bancos (`treasury`):** retiros de efectivo (`CashWithdrawal`, día de negocio, anulables con motivo solo
+  el mismo día; tipo **Alivio** = alguien (usuario activo) se lleva la plata para depositarla, o **Retiro del dueño**),
+  depósitos de alivios (`BankDeposit`: cubre uno o varios alivios, diferencia con motivo obligatorio, anular devuelve
+  los alivios a pendientes; solo `cashbook.manage`), traspasos (`AccountTransfer`: sale/llega, la diferencia = comisión; desde Efectivo solo
   hoy; hacia Efectivo no) y saldos iniciales (`AccountOpeningBalance`, uno vigente por cuenta). Ventas consulta
   `withdrawalsForDay` y `cashTransfersForDay` para el cierre: **efectivo esperado = fondo + entradas en efectivo −
   pagos desde Efectivo − retiros − traspasos desde Efectivo** (`cashOutflowsCents`). Treasury no importa Ventas.
 - **Libro de caja y bancos** (`/caja-bancos`, `reports`): se arma solo, cronológico, saldo por cuenta y total.
+  Cuentas: Efectivo, **Por depositar** (alivios aún no depositados; `PENDING_DEPOSIT`, solo del libro), Banco y ATC/PeYa.
   Ventas por día y medio (día de la orden, como el cierre), cobros de fiado por fecha del abono, pagos a proveedores
-  por fecha del pago y cuenta, retiros, traspasos + comisión, saldos iniciales y "Diferencia de arqueo" por cierre
+  por fecha del pago y cuenta, retiros del dueño, alivios (Efectivo → Por depositar), depósitos (Por depositar → Banco,
+  + diferencia), traspasos + comisión, saldos iniciales y "Diferencia de arqueo" por cierre
   guardado (así Efectivo cambia cada día lo mismo que el cierre: contado − fondo).
 - **Envío a cocina:** Guardar y Cobrar envían a cocina lo pendiente en la misma transacción
   (`createOrder({ sendToKitchen })`, `saveOrderAndSend`). Ya no hay botón "Enviar a cocina" en el POS.

@@ -28,6 +28,7 @@ export { OrderDetail } from "./components/order-detail";
 export { ClosingView } from "./components/closing-view";
 export { OpeningForm } from "./components/opening-form";
 export { getDailyClosing, getOpening } from "./services/history";
+export { withdrawalText } from "./domain/closing";
 export { getClosingReport } from "./reports";
 export { buildHistoryExport } from "./reports/history-export";
 export type { PosCategory, PosOrder, PosProduct } from "./components/pos-types";

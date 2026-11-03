@@ -34,7 +34,7 @@ export type SupplierOutflows = {
     supplier: string | null;
     method: "CASH" | "TRANSFER" | "CARD";
     /** Cuenta de origen (falta en cierres guardados antes de que existiera). */
-    account?: "CASH" | "BANK" | "ATC_PEYA";
+    account?: "CASH" | "BANK" | "ATC_PEYA" | "PENDING_DEPOSIT";
     reference?: string | null;
     amountCents: Cents;
   }[];
@@ -48,9 +48,18 @@ export type WithdrawalSnapshot = {
   amountCents: Cents;
   reason: string;
   byName: string | null;
+  /** RELIEF = alivio (alguien lo lleva al banco); OWNER = retiro del dueño. Falta en cierres anteriores. */
+  kind?: "OWNER" | "RELIEF";
+  carriedByName?: string | null;
   voidReason?: string | null;
   voidedByName?: string | null;
 };
+
+/** Texto corto de un retiro para el cierre: "Alivio · lleva Harumi" o el motivo. */
+export function withdrawalText(w: WithdrawalSnapshot): string {
+  if (w.kind !== "RELIEF") return w.reason;
+  return `Alivio · lleva ${w.carriedByName ?? "—"}${w.reason && w.reason !== "Alivio" ? ` · ${w.reason}` : ""}`;
+}
 
 /** Retiros de efectivo del día: el total vigente resta del efectivo esperado; los anulados se informan aparte. */
 export type CashWithdrawals = { totalCents: Cents; items: WithdrawalSnapshot[]; voided: WithdrawalSnapshot[] };
@@ -62,7 +71,7 @@ export type CashTransfersOut = {
   totalCents: Cents;
   items: {
     at: string;
-    toAccount: "CASH" | "BANK" | "ATC_PEYA";
+    toAccount: "CASH" | "BANK" | "ATC_PEYA" | "PENDING_DEPOSIT";
     amountOutCents: Cents;
     amountInCents: Cents;
     reference: string | null;

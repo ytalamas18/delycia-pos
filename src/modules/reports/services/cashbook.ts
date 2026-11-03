@@ -1,9 +1,9 @@
 import { db } from "@/core/db/client";
-import { MONEY_ACCOUNT_LABEL } from "@/core/money/accounts";
+import { MONEY_ACCOUNT_LABEL, MONEY_ACCOUNTS } from "@/core/money/accounts";
 import { businessDate, businessDayRange } from "@/core/time";
 import type { MoneyAccount } from "@/generated/prisma/enums";
 import { listSupplierPayments, SUPPLIER_METHOD_LABEL } from "@/modules/purchases";
-import { listOpeningBalances, listTransfers, listWithdrawalsInRange } from "@/modules/treasury";
+import { listDeposits, listOpeningBalances, listTransfers, listWithdrawalsInRange } from "@/modules/treasury";
 
 import {
   accountForPaymentMethod,
@@ -25,7 +25,7 @@ const FIRST_DAY = "2000-01-01";
 
 export async function getCashbook(range: DateRange, account: MoneyAccount | null = null) {
   const end = businessDayRange(range.to).end;
-  const [sales, collections, closings, payments, withdrawals, transfers, openings] = await Promise.all([
+  const [sales, collections, closings, payments, withdrawals, transfers, openings, deposits] = await Promise.all([
     // Igual que el cierre: pagos vigentes de órdenes cobradas, en el día de negocio de la orden. Fiado no es dinero.
     db.$queryRaw<{ day: string; method: string; totalCents: number }[]>`
       SELECT o."businessDate" AS day, p.method::text AS method, SUM(p."amountCents")::int AS "totalCents"
@@ -46,6 +46,7 @@ export async function getCashbook(range: DateRange, account: MoneyAccount | null
     listWithdrawalsInRange({ to: range.to }),
     listTransfers({ to: range.to }),
     listOpeningBalances(),
+    listDeposits({ to: range.to }),
   ]);
 
   const movements: LedgerMovement[] = [];
@@ -80,14 +81,49 @@ export async function getCashbook(range: DateRange, account: MoneyAccount | null
   }
   for (const w of withdrawals) {
     if (w.voidedAt) continue;
+    const at = new Date(w.at);
+    if (w.kind === "RELIEF") {
+      // Alivio: no es gasto; la plata pasa de la caja a "Por depositar" (la lleva alguien al banco).
+      const note = w.reason && w.reason !== "Alivio" ? ` · ${w.reason}` : "";
+      const who = w.carriedByName ?? "—";
+      movements.push({ date: w.businessDate, at, account: "CASH", kind: "RELIEF", detail: `Alivio — lleva ${who}${note}`, amountCents: -w.amountCents });
+      movements.push({
+        date: w.businessDate,
+        at,
+        account: "PENDING_DEPOSIT",
+        kind: "RELIEF",
+        detail: `Alivio de caja — lleva ${who}${w.depositId ? "" : " (pendiente de depositar)"}${note}`,
+        amountCents: w.amountCents,
+      });
+      continue;
+    }
     movements.push({
       date: w.businessDate,
-      at: new Date(w.at),
+      at,
       account: "CASH",
       kind: "WITHDRAWAL",
-      detail: `Retiro de efectivo: ${w.reason}${w.byName ? ` (${w.byName})` : ""}`,
+      detail: `Retiro del dueño: ${w.reason}${w.byName ? ` (${w.byName})` : ""}`,
       amountCents: -w.amountCents,
     });
+  }
+  for (const d of deposits) {
+    if (d.voidedAt) continue;
+    const base = { date: d.date, at: d.createdAt, reference: d.reference };
+    const who = [...new Set(d.reliefs.map((r) => r.carriedByName ?? "—"))].join(", ");
+    const covers = `${d.reliefs.length} alivio${d.reliefs.length === 1 ? "" : "s"} (${d.reliefs
+      .map((r) => r.businessDate.split("-").reverse().slice(0, 2).join("/"))
+      .join(", ")}) · llevó ${who}${d.note ? ` · ${d.note}` : ""}`;
+    movements.push({ ...base, account: "PENDING_DEPOSIT", kind: "DEPOSIT", detail: `Depósito al banco — ${covers}`, amountCents: -d.amountCents });
+    movements.push({ ...base, account: "BANK", kind: "DEPOSIT", detail: `Depósito de alivios — ${covers}`, amountCents: d.amountCents });
+    if (d.differenceCents !== 0) {
+      movements.push({
+        ...base,
+        account: "PENDING_DEPOSIT",
+        kind: "DEPOSIT_DIFFERENCE",
+        detail: `Diferencia de depósito (${d.differenceCents < 0 ? "faltante" : "sobrante"}): ${d.differenceReason ?? ""}`,
+        amountCents: d.differenceCents,
+      });
+    }
   }
   for (const t of transfers) {
     if (t.voidedAt) continue;
@@ -129,7 +165,7 @@ export async function getCashbook(range: DateRange, account: MoneyAccount | null
     range,
     account,
   });
-  return { ...ledger, openings, missingOpenings: (["CASH", "BANK", "ATC_PEYA"] as const).filter((a) => !activeOpenings.some((o) => o.account === a)) };
+  return { ...ledger, openings, missingOpenings: MONEY_ACCOUNTS.filter((a) => !activeOpenings.some((o) => o.account === a)) };
 }
 
 export type Cashbook = Awaited<ReturnType<typeof getCashbook>>;

@@ -9,6 +9,7 @@ import { formatMoney, parseMoney } from "@/core/money";
 import { businessDate } from "@/core/time";
 
 import * as accounts from "./services/accounts";
+import * as deposits from "./services/deposits";
 import * as withdrawals from "./services/withdrawals";
 
 function refreshCash() {
@@ -28,9 +29,18 @@ export async function createWithdrawalAction(_prev: ActionResult, fd: FormData):
   const session = await requirePermission("cash.withdraw");
   return toActionResult(async () => {
     const amountCents = moneyOrError(String(fd.get("amount") ?? ""));
-    await withdrawals.createWithdrawal({ amountCents, reason: String(fd.get("reason") ?? "") }, session.userId);
+    const kind = fd.get("kind") === "RELIEF" ? "RELIEF" : "OWNER";
+    await withdrawals.createWithdrawal(
+      {
+        amountCents,
+        reason: String(fd.get("reason") ?? ""),
+        kind,
+        carriedById: String(fd.get("carriedById") ?? "") || null,
+      },
+      session.userId,
+    );
     refreshCash();
-    return `Retiro de ${formatMoney(amountCents)} registrado`;
+    return `${kind === "RELIEF" ? "Alivio" : "Retiro"} de ${formatMoney(amountCents)} registrado`;
   });
 }
 
@@ -43,10 +53,50 @@ export async function voidWithdrawalAction(_prev: ActionResult, fd: FormData): P
   });
 }
 
-/** Retiros de hoy para la ventana de la barra superior. */
-export async function todayWithdrawalsAction(): Promise<withdrawals.WithdrawalLine[]> {
-  await requirePermission("cash.withdraw");
-  return withdrawals.listWithdrawals(businessDate());
+/** Retiros de hoy y usuarios activos (quién se lleva un alivio) para la ventana de la barra superior. */
+export async function todayWithdrawalsAction(): Promise<{
+  list: withdrawals.WithdrawalLine[];
+  users: { id: string; name: string }[];
+  me: string;
+}> {
+  const session = await requirePermission("cash.withdraw");
+  const [list, users] = await Promise.all([withdrawals.listWithdrawals(businessDate()), withdrawals.listActiveUsers()]);
+  return { list, users, me: session.userId };
+}
+
+// ---------------------------------------------------------------------------
+// Depósitos al banco de alivios (solo quien maneja el libro: Admin por defecto)
+// ---------------------------------------------------------------------------
+
+export async function createDepositAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  const session = await requirePermission("cashbook.manage");
+  return toActionResult(async () => {
+    const d = await deposits.createDeposit(
+      {
+        date: String(fd.get("date") ?? ""),
+        amountCents: moneyOrError(String(fd.get("amount") ?? "")),
+        withdrawalIds: fd.getAll("withdrawalId").map(String),
+        reference: String(fd.get("reference") ?? ""),
+        note: String(fd.get("note") ?? ""),
+        differenceReason: String(fd.get("differenceReason") ?? ""),
+      },
+      session.userId,
+    );
+    refreshCash();
+    const diff = d.differenceCents;
+    return `Depósito de ${formatMoney(d.amountCents)} registrado${
+      diff === 0 ? "" : ` (${diff < 0 ? "faltante" : "sobrante"} ${formatMoney(Math.abs(diff))})`
+    }`;
+  });
+}
+
+export async function voidDepositAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  const session = await requirePermission("cashbook.manage");
+  return toActionResult(async () => {
+    await deposits.voidDeposit(String(fd.get("id") ?? ""), String(fd.get("reason") ?? ""), session.userId);
+    refreshCash();
+    return "Depósito anulado: sus alivios vuelven a pendientes";
+  });
 }
 
 // ---------------------------------------------------------------------------

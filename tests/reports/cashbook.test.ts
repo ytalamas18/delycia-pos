@@ -145,7 +145,7 @@ describe("libro de caja y bancos (con la base)", () => {
     const book = await getCashbook({ from: today, to: today });
     const end = Object.fromEntries(book.accounts.map((a) => [a.account, a.endCents]));
     // Efectivo = lo contado en el cierre (el saldo inicial era lo que había en caja).
-    expect(end).toEqual({ CASH: 5000, BANK: 56700, ATC_PEYA: 0 });
+    expect(end).toEqual({ CASH: 5000, PENDING_DEPOSIT: 0, BANK: 56700, ATC_PEYA: 0 });
     expect(book.lines.filter((l) => l.kind === "SALES").map((l) => [l.account, l.detail, l.amountCents])).toEqual([
       ["CASH", "Ventas en efectivo", 2000],
       ["BANK", "Ventas por QR", 3000],

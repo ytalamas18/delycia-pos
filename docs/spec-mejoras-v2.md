@@ -146,3 +146,20 @@ Actualizar `CLAUDE.md` y `docs/estado-actual.md` con lo nuevo y marcar el estado
   del abono; pagos anulados y órdenes anuladas (pagos devueltos) no aparecen.
 - Pantalla `/caja-bancos` (menú "Caja y bancos"); por defecto el mes en curso. Exporte
   `/api/exportar/libro-caja-bancos` (permiso `cashbook.view`).
+
+## 6) Alivios y depósitos al banco (Yasser, 03/11/2026) — ✅ Listo
+
+Los "alivios" son retiros de efectivo que Harumi o Yasser se llevan y luego depositan en el banco; hoy se
+controla a mano cruzando caja con los ingresos del banco.
+
+- "Retiro de efectivo" tiene dos tipos: **Alivio (para depositar)** (se elige quién se lleva la plata entre los
+  usuarios activos; nota opcional) y **Retiro del dueño** (sale del negocio; motivo obligatorio). Los dos restan
+  del efectivo esperado del cierre. Los retiros registrados antes de este cambio quedan como "Retiro del dueño".
+- Cuenta nueva del libro **"Por depositar"**: un alivio pasa de Efectivo a Por depositar (no es gasto).
+- **Depósito al banco** (Caja y bancos, solo Admin / `cashbook.manage`): fecha, monto que llegó, n° de comprobante;
+  se marcan los alivios que cubre (uno o varios). Pasa de Por depositar a Banco. Si no coincide con la suma de
+  los alivios, se registra igual con **motivo obligatorio** ("Diferencia de depósito"). Anular un depósito (con
+  motivo) devuelve sus alivios a pendientes. Un alivio depositado no se anula sin anular antes el depósito.
+- Lista de **alivios pendientes de depositar** (quién lleva, desde cuándo, cuánto) y de depósitos con los alivios
+  que cubrió. El saldo de "Por depositar" vuelve a 0 cuando todo está depositado.
+- Fuera por ahora: pagar a un proveedor con la plata de un alivio (hoy se registraría el depósito con diferencia).

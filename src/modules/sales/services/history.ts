@@ -141,6 +141,8 @@ export async function getDailyClosing(date: string) {
     amountCents: w.amountCents,
     reason: w.reason,
     byName: w.byName,
+    kind: w.kind,
+    carriedByName: w.carriedByName,
     voidReason: w.voidReason,
     voidedByName: w.voidedByName,
   });
