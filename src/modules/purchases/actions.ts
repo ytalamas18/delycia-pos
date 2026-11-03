@@ -7,6 +7,10 @@ import { type ActionResult, toActionResult } from "@/core/actions/result";
 import { requirePermission } from "@/core/auth/server";
 
 import type { PurchaseInput } from "./schemas";
+import { formatMoney } from "@/core/money";
+import { businessDate } from "@/core/time";
+
+import { getPurchaseFormData } from "./services/form-data";
 import * as purchases from "./services/purchases";
 import * as suppliers from "./services/suppliers";
 
@@ -93,4 +97,33 @@ export async function voidSupplierPaymentAction(_prev: ActionResult, fd: FormDat
     refresh();
     return "Pago anulado";
   });
+}
+
+// --- Compra en efectivo desde la caja (barra superior) ---
+
+export async function createCashPurchaseAction(input: purchases.CashPurchaseInput): Promise<ActionResult> {
+  const session = await requirePermission(["purchases.cash", "purchases.manage"]);
+  return toActionResult(async () => {
+    const p = await purchases.createCashPurchase(input, session.userId);
+    refresh();
+    revalidatePath("/caja-bancos");
+    return `Compra #${p.number} registrada: ${formatMoney(p.totalCents)} salen de la caja`;
+  });
+}
+
+export async function voidCashPurchaseAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  const session = await requirePermission(["purchases.cash", "purchases.manage"]);
+  return toActionResult(async () => {
+    await purchases.voidCashPurchase(text(fd, "id"), text(fd, "reason"), session.userId);
+    refresh();
+    revalidatePath("/caja-bancos");
+    return "Compra anulada: vuelve a la caja";
+  });
+}
+
+/** Datos para la ventana "Compra en efectivo": ítems, proveedores y compras de hoy desde la caja. */
+export async function cashPurchaseDataAction() {
+  await requirePermission(["purchases.cash", "purchases.manage"]);
+  const [form, today] = await Promise.all([getPurchaseFormData(), purchases.listCashPurchasesForDay(businessDate())]);
+  return { ...form, today };
 }

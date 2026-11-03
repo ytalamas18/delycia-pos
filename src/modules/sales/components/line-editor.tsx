@@ -30,13 +30,19 @@ export function LineEditor({
   modifiers,
   onSave,
   onRemove,
+  removeLabel = "Quitar",
+  notice,
   onClose,
 }: {
   title: string;
   initial: LineEditorValue;
   modifiers: PosModifier[];
   onSave: (value: LineEditorValue) => void;
-  onRemove: () => void;
+  /** Sin función, no se muestra el botón (ej. ya en cocina y el rol no puede anular). */
+  onRemove?: () => void;
+  removeLabel?: string;
+  /** Aviso arriba del botón (ej. "Ya está en cocina: verá el cambio"). */
+  notice?: string;
   onClose: () => void;
 }) {
   const [value, setValue] = useState(initial);
@@ -128,10 +134,15 @@ export function LineEditor({
           ))}
         </div>
 
+        {notice && <p className="text-sm text-muted-foreground">{notice}</p>}
         <div className="flex justify-between gap-2 pt-2">
-          <Button variant="ghost" className="text-destructive" onClick={onRemove}>
-            Quitar
-          </Button>
+          {onRemove ? (
+            <Button variant="ghost" className="text-destructive" onClick={onRemove}>
+              {removeLabel}
+            </Button>
+          ) : (
+            <span />
+          )}
           <Button size="lg" onClick={() => onSave(value)}>
             Listo
           </Button>

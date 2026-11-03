@@ -47,6 +47,18 @@ declare module "@/core/events/types" {
       reason: string;
       sentToKitchen: boolean;
     };
+    /**
+     * Caja cambió cantidad, nota o "para llevar" de un ítem de una orden por pagar. Si ya estaba en cocina,
+     * Cocina actualiza la comanda (y RECHAZA el cambio si ya lo marcó listo) e Inventario ajusta lo descontado.
+     */
+    "order.item_updated": {
+      orderId: string;
+      orderNumber: number;
+      channel: SalesChannel;
+      item: OrderItemSnapshot;
+      before: { quantity: number; note: string | null; serviceType: ServiceType };
+      sentToKitchen: boolean;
+    };
     /** Orden anulada entera. `refundedCents` = lo que se devolvió si ya estaba cobrada. */
     "order.cancelled": { orderId: string; number: number; reason: string; wasPaid: boolean; refundedCents: number };
     "credit.collected": { paymentId: string; amountCents: number; settled: boolean };

@@ -263,10 +263,11 @@ export function PosScreen({
               details={[...item.modifiers, item.note].filter(Boolean).join(" · ")}
               takeaway={showTakeawayBadge(item.serviceType)}
               totalCents={item.unitPriceCents * item.quantity}
-              locked={item.sentToKitchen}
+              inKitchen={item.sentToKitchen && !item.kitchenReady}
+              locked={item.kitchenReady}
               onClick={() => {
-                // Lo que ya está en cocina solo se anula (si el rol lo permite).
-                if (!item.sentToKitchen) setEditing({ kind: "saved", item });
+                // Se cambia mientras cocina no lo marque listo; lo listo solo se anula (si el rol lo permite).
+                if (!item.kitchenReady) setEditing({ kind: "saved", item });
                 else if (abilities.void) setEditing({ kind: "void-item", item });
               }}
             />
@@ -372,7 +373,15 @@ export function PosScreen({
           }}
           modifiers={[]}
           onClose={() => setEditing(null)}
-          onRemove={() => runItemAction(() => removeItemAction(order.id, editing.item.id))}
+          notice={editing.item.sentToKitchen ? "Ya está en cocina: verá el cambio marcado como CAMBIADO." : undefined}
+          removeLabel={editing.item.sentToKitchen ? "Anular" : "Quitar"}
+          onRemove={
+            !editing.item.sentToKitchen
+              ? () => runItemAction(() => removeItemAction(order.id, editing.item.id))
+              : abilities.void
+                ? () => setEditing({ kind: "void-item", item: editing.item })
+                : undefined
+          }
           onSave={(value) =>
             runItemAction(() =>
               updateItemAction(order.id, editing.item.id, {
@@ -458,6 +467,7 @@ function LineRow({
   details,
   takeaway,
   totalCents,
+  inKitchen,
   locked,
   isNew,
   onClick,
@@ -467,6 +477,9 @@ function LineRow({
   details: string;
   takeaway: boolean;
   totalCents: number;
+  /** En cocina y todavía se puede cambiar. */
+  inKitchen?: boolean;
+  /** Cocina ya lo marcó listo: solo se anula. */
   locked?: boolean;
   isNew?: boolean;
   onClick: () => void;
@@ -476,7 +489,7 @@ function LineRow({
       <button
         type="button"
         onClick={onClick}
-        title={locked ? "Ya está en cocina: tócalo para anularlo" : undefined}
+        title={locked ? "Cocina ya lo marcó listo: tócalo para anularlo" : undefined}
         className="flex w-full items-start gap-3 py-2.5 text-left"
       >
         <span className="w-8 shrink-0 text-lg font-bold tabular-nums">{quantity}×</span>
@@ -485,9 +498,10 @@ function LineRow({
             {name}
             {takeaway && <Badge variant="outline">PARA LLEVAR</Badge>}
             {isNew && <Badge>Nuevo</Badge>}
+            {inKitchen && <Badge variant="secondary">En cocina</Badge>}
             {locked && (
               <Badge variant="secondary">
-                <Lock className="mr-1 size-3" /> En cocina
+                <Lock className="mr-1 size-3" /> Listo
               </Badge>
             )}
           </span>

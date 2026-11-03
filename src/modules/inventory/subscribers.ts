@@ -4,7 +4,7 @@ import { DomainError } from "@/core/errors";
 import { registerProductGuard } from "@/core/hooks/product-guards";
 import { Decimal } from "@/core/quantity";
 
-import { discountSoldItems, reverseSale } from "./services/sales";
+import { adjustSoldItem, discountSoldItems, reverseSale } from "./services/sales";
 import { recordMovements } from "./services/stock";
 
 /**
@@ -63,6 +63,9 @@ export function registerInventorySubscribers() {
   });
   eventBus.onTransaction("order.cancelled", async ({ payload }, tx) => {
     await reverseSale(tx, payload.orderId);
+  });
+  eventBus.onTransaction("order.item_updated", async ({ payload }, tx) => {
+    await adjustSoldItem(tx, payload.orderId, payload.channel, toItems([payload.item])[0]);
   });
 
   // --- Catálogo: inventario inicial de la carga rápida ---

@@ -29,7 +29,8 @@ export async function createWithdrawalAction(_prev: ActionResult, fd: FormData):
   const session = await requirePermission("cash.withdraw");
   return toActionResult(async () => {
     const amountCents = moneyOrError(String(fd.get("amount") ?? ""));
-    const kind = fd.get("kind") === "RELIEF" ? "RELIEF" : "OWNER";
+    // "Retiro del dueño" ya no se registra desde la app (los gastos van como compra en efectivo).
+    const kind = "RELIEF" as const;
     await withdrawals.createWithdrawal(
       {
         amountCents,
@@ -40,7 +41,7 @@ export async function createWithdrawalAction(_prev: ActionResult, fd: FormData):
       session.userId,
     );
     refreshCash();
-    return `${kind === "RELIEF" ? "Alivio" : "Retiro"} de ${formatMoney(amountCents)} registrado`;
+    return `Alivio de ${formatMoney(amountCents)} registrado`;
   });
 }
 

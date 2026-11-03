@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { db, disconnectDb } from "@/core/db/client";
 import { eventBus } from "@/core/db/transaction";
-import { kitchenModule, listActiveTickets } from "@/modules/kitchen";
+import { getKdsSnapshot, kitchenModule, listActiveTickets } from "@/modules/kitchen";
 
 import * as tickets from "@/modules/kitchen/services/tickets";
 import * as orders from "@/modules/sales/services/orders";
@@ -166,6 +166,52 @@ describe("envío automático (Guardar / Cobrar envían a cocina)", () => {
       orders.createOrder({ channel: "LOCAL", serviceType: "TAKEAWAY" }, [line(plato.id)], caja.id, { sendToKitchen: true }),
     ).rejects.toThrow("cocina caída");
     expect(await db.order.count()).toBe(0);
+  });
+});
+
+describe("cambiar un plato que está en cocina", () => {
+  beforeEach(async () => {
+    eventBus.reset();
+    kitchenModule.registerSubscribers?.();
+    await resetDatabase();
+  });
+
+  it("se cambia mientras cocina no lo marque listo: la comanda se actualiza con aviso CAMBIADO hasta 'Entendido'", async () => {
+    const { user, caja, plato, salchi } = await fixtures();
+    const order = await orders.createOrder(
+      { channel: "LOCAL", serviceType: "DINE_IN", tableNumber: "4" },
+      [line(plato.id), line(salchi.id)],
+      caja.id,
+      { sendToKitchen: true },
+    );
+    const [first, second] = (await orders.getOrder(order.id))!.items;
+    await orders.updateItem(order.id, first.id, { quantity: 2, note: "sin sal", serviceType: "DINE_IN" });
+
+    const snap = await getKdsSnapshot();
+    const t = snap.active[0];
+    expect(t.changeAlert).toBe(true);
+    const changed = t.items.find((i) => i.name === "Majadito (ejemplo)")!;
+    expect(changed).toMatchObject({ quantity: 2, note: "sin sal", changed: true });
+    expect(changed.changeNote).toBe('antes 1× · antes sin nota');
+    expect((await orders.getOrder(order.id))!.totalCents).toBeGreaterThan(order.totalCents);
+
+    await tickets.acknowledgeVoid(t.id);
+    expect((await getKdsSnapshot()).active[0].changeAlert).toBe(false);
+
+    // Cocina marca listo el segundo: ya no se puede cambiar (y no se cambia nada en ventas).
+    const ticketItem = (await tickets.getTicket(t.id))!.items.find((i) => i.orderItemId === second.id)!;
+    await tickets.toggleItemReady(ticketItem.id, user.id);
+    await expect(orders.updateItem(order.id, second.id, { quantity: 3, note: "", serviceType: "DINE_IN" })).rejects.toThrow("ya marcó este plato como listo");
+    expect((await db.orderItem.findUniqueOrThrow({ where: { id: second.id } })).quantity).toBe(1);
+  });
+
+  it("las bebidas (no van a cocina) se cambian sin tocar cocina", async () => {
+    const { caja, gaseosa } = await fixtures();
+    const order = await orders.createOrder({ channel: "LOCAL", serviceType: "TAKEAWAY" }, [line(gaseosa.id)], caja.id, { sendToKitchen: true });
+    const [item] = (await orders.getOrder(order.id))!.items;
+    await orders.updateItem(order.id, item.id, { quantity: 3, note: "", serviceType: "TAKEAWAY" });
+    expect((await db.orderItem.findUniqueOrThrow({ where: { id: item.id } })).quantity).toBe(3);
+    expect(await db.kitchenTicket.count()).toBe(0);
   });
 });
 

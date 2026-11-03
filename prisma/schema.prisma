@@ -439,6 +439,8 @@ model KitchenTicket {
   cancelledAt DateTime?
   /// Caja anuló algo de esta comanda mientras estaba en cocina: aviso en rojo hasta que cocina toque "Entendido".
   voidAlertAt DateTime?
+  /// Caja cambió un plato de esta comanda (cantidad, nota, para llevar): aviso hasta que cocina toque "Entendido".
+  changeAlertAt DateTime?
   items       KitchenTicketItem[]
   statusLog   TicketStatusLog[]
   createdAt   DateTime            @default(now())
@@ -462,6 +464,9 @@ model KitchenTicketItem {
   readyAt     DateTime?
   voidedAt    DateTime?
   voidReason  String?
+  /// Último cambio desde caja y qué había antes (ej. "antes: 2× · sin nota").
+  changedAt   DateTime?
+  changeNote  String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 

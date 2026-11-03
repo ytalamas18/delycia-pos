@@ -1,7 +1,7 @@
 import { eventBus } from "@/core/db/transaction";
 import type { Prisma } from "@/generated/prisma/client";
 
-import { cancelTicketsForOrder, voidTicketItem } from "./services/tickets";
+import { cancelTicketsForOrder, updateTicketItem, voidTicketItem } from "./services/tickets";
 
 /**
  * Cocina reacciona a los eventos de Ventas. Corre DENTRO de la transacción de Ventas:
@@ -35,6 +35,12 @@ export function registerKitchenSubscribers() {
 
   eventBus.onTransaction("order.item_voided", async ({ payload }, tx, publish) => {
     if (payload.sentToKitchen) await voidTicketItem(tx, publish, payload.orderItemId, payload.reason);
+  });
+
+  eventBus.onTransaction("order.item_updated", async ({ payload }, tx) => {
+    if (!payload.sentToKitchen) return;
+    const { quantity, note, serviceType } = payload.item;
+    await updateTicketItem(tx, payload.item.orderItemId, { quantity, note, serviceType }, payload.before);
   });
 
   eventBus.onTransaction("order.cancelled", async ({ payload }, tx, publish) => {
