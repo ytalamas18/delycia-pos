@@ -20,6 +20,15 @@ else
   echo "(la base no está corriendo: sin respaldo previo)"
 fi
 
+echo "==> Limpieza de imágenes viejas (antes de bajar las nuevas: el disco es chico)"
+df -h / | tail -1
+# Quita las etiquetas de ECR de despliegues anteriores (las imágenes en uso por un contenedor NO se borran:
+# la app sigue corriendo con su etiqueta delycia-pos-app:latest) y lo que ya no usa nadie. Nunca toca volúmenes.
+docker images --format '{{.Repository}}:{{.Tag}}' "$REPO" | { grep -v -e ":app-$SHA$" -e ":migrate-$SHA$" || true; } | xargs -r docker rmi > /dev/null 2>&1 || true
+docker image prune -af > /dev/null 2>&1 || true
+docker builder prune -af > /dev/null 2>&1 || true
+df -h / | tail -1
+
 echo "==> Imágenes $SHA"
 aws ecr get-login-password --region sa-east-1 | docker login --username AWS --password-stdin "$REGISTRY" > /dev/null
 docker pull -q "$REPO:app-$SHA"
