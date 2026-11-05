@@ -57,6 +57,8 @@ export const purchaseLineInput = z.object({
       }
     }),
   totalCents: money("el total de la línea"),
+  /** Aclaración de qué se compró (obligatoria solo en "Refrigerio"; se valida con el nombre del ítem). */
+  detail: optionalText(120),
 });
 
 const optionalAccount = z

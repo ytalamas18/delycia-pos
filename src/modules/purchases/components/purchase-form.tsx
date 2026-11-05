@@ -13,7 +13,7 @@ import { formatMoney, parseMoney } from "@/core/money";
 import type { MoneyAccount, PurchaseDocType, SupplierPaymentMethod } from "@/generated/prisma/enums";
 
 import { createPurchaseAction } from "../actions";
-import { DOC_TYPE_LABEL, PAYMENT_MODE_LABEL, type PaymentMode } from "../domain/labels";
+import { DOC_TYPE_LABEL, needsDetail, PAYMENT_MODE_LABEL, type PaymentMode } from "../domain/labels";
 import { MethodAccountFields } from "./method-account-fields";
 
 /** Ítem comprable ya preparado por el servidor (sin Decimal). */
@@ -27,10 +27,10 @@ export type PurchaseFormItem = {
   options: { value: string; label: string; factor: number }[];
 };
 
-type Line = { key: number; productId: string; presentation: string; quantity: string; total: string };
+type Line = { key: number; productId: string; presentation: string; quantity: string; total: string; detail: string };
 
 const selectClass = "h-11 w-full rounded-md border border-input bg-background px-3 text-base";
-const newLine = (key: number): Line => ({ key, productId: "", presentation: "", quantity: "", total: "" });
+const newLine = (key: number): Line => ({ key, productId: "", presentation: "", quantity: "", total: "", detail: "" });
 
 function cents(text: string): number | null {
   try {
@@ -75,7 +75,7 @@ export function PurchaseForm({
         paidNow: String(fd.get("paidNow") ?? ""),
         lines: lines
           .filter((l) => l.productId)
-          .map((l) => ({ productId: l.productId, presentation: l.presentation, quantity: l.quantity, totalCents: l.total })),
+          .map((l) => ({ productId: l.productId, presentation: l.presentation, quantity: l.quantity, totalCents: l.total, detail: l.detail })),
       });
       setState(result);
     });
@@ -160,6 +160,18 @@ export function PurchaseForm({
               >
                 <X />
               </Button>
+              {item && needsDetail(item.name) && (
+                <div className="grid gap-1 sm:col-span-5">
+                  <Label htmlFor={`detail-${l.key}`}>¿Qué se compró? (obligatorio)</Label>
+                  <Input
+                    id={`detail-${l.key}`}
+                    value={l.detail}
+                    maxLength={120}
+                    placeholder="Ej. empanadas y refresco para el personal"
+                    onChange={(e) => update(l.key, { detail: e.target.value })}
+                  />
+                </div>
+              )}
               {item && (
                 <p className="text-sm text-muted-foreground sm:col-span-5">
                   {option && qty > 0 && `= ${(qty * option.factor).toLocaleString("es-BO")} ${item.unit}`}

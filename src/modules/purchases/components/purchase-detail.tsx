@@ -70,7 +70,10 @@ export async function PurchaseDetail({ id }: { id: string }) {
           <tbody className="divide-y">
             {p.lines.map((l) => (
               <tr key={l.id}>
-                <td className="p-2">{l.productName}</td>
+                <td className="p-2">
+                  {l.productName}
+                  {l.detail && <span className="block text-sm text-muted-foreground">{l.detail}</span>}
+                </td>
                 <td className="p-2 text-right tabular-nums">
                   {formatQuantity(l.quantity)} × {l.presentationName}
                 </td>

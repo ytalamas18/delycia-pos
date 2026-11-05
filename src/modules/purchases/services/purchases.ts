@@ -9,7 +9,7 @@ import type { MoneyAccount, SupplierPaymentMethod } from "@/generated/prisma/enu
 import { categoryNamesByProduct, getPurchasableItem, setLastCost, toBaseQuantity, UNIT_LABEL, compatibleUnits, type BaseUnit } from "@/modules/catalog";
 
 import { isOverdue, purchaseBalance } from "../domain/balance";
-import { DEFAULT_ACCOUNT_FOR_METHOD } from "../domain/labels";
+import { DEFAULT_ACCOUNT_FOR_METHOD, lineLabel, needsDetail } from "../domain/labels";
 import { purchaseInput, reasonInput, supplierPaymentInput, type PurchaseInput, type SupplierPaymentInput } from "../schemas";
 
 const purchaseInclude = {
@@ -75,6 +75,7 @@ type ResolvedLine = {
   totalCents: number;
   unitCostCents: Decimal;
   addsStock: boolean;
+  detail: string | null;
 };
 
 /** Convierte la línea escrita a unidad base del ítem y calcula el costo unitario. */
@@ -95,6 +96,9 @@ async function resolveLine(tx: Tx, line: ReturnType<typeof purchaseInput.parse>[
     baseQuantity = toBaseQuantity(line.quantity, item.baseUnit, { presentationFactor: p.factor });
   }
   if (baseQuantity.lte(0)) throw new DomainError(`La cantidad de "${item.name}" es muy chica.`);
+  if (needsDetail(item.name) && !line.detail) {
+    throw new DomainError(`Escribe qué se compró en "${item.name}" (ej. empanadas y refresco).`);
+  }
   return {
     productId: item.id,
     productName: item.name,
@@ -104,6 +108,7 @@ async function resolveLine(tx: Tx, line: ReturnType<typeof purchaseInput.parse>[
     totalCents: line.totalCents,
     unitCostCents: new Decimal(line.totalCents).div(baseQuantity).toDecimalPlaces(4),
     addsStock: item.tracksStock,
+    detail: needsDetail(item.name) ? line.detail : null,
   };
 }
 
@@ -308,7 +313,7 @@ export async function listSupplierPayments(filters: SupplierPaymentFilters) {
           number: true,
           status: true,
           supplier: { select: { name: true } },
-          lines: { select: { productId: true, productName: true }, orderBy: { createdAt: "asc" } },
+          lines: { select: { productId: true, productName: true, detail: true }, orderBy: { createdAt: "asc" } },
         },
       },
     },
@@ -334,7 +339,7 @@ export async function listSupplierPayments(filters: SupplierPaymentFilters) {
     purchaseId: r.purchase.id,
     purchaseNumber: r.purchase.number,
     supplier: r.purchase.supplier?.name ?? null,
-    items: r.purchase.lines.map((l) => ({ name: l.productName, category: categories.get(l.productId) ?? null })),
+    items: r.purchase.lines.map((l) => ({ name: lineLabel(l), category: categories.get(l.productId) ?? null })),
   }));
 }
 
@@ -384,7 +389,7 @@ export async function listCashPurchasesForDay(date: string) {
     totalCents: r.totalCents,
     supplier: r.supplier?.name ?? null,
     note: r.note,
-    items: r.lines.map((l) => l.productName),
+    items: r.lines.map(lineLabel),
     status: r.status,
     cancelReason: r.cancelReason,
     byName: names.get(r.createdById) ?? null,

@@ -36,3 +36,22 @@ export const PAYMENT_MODE_LABEL: Record<PaymentMode, string> = {
   CREDIT: "Crédito (no se paga ahora)",
   PARTIAL: "Pago parcial",
 };
+
+/** "Refrigerio" (sin importar mayúsculas, tildes ni espacios): el único ítem que pide aclarar qué se compró. */
+const DETAIL_ITEM = "refrigerio";
+
+export function needsDetail(itemName: string | null | undefined): boolean {
+  return (
+    (itemName ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim() === DETAIL_ITEM
+  );
+}
+
+/** "Refrigerio: empanadas" o solo el nombre si no hay aclaración. */
+export function lineLabel(line: { productName: string; detail?: string | null }): string {
+  return line.detail ? `${line.productName}: ${line.detail}` : line.productName;
+}

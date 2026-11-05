@@ -4,6 +4,8 @@ import { formatDay } from "@/core/export";
 import { formatMoney } from "@/core/money";
 import { cn } from "@/lib/utils";
 
+import { lineLabel } from "../domain/labels";
+
 import { listPurchases } from "../services/purchases";
 import { PurchaseStatusBadge } from "./status-badge";
 
@@ -40,7 +42,7 @@ export async function PurchaseList({ from, to }: { from: string; to: string }) {
                 </td>
                 <td className="p-2 whitespace-nowrap">{formatDay(p.date)}</td>
                 <td className="p-2">{p.supplier?.name ?? "—"}</td>
-                <td className="p-2 text-muted-foreground">{p.lines.map((l) => l.productName).join(", ")}</td>
+                <td className="p-2 text-muted-foreground">{p.lines.map(lineLabel).join(", ")}</td>
                 <td className={cn("p-2 text-right tabular-nums", p.status === "CANCELLED" && "line-through")}>{formatMoney(p.totalCents)}</td>
                 <td className="p-2 text-right tabular-nums">{p.status === "ACTIVE" ? formatMoney(p.balanceCents) : "—"}</td>
                 <td className="p-2">
