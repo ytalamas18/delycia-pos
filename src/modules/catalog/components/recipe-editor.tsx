@@ -4,6 +4,7 @@ import { Copy, X } from "lucide-react";
 import { useActionState, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { SearchSelect } from "@/components/ui/search-select";
 import { FieldError, FormStatus } from "@/components/ui/form-status";
 import { Input } from "@/components/ui/input";
 import { initialActionResult, type ActionResult } from "@/core/actions/types";
@@ -124,26 +125,18 @@ export function RecipeEditor({
       <form ref={formRef} action={action} className="flex flex-wrap items-start gap-2">
         <input type="hidden" name="ownerId" value={ownerId} />
         <div className="min-w-56 flex-1 space-y-1">
-          <select
+          <SearchSelect
             name="componentId"
             value={componentId}
-            onChange={(e) => setComponentId(e.target.value)}
-            className={selectClass}
+            onChange={setComponentId}
             aria-label="Componente"
-          >
-            <option value="">Elegir componente…</option>
-            {groups.map((type) => (
-              <optgroup key={type} label={ITEM_TYPE_PLURAL[type]}>
-                {components
-                  .filter((c) => c.type === type)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.unit})
-                    </option>
-                  ))}
-              </optgroup>
-            ))}
-          </select>
+            placeholder="Buscar componente…"
+            options={groups.flatMap((type) =>
+              components
+                .filter((c) => c.type === type)
+                .map((c) => ({ value: c.id, label: c.name, hint: `${ITEM_TYPE_PLURAL[type]} · ${c.unit}` })),
+            )}
+          />
           <FieldError state={state} name="componentId" />
         </div>
         <div className="w-36 space-y-1">

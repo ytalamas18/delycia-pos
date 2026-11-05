@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { FormStatus } from "@/components/ui/form-status";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchSelect } from "@/components/ui/search-select";
 import { initialActionResult, type ActionResult } from "@/core/actions/types";
 import { appConfig } from "@/core/config/app";
 import { formatMoney, parseMoney } from "@/core/money";
@@ -103,19 +104,13 @@ function CashPurchaseDialog({ onClose }: { onClose: () => void }) {
               const item = byId.get(l.productId);
               return (
                 <div key={l.key} className="grid gap-2 rounded-lg border p-2 sm:grid-cols-[2fr_1.3fr_0.8fr_1fr_auto]">
-                  <select
+                  <SearchSelect
                     aria-label="Ítem"
                     value={l.productId}
-                    onChange={(e) => update(l.key, { productId: e.target.value, presentation: byId.get(e.target.value)?.options[0]?.value ?? "" })}
-                    className={selectClass}
-                  >
-                    <option value="">Elegir ítem…</option>
-                    {data.items.map((i) => (
-                      <option key={i.id} value={i.id}>
-                        {i.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => update(l.key, { productId: v, presentation: byId.get(v)?.options[0]?.value ?? "" })}
+                    options={(data.items ?? []).map((i) => ({ value: i.id, label: i.name, hint: i.unit }))}
+                    placeholder="Buscar ítem…"
+                  />
                   <select
                     aria-label="Cómo se compró"
                     value={l.presentation}

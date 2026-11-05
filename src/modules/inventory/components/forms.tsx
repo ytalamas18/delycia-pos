@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { FieldError, FormStatus } from "@/components/ui/form-status";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchSelect } from "@/components/ui/search-select";
 import { initialActionResult, type ActionResult } from "@/core/actions/types";
 
 import { createConsumptionAction, createCountAction, createProductionAction } from "../actions";
 
-const selectClass = "h-11 w-full rounded-md border border-input bg-background px-3 text-base";
 
 /** Opción serializable (sin Decimal). */
 export type ItemOption = { id: string; name: string; unit: string; hint?: string };
@@ -34,14 +34,14 @@ export function ProductionForm({ ingredients, today }: { ingredients: (ItemOptio
     <form ref={ref} action={formAction} className="grid max-w-3xl gap-3 sm:grid-cols-2">
       <div className="grid gap-1 sm:col-span-2">
         <Label htmlFor="productId">Ingrediente</Label>
-        <select id="productId" name="productId" value={id} onChange={(e) => setId(e.target.value)} className={selectClass}>
-          <option value="">Elegir…</option>
-          {ingredients.map((i) => (
-            <option key={i.id} value={i.id}>
-              {i.name}
-            </option>
-          ))}
-        </select>
+        <SearchSelect
+          id="productId"
+          name="productId"
+          value={id}
+          onChange={setId}
+          placeholder="Buscar ingrediente…"
+          options={ingredients.map((i) => ({ value: i.id, label: i.name, hint: i.unit }))}
+        />
         <FieldError state={state} name="productId" />
       </div>
       <div className="grid gap-1">
@@ -166,14 +166,12 @@ export function ConsumptionForm({ items }: { items: ItemOption[] }) {
     <form ref={ref} action={formAction} className="grid max-w-2xl gap-3 sm:grid-cols-[1fr_8rem]">
       <div className="grid gap-1">
         <Label htmlFor="c-item">Ítem</Label>
-        <select id="c-item" name="productId" className={selectClass} defaultValue="">
-          <option value="">Elegir…</option>
-          {items.map((i) => (
-            <option key={i.id} value={i.id}>
-              {i.name} ({i.unit})
-            </option>
-          ))}
-        </select>
+        <SearchSelect
+          id="c-item"
+          name="productId"
+          placeholder="Buscar ítem…"
+          options={items.map((i) => ({ value: i.id, label: i.name, hint: i.unit }))}
+        />
         <FieldError state={state} name="productId" />
       </div>
       <div className="grid gap-1">
