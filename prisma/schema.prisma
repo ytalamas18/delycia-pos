@@ -639,6 +639,8 @@ model PurchaseLine {
   unitCostCents    Decimal  @db.Decimal(14, 4)
   /// Copia de "suma al inventario": si true, la compra sumó stock.
   addsStock        Boolean
+  /// Aclaración de qué se compró (obligatoria solo en el ítem "Refrigerio", ej. "empanadas y refresco").
+  detail           String?
   createdAt        DateTime @default(now())
 
   @@index([purchaseId])

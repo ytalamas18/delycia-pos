@@ -444,6 +444,31 @@ async function purchasesExport(params: ReportParams): Promise<ExportDocument> {
         totals: ["Total", null, null, null, r.totalCents, r.paidCents, r.balanceCents, null],
       },
       {
+        title: "Detalle",
+        columns: [
+          { header: "Fecha", type: "date" },
+          { header: "Compra N°", type: "int" },
+          { header: "Proveedor", type: "text" },
+          { header: "Ítem", type: "text", width: 28 },
+          { header: "Aclaración", type: "text", width: 28 },
+          { header: "Cantidad", type: "text" },
+          { header: "Presentación", type: "text" },
+          { header: "Total", type: "money" },
+        ],
+        rows: r.details.map((d) => [
+          d.date,
+          d.number,
+          d.supplier ?? "",
+          d.item,
+          d.detail ?? "",
+          formatQuantity(d.quantity),
+          d.presentation,
+          d.totalCents,
+        ]),
+        totals: ["Total", null, null, null, null, null, null, r.totalCents],
+        notes: ["Una fila por ítem de cada compra vigente del período."],
+      },
+      {
         title: "Por proveedor",
         columns: [
           { header: "Proveedor", type: "text" },

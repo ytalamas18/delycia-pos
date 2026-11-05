@@ -204,4 +204,22 @@ describe("compras", () => {
     expect((await db.purchase.findUniqueOrThrow({ where: { id: p.id } })).status).toBe("CANCELLED");
     expect((await history.getDailyClosing(today)).summary.supplierPayments?.cashCents).toBe(0);
   });
+
+  it("Refrigerio exige aclarar qué se compró; los demás ítems no la guardan", async () => {
+    const { pan, user } = await setup();
+    const cat = await db.category.findFirstOrThrow();
+    const refri = await products.createProduct({ categoryId: cat.id, sendsToKitchen: false, active: true, name: "Refrigerio", type: "SUPPLY" });
+    const lineFor = (productId: string, detail?: string) => ({ productId, presentation: "unit:UNIT", quantity: "1", totalCents: "10", detail });
+    await expect(purchases.createCashPurchase({ lines: [lineFor(refri.id, "  ")] }, user.id)).rejects.toThrow('qué se compró en "Refrigerio"');
+    const p = await purchases.createCashPurchase({ lines: [lineFor(refri.id, "empanadas y refresco"), lineFor(pan.id, "no aplica")] }, user.id);
+    const lines = await db.purchaseLine.findMany({ where: { purchaseId: p.id }, orderBy: { productName: "asc" } });
+    expect(lines.map((l) => [l.productName, l.detail])).toEqual([
+      ["Pan", null],
+      ["Refrigerio", "empanadas y refresco"],
+    ]);
+    const [row] = await purchases.listCashPurchasesForDay(today);
+    expect(row.items).toContain("Refrigerio: empanadas y refresco");
+    const payments = await purchases.listSupplierPayments({ from: today, to: today });
+    expect(payments[0].items.map((i) => i.name)).toContain("Refrigerio: empanadas y refresco");
+  });
 });

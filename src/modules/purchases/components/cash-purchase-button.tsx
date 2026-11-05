@@ -14,14 +14,15 @@ import { appConfig } from "@/core/config/app";
 import { formatMoney, parseMoney } from "@/core/money";
 
 import { cashPurchaseDataAction, createCashPurchaseAction, voidCashPurchaseAction } from "../actions";
+import { needsDetail } from "../domain/labels";
 import type { CashPurchaseRow } from "../services/purchases";
 import type { PurchaseFormItem } from "./purchase-form";
 
-type Line = { key: number; productId: string; presentation: string; quantity: string; total: string };
+type Line = { key: number; productId: string; presentation: string; quantity: string; total: string; detail: string };
 type Data = { items: PurchaseFormItem[]; suppliers: { id: string; name: string }[]; today: CashPurchaseRow[] };
 
 const selectClass = "h-11 w-full rounded-md border border-input bg-background px-3 text-base";
-const newLine = (key: number): Line => ({ key, productId: "", presentation: "", quantity: "1", total: "" });
+const newLine = (key: number): Line => ({ key, productId: "", presentation: "", quantity: "1", total: "", detail: "" });
 const time = new Intl.DateTimeFormat("es-BO", { hour: "2-digit", minute: "2-digit", timeZone: appConfig.timezone });
 
 function cents(text: string): number | null {
@@ -76,7 +77,7 @@ function CashPurchaseDialog({ onClose }: { onClose: () => void }) {
         note,
         lines: lines
           .filter((l) => l.productId)
-          .map((l) => ({ productId: l.productId, presentation: l.presentation, quantity: l.quantity, totalCents: l.total })),
+          .map((l) => ({ productId: l.productId, presentation: l.presentation, quantity: l.quantity, totalCents: l.total, detail: l.detail })),
       });
       setResult(r);
       if (r.ok) {
@@ -135,6 +136,16 @@ function CashPurchaseDialog({ onClose }: { onClose: () => void }) {
                   >
                     <X />
                   </Button>
+                  {item && needsDetail(item.name) && (
+                    <Input
+                      aria-label="¿Qué se compró?"
+                      className="sm:col-span-5"
+                      value={l.detail}
+                      maxLength={120}
+                      placeholder="¿Qué se compró? (obligatorio) Ej. empanadas y refresco"
+                      onChange={(e) => update(l.key, { detail: e.target.value })}
+                    />
+                  )}
                 </div>
               );
             })}
