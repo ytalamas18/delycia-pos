@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { FormStatus } from "@/components/ui/form-status";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchSelect } from "@/components/ui/search-select";
 import type { ActionResult } from "@/core/actions/types";
 import { formatMoney, parseMoney } from "@/core/money";
 import type { MoneyAccount, PurchaseDocType, SupplierPaymentMethod } from "@/generated/prisma/enums";
@@ -53,6 +54,7 @@ export function PurchaseForm({
   const [state, setState] = useState<ActionResult | null>(null);
   const [pending, start] = useTransition();
   const byId = new Map(items.map((i) => [i.id, i]));
+  const itemOptions = items.map((i) => ({ value: i.id, label: i.name, hint: i.unit }));
 
   const update = (key: number, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   const total = lines.reduce((s, l) => s + (cents(l.total) ?? 0), 0);
@@ -127,22 +129,13 @@ export function PurchaseForm({
           const unitCost = option && qty > 0 && lineCents ? lineCents / (qty * option.factor) : null;
           return (
             <div key={l.key} className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[2fr_1.4fr_1fr_1fr_auto] sm:items-start">
-              <select
+              <SearchSelect
                 aria-label="Ítem"
                 value={l.productId}
-                onChange={(e) => {
-                  const it = byId.get(e.target.value);
-                  update(l.key, { productId: e.target.value, presentation: it?.options[0]?.value ?? "" });
-                }}
-                className={selectClass}
-              >
-                <option value="">Elegir ítem…</option>
-                {items.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => update(l.key, { productId: v, presentation: byId.get(v)?.options[0]?.value ?? "" })}
+                options={itemOptions}
+                placeholder="Escribe para buscar el ítem…"
+              />
               <select
                 aria-label="Cómo se compró"
                 value={l.presentation}
