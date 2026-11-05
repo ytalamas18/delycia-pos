@@ -299,6 +299,58 @@ export async function PurchasesReportView({ range }: { range: DateRange }) {
           )}
         </tbody>
       </Table>
+      <h2 className="text-lg font-semibold">Detalle (qué se compró en cada compra)</h2>
+      <Table
+        head={
+          <tr>
+            <th className={th}>Fecha</th>
+            <th className={th}>Compra</th>
+            <th className={th}>Proveedor</th>
+            <th className={th}>Ítem</th>
+            <th className={`${th} text-right`}>Cantidad</th>
+            <th className={`${th} text-right`}>Total</th>
+          </tr>
+        }
+      >
+        <tbody className="divide-y">
+          {r.details.map((d) => (
+            <tr key={d.key}>
+              <td className="p-2 whitespace-nowrap">{formatDay(d.date)}</td>
+              <td className="p-2">
+                <Link href={`/compras/${d.purchaseId}`} className="underline">
+                  #{d.number}
+                </Link>
+              </td>
+              <td className="p-2">{d.supplier ?? "Sin proveedor"}</td>
+              <td className="p-2 font-medium">
+                {d.item}
+                {d.detail && <span className="block text-sm font-normal text-muted-foreground">{d.detail}</span>}
+              </td>
+              <td className="p-2 text-right whitespace-nowrap tabular-nums">
+                {formatQuantity(d.quantity)} {d.presentation}
+              </td>
+              <td className="p-2 text-right tabular-nums">{formatMoney(d.totalCents)}</td>
+            </tr>
+          ))}
+          {r.details.length === 0 && (
+            <tr>
+              <td colSpan={6} className="p-6 text-center text-muted-foreground">
+                Sin compras en este período.
+              </td>
+            </tr>
+          )}
+        </tbody>
+        {r.details.length > 0 && (
+          <tfoot className="border-t-2 font-bold tabular-nums">
+            <tr>
+              <td className="p-2" colSpan={5}>
+                Total
+              </td>
+              <td className="p-2 text-right">{formatMoney(r.totalCents)}</td>
+            </tr>
+          </tfoot>
+        )}
+      </Table>
     </div>
   );
 }

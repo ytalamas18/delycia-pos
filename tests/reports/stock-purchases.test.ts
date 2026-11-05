@@ -75,6 +75,16 @@ describe("reportes de inventario y compras", () => {
     expect(pr).toMatchObject({ totalCents: 15800, paidCents: 5000, balanceCents: 10800 });
     expect(pr.bySupplier.map((s) => [s.name, s.totalCents])).toEqual([["Luna", 12200], ["Sol", 3600]]);
     expect(pr.byItem.map((i) => [i.name, i.quantity.toString(), i.totalCents])).toEqual([["Carne", "2", 10400], ["Pan", "36", 5400]]);
+    // Detalle: una fila por ítem de cada compra, de la compra más antigua a la más nueva.
+    expect(pr.details.map((d) => [d.number, d.supplier, d.item, d.quantity.toString(), d.presentation, d.totalCents])).toEqual([
+      [1, "Sol", "Pan", "24", "unidad", 3600],
+      [2, "Luna", "Carne", "2", "kg", 10400],
+      [2, "Luna", "Pan", "12", "unidad", 1800],
+    ]);
+    const prDoc = await reportExports["compras"]({ desde: today, hasta: today });
+    const detalle = prDoc.tables.find((t) => t.title === "Detalle")!;
+    expect(detalle.rows).toHaveLength(3);
+    expect(detalle.totals?.at(-1)).toBe(15800);
 
     const pay = await getPayablesReport();
     expect(pay).toMatchObject({ totalCents: 10800, overdueCents: 3600 });

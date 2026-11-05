@@ -52,8 +52,26 @@ export async function getPurchasesReport(range: DateRange) {
       byItem.set(l.productId, it);
     }
   }
+  // Detalle: una fila por ítem de cada compra (fecha y n° de la más antigua a la más nueva).
+  const details = [...purchases]
+    .sort((a, b) => (a.date === b.date ? a.number - b.number : a.date < b.date ? -1 : 1))
+    .flatMap((p) =>
+      p.lines.map((l) => ({
+        key: l.id,
+        purchaseId: p.id,
+        number: p.number,
+        date: p.date,
+        supplier: p.supplier?.name ?? null,
+        item: l.productName,
+        detail: l.detail,
+        quantity: l.quantity,
+        presentation: l.presentationName,
+        totalCents: l.totalCents,
+      })),
+    );
   return {
     purchases,
+    details,
     totalCents: purchases.reduce((s, p) => s + p.totalCents, 0),
     paidCents: purchases.reduce((s, p) => s + p.paidCents, 0),
     balanceCents: purchases.reduce((s, p) => s + p.balanceCents, 0),

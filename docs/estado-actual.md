@@ -28,6 +28,8 @@ Antes: usuarios y roles; compras, inventario y recetas (fases 1 a 6, `docs/spec-
 - 05/11 (en rama, **sin desplegar** a pedido de Yasser): ítem **"Refrigerio"** pide "¿Qué se compró?" (obligatorio)
   en Nueva compra y Compra en efectivo; se guarda en `PurchaseLine.detail` y se ve como "Refrigerio: …" en el
   detalle, la lista de compras, el reporte de pagos y el libro. Migración `detalle_linea_compra`.
+- 05/11 (en rama, **sin desplegar**): Reportes → **Compras** trae la tabla **Detalle** (fecha, compra #, proveedor,
+  ítem + aclaración, cantidad y total; una fila por ítem de cada compra) en pantalla, Excel y PDF.
 - **Pendiente en producción:** cargar los saldos iniciales de Efectivo, Banco y ATC/PeYa (Admin → Caja y bancos).
 - Pendiente de decidir: traspasos **hacia** Efectivo (hoy bloqueados); dar el libro a otro rol (Harumi) desde Roles.
 
