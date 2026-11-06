@@ -75,7 +75,8 @@ describe("reportes de inventario y compras", () => {
     expect(pr).toMatchObject({ totalCents: 15800, paidCents: 5000, balanceCents: 10800 });
     expect(pr.bySupplier.map((s) => [s.name, s.totalCents])).toEqual([["Luna", 12200], ["Sol", 3600]]);
     expect(pr.byItem.map((i) => [i.name, i.quantity.toString(), i.totalCents])).toEqual([["Carne", "2", 10400], ["Pan", "36", 5400]]);
-    // Detalle: una fila por ítem de cada compra, de la compra más antigua a la más nueva.
+    // Lista y detalle en orden de cuaderno: de la compra más antigua a la más nueva.
+    expect(pr.purchases.map((p) => p.number)).toEqual([1, 2]);
     expect(pr.details.map((d) => [d.number, d.supplier, d.item, d.quantity.toString(), d.presentation, d.totalCents])).toEqual([
       [1, "Sol", "Pan", "24", "unidad", 3600],
       [2, "Luna", "Carne", "2", "kg", 10400],
